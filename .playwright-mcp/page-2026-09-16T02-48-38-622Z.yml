@@ -1,0 +1,30 @@
+- generic [ref=f4e4]:
+  - link "CashPyme, inicio" [ref=f4e5] [cursor=pointer]:
+    - /url: /
+    - generic [ref=f4e10]: CashPyme
+  - generic [ref=f4e11]:
+    - generic [ref=f4e12]: Bienvenido de nuevo
+    - heading "Inicia sesión en tu cuenta" [level=1] [ref=f4e14]
+    - paragraph [ref=f4e15]: Accede para ver el estado de tu caja y tus proyecciones.
+    - generic [ref=f4e16]:
+      - generic [ref=f4e17]:
+        - generic [ref=f4e18]: Correo electrónico
+        - textbox "Correo electrónico" [ref=f4e19]:
+          - /placeholder: tu@negocio.com
+      - generic [ref=f4e20]:
+        - generic [ref=f4e21]:
+          - generic [ref=f4e22]: Contraseña
+          - link "¿Olvidaste tu contraseña?" [ref=f4e23] [cursor=pointer]:
+            - /url: /#contacto
+        - generic [ref=f4e24]:
+          - textbox "Contraseña" [ref=f4e25]:
+            - /placeholder: ••••••••
+          - button "Mostrar contraseña" [ref=f4e26] [cursor=pointer]
+      - generic [ref=f4e30] [cursor=pointer]:
+        - checkbox "Mantener sesión iniciada" [checked] [ref=f4e31]
+        - generic [ref=f4e32]: Mantener sesión iniciada
+      - button "Iniciar sesión" [ref=f4e33] [cursor=pointer]
+    - paragraph [ref=f4e34]:
+      - text: ¿No tienes cuenta?
+      - link "Crear cuenta gratis" [ref=f4e35] [cursor=pointer]:
+        - /url: /registro

@@ -1,0 +1,255 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "CashPyme, inicio" [ref=e5] [cursor=pointer]:
+      - /url: "#inicio"
+      - generic [ref=e10]: CashPyme
+    - navigation "Navegación principal" [ref=e11]:
+      - link "Inicio" [ref=e12] [cursor=pointer]:
+        - /url: "#inicio"
+      - link "Funciones" [ref=e13] [cursor=pointer]:
+        - /url: "#funciones"
+      - link "Proyección" [ref=e14] [cursor=pointer]:
+        - /url: "#proyeccion"
+      - link "Planes" [ref=e15] [cursor=pointer]:
+        - /url: "#planes"
+      - link "Contacto" [ref=e16] [cursor=pointer]:
+        - /url: "#contacto"
+    - generic [ref=e17]:
+      - link "Iniciar sesión" [ref=e18] [cursor=pointer]:
+        - /url: "#contacto"
+      - link "Crear cuenta gratis" [ref=e19] [cursor=pointer]:
+        - /url: "#contacto"
+        - text: Crear cuenta gratis
+        - generic [ref=e20]: ↗
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]: Gestión financiera para PyMEs
+        - heading [level=1] [ref=e26]:
+          - text: Tu caja, bajo control.
+          - emphasis [ref=e27]: Hoy y lo que viene.
+        - paragraph [ref=e28]: CashPyme te ayuda a visualizar tu flujo de caja, anticipar escenarios y tomar mejores decisiones para el futuro de tu negocio.
+        - generic [ref=e29]:
+          - link "Comenzar gratis" [ref=e30] [cursor=pointer]:
+            - /url: "#contacto"
+            - text: Comenzar gratis
+            - generic [ref=e31]: →
+          - link "Ver cómo funciona" [ref=e32] [cursor=pointer]:
+            - /url: "#funciones"
+            - generic [ref=e33]: ▶
+            - text: Ver cómo funciona
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - generic [ref=e36]: +
+            - generic [ref=e37]: +
+            - generic [ref=e38]: +
+          - generic [ref=e39]: Únete a cientos de pymes que yaestán tomando el control de su caja.
+      - generic "Vista previa del panel de control de CashPyme" [ref=e40]:
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - generic [ref=e45]: CashPyme
+            - generic [ref=e50]:
+              - generic [ref=e51]: M
+              - generic [ref=e52]: Mi negocio
+              - generic [ref=e53]: ⌄
+            - generic [ref=e54]:
+              - generic [ref=e55]: ◈ Resumen
+              - generic [ref=e56]: ↗ Movimientos
+              - generic [ref=e57]: ⌁ Proyección
+              - generic [ref=e58]: ♢ Alertas
+              - generic [ref=e59]: ⚙ Configuración
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - generic [ref=e63]: Martes, 14 de septiembre
+                - strong [ref=e64]: Buenos días, Martina ✦
+              - generic [ref=e65]: ♧
+            - generic [ref=e66]:
+              - generic [ref=e67]:
+                - generic [ref=e68]: Caja disponible
+                - strong [ref=e69]: $4.820.000
+                - generic [ref=e70]: ↗ 12,43% vs. mes anterior
+              - generic [ref=e71]:
+                - generic [ref=e72]: Ingresos
+                - strong [ref=e73]: $6.240.000
+                - text: ↗ 8,63%
+              - generic [ref=e74]:
+                - generic [ref=e75]: Egresos
+                - strong [ref=e76]: $1.420.000
+                - text: ↘ 3,11%
+            - generic [ref=e77]:
+              - generic [ref=e78]:
+                - generic [ref=e79]:
+                  - generic [ref=e80]: Proyección de caja
+                  - strong [ref=e81]: Cómo se verá tu caja
+                - generic [ref=e82]: Real Proyección
+              - img "Gráfico de proyección de caja" [ref=e85]
+              - generic [ref=e90]:
+                - generic [ref=e91]: Hoy
+                - generic [ref=e92]: 30 días
+                - generic [ref=e93]: 60 días
+        - generic [ref=e94]:
+          - generic [ref=e95]: ▣
+          - generic [ref=e96]: En 60 días
+          - strong [ref=e97]: $2.760.000
+          - generic [ref=e98]: Proyección de caja
+        - generic [ref=e99]: ✦
+        - generic [ref=e100]: ✦
+    - generic [ref=e101]:
+      - article [ref=e102]:
+        - generic [ref=e103]: ↗
+        - generic [ref=e104]:
+          - strong [ref=e105]: Saldo en tiempo real
+          - generic [ref=e106]: Conoce el estado exacto de tu caja en todo momento.
+      - article [ref=e107]:
+        - generic [ref=e108]: ♧
+        - generic [ref=e109]:
+          - strong [ref=e110]: Alertas anticipadas
+          - generic [ref=e111]: Detecta riesgos y oportunidades antes de que sucedan.
+      - article [ref=e112]:
+        - generic [ref=e113]: ▣
+        - generic [ref=e114]:
+          - strong [ref=e115]: Proyección 30/60/90
+          - generic [ref=e116]: Planifica con escenarios basados en tus datos.
+      - article [ref=e117]:
+        - generic [ref=e118]: ✓
+        - generic [ref=e119]:
+          - strong [ref=e120]: Seguro y confiable
+          - generic [ref=e121]: Tus datos siempre protegidos con la mejor tecnología.
+    - generic [ref=e122]:
+      - generic [ref=e123]:
+        - generic [ref=e124]: ¿Cómo funciona?
+        - heading [level=2] [ref=e125]:
+          - text: Más que un resumen,
+          - emphasis [ref=e126]: una herramienta para crecer.
+        - paragraph [ref=e127]: Con CashPyme tienes toda la información de tu negocio en un solo lugar, de forma simple y visual.
+        - list [ref=e128]:
+          - listitem [ref=e129]:
+            - generic [ref=e130]: "1"
+            - generic [ref=e131]:
+              - strong [ref=e132]: Conecta tus cuentas y documentos
+              - generic [ref=e133]: Todo parte desde tus datos reales.
+          - listitem [ref=e134]:
+            - generic [ref=e135]: "2"
+            - generic [ref=e136]:
+              - strong [ref=e137]: Visualiza tu caja en tiempo real
+              - generic [ref=e138]: Una vista clara de lo importante.
+          - listitem [ref=e139]:
+            - generic [ref=e140]: "3"
+            - generic [ref=e141]:
+              - strong [ref=e142]: Anticípate con proyecciones y alertas
+              - generic [ref=e143]: Decide antes de que sea urgente.
+          - listitem [ref=e144]:
+            - generic [ref=e145]: "4"
+            - generic [ref=e146]:
+              - strong [ref=e147]: Toma decisiones con confianza
+              - generic [ref=e148]: Crece con más tranquilidad.
+      - generic [ref=e149]:
+        - generic [ref=e150]:
+          - text: Tu negocio
+          - emphasis [ref=e152]: en buenas manos
+          - generic [ref=e153]: ↗
+        - generic [ref=e154]: ⌁
+      - generic [ref=e165]:
+        - generic [ref=e166]:
+          - generic [ref=e167]: ☻
+          - strong [ref=e168]: Menos estrés
+          - generic [ref=e169]: Deja de adivinar.
+        - generic [ref=e170]:
+          - generic [ref=e171]: ▥
+          - strong [ref=e172]: Más control
+          - generic [ref=e173]: Sabe siempre dónde estás.
+        - generic [ref=e174]:
+          - generic [ref=e175]: ☆
+          - strong [ref=e176]: Mejores decisiones
+          - generic [ref=e177]: Planifica, crece, avanza.
+    - generic [ref=e178]:
+      - generic [ref=e179]:
+        - generic [ref=e180]: Proyección de caja
+        - heading [level=2] [ref=e181]:
+          - text: ¿Qué podría pasar
+          - emphasis [ref=e182]: con tu caja?
+        - paragraph [ref=e183]: Simula distintos escenarios y visualiza cómo podría evolucionar tu flujo de caja en los próximos meses.
+        - list [ref=e184]:
+          - listitem [ref=e185]: ✓ Proyección a 30 días
+          - listitem [ref=e186]: ✓ Proyección a 60 días
+          - listitem [ref=e187]: ✓ Escenarios personalizados
+        - link "Ver proyección" [ref=e188] [cursor=pointer]:
+          - /url: "#proyeccion"
+          - text: Ver proyección
+          - generic [ref=e189]: →
+      - generic [ref=e190]:
+        - generic [ref=e191]:
+          - generic [ref=e192]:
+            - generic [ref=e193]: Proyección de caja
+            - strong [ref=e194]: $6.760.000
+          - group "Periodo de proyección" [ref=e195]:
+            - button "30 días" [ref=e196] [cursor=pointer]
+            - button "60 días" [ref=e197] [cursor=pointer]
+            - button "90 días" [ref=e198] [cursor=pointer]
+        - generic [ref=e203]:
+          - generic [ref=e204]: Hoy
+          - generic [ref=e205]: 30 días
+          - generic [ref=e206]: 60 días
+        - generic [ref=e207]:
+          - generic [ref=e208]:
+            - generic [ref=e209]: Saldo actual
+            - strong [ref=e210]: $4.820.000
+          - generic [ref=e211]:
+            - generic [ref=e212]: En 60 días
+            - strong [ref=e213]: $6.760.000
+          - generic [ref=e214]:
+            - generic [ref=e215]: Variación
+            - strong [ref=e216]: + 14,8%
+    - generic [ref=e217]:
+      - generic [ref=e218]:
+        - generic [ref=e219]: Lo que dicen nuestros clientes
+        - heading [level=2] [ref=e220]:
+          - text: Pymes reales.
+          - emphasis [ref=e221]: Resultados reales.
+        - paragraph [ref=e222]: Más de 500 pymes ya confían en CashPyme para llevar su gestión financiera simple.
+      - generic [ref=e223]:
+        - article [ref=e224]:
+          - generic [ref=e225]: “
+          - paragraph [ref=e226]: Desde que usamos CashPyme tenemos claridad en un viaje y eso ayuda planificar con más tranquilidad.
+          - generic [ref=e227]:
+            - generic [ref=e228]: CT
+            - generic [ref=e229]:
+              - strong [ref=e230]: Camila Torres
+              - generic [ref=e231]: Tienda de ropa
+            - generic [ref=e232]: ✦
+        - article [ref=e233]:
+          - generic [ref=e234]: “
+          - paragraph [ref=e235]: Las proyecciones de 90 y 60 días me han ayudado a evitar situaciones difíciles y anticiparme.
+          - generic [ref=e236]:
+            - generic [ref=e237]: MR
+            - generic [ref=e238]:
+              - strong [ref=e239]: Metas Reyes
+              - generic [ref=e240]: Servicios de marketing
+            - generic [ref=e241]: ✦
+        - article [ref=e242]:
+          - generic [ref=e243]: “
+          - paragraph [ref=e244]: El equipo dejó de vivir al límite y ahora tenemos una visión clara de lo que viene.
+          - generic [ref=e245]:
+            - generic [ref=e246]: DF
+            - generic [ref=e247]:
+              - strong [ref=e248]: Daniela Fuentes
+              - generic [ref=e249]: Cafetería
+            - generic [ref=e250]: ✦
+    - generic [ref=e251]:
+      - generic [ref=e252]:
+        - generic [ref=e253]: Tu caja no debería sorprenderte.
+        - heading "Empieza hoy y toma el control de tu negocio." [level=2] [ref=e254]: Empieza hoy y toma el controlde tu negocio.
+      - link "Crear mi cuenta gratis" [ref=e255] [cursor=pointer]:
+        - /url: "#inicio"
+        - text: Crear mi cuenta gratis
+        - generic [ref=e256]: →
+  - contentinfo [ref=e262]:
+    - link "CashPyme" [ref=e263] [cursor=pointer]:
+      - /url: "#inicio"
+    - generic [ref=e269]: © 2026 CashPyme. Todos los derechos reservados.
+    - navigation [ref=e270]:
+      - link "Términos y condiciones" [ref=e271] [cursor=pointer]:
+        - /url: "#contacto"
+      - link "Política de privacidad" [ref=e272] [cursor=pointer]:
+        - /url: "#contacto"

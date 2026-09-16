@@ -1,0 +1,92 @@
+<div class="auth-shell">
+  <a class="brand" routerLink="/" aria-label="CashPyme, inicio"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Cash<span>Pyme</span></span></a>
+
+  <div class="auth-card">
+    <span class="eyebrow"><span class="eyebrow-dot"></span> Bienvenido de nuevo</span>
+    <h1>Inicia sesión en tu cuenta</h1>
+    <p class="auth-subtitle">Accede para ver el estado de tu caja y tus proyecciones.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (errorMessage()) {
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="email">Correo electrónico</label>
+        <input
+          id="email"
+          type="email"
+          autocomplete="email"
+          formControlName="email"
+          placeholder="tu@negocio.com"
+          [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+          aria-describedby="email-error"
+        />
+        @if (form.controls.email.invalid && form.controls.email.touched) {
+          <small id="email-error" class="field-error" role="alert">
+            @if (form.controls.email.hasError('required')) {
+              Ingresa tu correo electrónico.
+            } @else {
+              Ingresa un correo electrónico válido.
+            }
+          </small>
+        }
+      </div>
+
+      <div class="field">
+        <div class="field-label-row">
+          <label for="password">Contraseña</label>
+          <a class="forgot-link" routerLink="/" fragment="contacto">¿Olvidaste tu contraseña?</a>
+        </div>
+        <div class="password-input">
+          <input
+            id="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            autocomplete="current-password"
+            formControlName="password"
+            placeholder="••••••••"
+            [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
+            aria-describedby="password-error"
+          />
+          <button
+            type="button"
+            class="toggle-visibility"
+            (click)="togglePasswordVisibility()"
+            [attr.aria-pressed]="showPassword()"
+            [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+          >
+            @if (showPassword()) {
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-3.22 4.44M14.12 14.12a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+            } @else {
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
+            }
+          </button>
+        </div>
+        @if (form.controls.password.invalid && form.controls.password.touched) {
+          <small id="password-error" class="field-error" role="alert">
+            @if (form.controls.password.hasError('required')) {
+              Ingresa tu contraseña.
+            } @else {
+              La contraseña debe tener al menos 6 caracteres.
+            }
+          </small>
+        }
+      </div>
+
+      <label class="remember-me">
+        <input type="checkbox" formControlName="rememberMe" />
+        <span>Mantener sesión iniciada</span>
+      </label>
+
+      <button type="submit" class="button button-primary button-large auth-submit" [disabled]="isSubmitting()">
+        @if (isSubmitting()) {
+          <span class="spinner" aria-hidden="true"></span> Ingresando…
+        } @else {
+          Iniciar sesión
+        }
+      </button>
+    </form>
+
+    <p class="auth-footer">¿No tienes cuenta? <a routerLink="/registro">Crear cuenta gratis</a></p>
+  </div>
+</div>

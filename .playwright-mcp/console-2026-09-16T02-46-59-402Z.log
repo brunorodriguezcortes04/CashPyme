@@ -1,0 +1,14 @@
+[      37ms] [LOG] Angular is running in development mode. @ http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:14496
+[     158ms] [ERROR] ERROR TypeError: Cannot read properties of null (reading 'firstCreatePass')
+    at providersResolver (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-NVUSJB4P.js:20014:13)
+    at definition.providersResolver (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-NVUSJB4P.js:20178:65)
+    at initializeDirectives (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:11372:11)
+    at resolveDirectives (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:11333:5)
+    at directiveHostFirstCreatePass (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:11582:5)
+    at Module.ɵɵelementStart (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:17614:41)
+    at Register_Template (http://localhost:4200/chunk-6FNIKSS5.js:177:10)
+    at executeTemplate (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:8605:5)
+    at renderView (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:9004:7)
+    at renderComponent (http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:8983:5) @ http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=6967e31b:3212
+[   36088ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:4200/@vite/client:864
+[   48484ms] [LOG] Angular is running in development mode. @ http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=db7be5c8:14496

@@ -1,0 +1,2 @@
+[      60ms] [LOG] Angular is running in development mode. @ http://localhost:4200/@fs/C:/Users/brodr/cashpyme/frontend/.angular/cache/21.2.24/frontend/vite/deps/chunk-GHP7YCLX.js?v=db7be5c8:14496
+[   15166ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:4200/api/auth/login:0
