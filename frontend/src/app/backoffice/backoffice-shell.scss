@@ -1,0 +1,77 @@
+:host {
+	display: block;
+	min-height: 100vh;
+	color: var(--text);
+	background: var(--bg);
+}
+
+.shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+.shell-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 16px 24px;
+	border-bottom: 1px solid var(--border);
+	background: var(--surface);
+}
+
+.header-actions { display: flex; align-items: center; gap: 16px; }
+.session-name { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 15px; }
+.session-rol { padding: 2px 8px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: 13px; }
+
+.empresa-switch select {
+	min-height: 40px;
+	padding: 0 12px;
+	border: 1px solid var(--border-strong);
+	border-radius: var(--radius-sm);
+	color: var(--text);
+	background: var(--surface-strong);
+	font: inherit;
+	font-size: 15px;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.shell-body { display: flex; flex: 1; min-height: 0; }
+
+.shell-nav {
+	flex: 0 0 220px;
+	padding: 20px 12px;
+	border-right: 1px solid var(--border);
+	background: var(--surface);
+}
+.shell-nav ul { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.shell-nav a {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+	padding: 0 14px;
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	font-size: 15px;
+	font-weight: 500;
+	transition: background .2s ease, color .2s ease;
+}
+.shell-nav a:hover { color: var(--text); background: var(--accent-soft); }
+.shell-nav a.active { color: var(--text); background: var(--accent-soft); }
+
+.shell-main { flex: 1; min-width: 0; padding: 32px 24px 64px; }
+
+@media (max-width: 720px) {
+	.shell-body { flex-direction: column; }
+	.shell-nav { flex: 0 0 auto; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+	.shell-nav ul { grid-auto-flow: column; grid-auto-columns: max-content; }
+	.shell-main { padding: 24px 16px 48px; }
+}

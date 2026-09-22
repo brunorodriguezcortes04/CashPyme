@@ -1,8 +1,10 @@
 using System.Text;
 using Backend.Data;
 using Backend.Exceptions;
+using Backend.Security;
 using Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -17,11 +19,15 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
+// Orígenes permitidos en appsettings (Cors:AllowedOrigins) para no recompilar al desplegar.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? throw new InvalidOperationException("Falta Cors:AllowedOrigins en la configuración.");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:4200")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -44,11 +50,21 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<MovimientosService>();
+builder.Services.AddScoped<EmpresaService>();
+builder.Services.AddScoped<CuentasService>();
+builder.Services.AddScoped<PantallasService>();
+builder.Services.AddScoped<RolEmpresaService>();
+// Scoped porque resuelve el rol contra AppDbContext en cada request.
+builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Sin esto, el handler remapea "sub" a ClaimTypes.NameIdentifier (URI largo) y rompe
+        // CurrentUserExtensions.GetUserId(), que busca el claim corto que emite JwtTokenService.
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

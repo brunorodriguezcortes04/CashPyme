@@ -19,9 +19,12 @@
     <section class="wrap hero" aria-labelledby="hero-title">
       <div class="hero-copy">
         <h1 id="hero-title">Tu caja, bajo control.<br /><em>Hoy y lo que viene.</em></h1>
-        <p class="lead">Mira cuánto dinero tendrá tu negocio dentro de 30, 60 y 90 días, y decide con tiempo en lugar de enterarte cuando ya es urgente.</p>
+        <p class="lead">Mira cuánto dinero tendrá tu negocio dentro de 30 y 60 días, y decide con tiempo en lugar de enterarte cuando ya es urgente.</p>
         @if (session(); as current) {
           <p class="session-note" role="status">Tu cuenta está lista, {{ current.businessName }}. El panel de control todavía está en construcción.</p>
+          <div class="hero-actions">
+            <a class="button button-primary button-large" routerLink="/backoffice">Ir al backoffice</a>
+          </div>
         } @else {
           <div class="hero-actions">
             <a class="button button-primary button-large" routerLink="/registro">Crear cuenta</a>
@@ -72,6 +75,63 @@
       </div>
     </section>
 
+    <section class="wrap features" aria-labelledby="features-title">
+      <h2 id="features-title">Todo lo que tu caja necesita, en un solo lugar</h2>
+      <div class="features-grid">
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3" /></svg>
+          <h3>Movimientos de caja</h3>
+          <p>Registra ventas, cobros, pagos y gastos en un solo lugar, sin planillas sueltas.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z" /><path d="M9 9h6M9 13h6M9 17h3" /></svg>
+          <h3>Cuentas por cobrar y pagar</h3>
+          <p>Lleva el control de lo que te deben tus clientes y lo que debes a tus proveedores.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a4 4 0 0 0-4 4v3.5c0 .5-.2 1-.6 1.4L6 14.5h12l-1.4-1.6c-.4-.4-.6-.9-.6-1.4V8a4 4 0 0 0-4-4z" /><path d="M9.5 17.5a2.5 2.5 0 0 0 5 0" /></svg>
+          <h3>Alertas de vencimiento</h3>
+          <p>Recibe un aviso antes de que una cuenta venza o tu saldo proyectado se ponga en rojo.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="20" x2="5" y2="12" /><line x1="12" y1="20" x2="12" y2="6" /><line x1="19" y1="20" x2="19" y2="10" /><line x1="3" y1="20" x2="21" y2="20" /></svg>
+          <h3>Dashboard financiero</h3>
+          <p>El estado completo de tu caja en una sola pantalla, sin buscar entre varias planillas.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16l5-5 4 4 7-8" /><path d="M15 6h5v5" /></svg>
+          <h3>Proyección de flujo de caja</h3>
+          <p>Estima tu caja a 30 y 60 días a partir de tus propios movimientos.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M4 19c0-3 2.5-5 5-5s5 2 5 5" /><circle cx="17" cy="9" r="2.2" /><path d="M15.5 13.2c1.8.3 3.5 1.8 3.5 3.8" /></svg>
+          <h3>Roles de acceso</h3>
+          <p>Cada persona de tu equipo tiene el acceso que le corresponde dentro de tu empresa.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap benefits" aria-labelledby="benefits-title">
+      <h2 id="benefits-title">Por qué anticipar cambia todo</h2>
+      <div class="benefits-grid">
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></svg>
+          <h3>Sin sorpresas a fin de mes</h3>
+          <p>Ves con semanas de anticipación si vas a andar justo, no el día que ya no hay margen para reaccionar.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
+          <h3>Decides con tiempo</h3>
+          <p>Ajusta cobros, pagos o gastos antes de que un mes ajustado se convierta en un problema real.</p>
+        </article>
+        <article>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" /></svg>
+          <h3>Sin planillas ni jerga</h3>
+          <p>Todo en lenguaje simple: lo que entra, lo que sale y cuánto te queda, sin traducir números.</p>
+        </article>
+      </div>
+    </section>
+
     <section class="wrap steps" id="como-funciona" aria-labelledby="steps-title">
       <h2 id="steps-title">Cómo funciona</h2>
       <ol>
@@ -86,7 +146,7 @@
           <span class="step-number" aria-hidden="true">2</span>
           <div>
             <h3>Mira cuánto tendrás más adelante</h3>
-            <p>CashPyme estima tu caja a 30, 60 y 90 días a partir de tus propios datos.</p>
+            <p>CashPyme estima tu caja a 30 y 60 días a partir de tus propios datos.</p>
           </div>
         </li>
         <li>
@@ -103,18 +163,47 @@
       <h2 id="glossary-title">Sin jerga contable</h2>
       <dl>
         <div>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M16 12h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3a2 2 0 0 1 0-4z" /></svg>
           <dt>Caja</dt>
           <dd>El dinero que tienes disponible en tu negocio.</dd>
         </div>
         <div>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16l5-5 4 4 7-8" /><path d="M15 6h5v5" /></svg>
           <dt>Proyección</dt>
           <dd>Una estimación de cuánto tendrás más adelante, según lo que esperas que entre y salga.</dd>
         </div>
         <div>
-          <dt>Escenario</dt>
-          <dd>Un «qué pasaría si», por ejemplo, si un cliente paga un mes tarde.</dd>
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z" /><path d="M9 9h6M9 13h6M9 17h3" /></svg>
+          <dt>Cuenta por cobrar</dt>
+          <dd>Dinero que un cliente te debe y todavía no te ha pagado.</dd>
         </div>
       </dl>
+    </section>
+
+    <section class="wrap faq" aria-labelledby="faq-title">
+      <h2 id="faq-title">Preguntas frecuentes</h2>
+      <div class="faq-list">
+        <details>
+          <summary>¿CashPyme se conecta a mi banco?</summary>
+          <p>Todavía no. Hoy tú registras tus movimientos; la conexión automática con bancos está en el roadmap.</p>
+        </details>
+        <details>
+          <summary>¿Mis datos están seguros?</summary>
+          <p>Tu contraseña nunca se guarda en texto plano y el acceso a tu cuenta usa autenticación con token. Seguimos reforzando la seguridad a medida que el producto crece.</p>
+        </details>
+        <details>
+          <summary>¿Necesito saber de contabilidad para usarlo?</summary>
+          <p>No. CashPyme está pensado para dueños de pyme sin formación financiera: todo se explica en lenguaje simple, sin jerga contable.</p>
+        </details>
+        <details>
+          <summary>¿Cuánto cuesta?</summary>
+          <p>Todavía no definimos planes ni precios. Mientras construimos el producto, crear una cuenta es gratis.</p>
+        </details>
+        <details>
+          <summary>¿Funciona en el celular?</summary>
+          <p>Sí, puedes usar CashPyme desde el navegador de tu celular o tu computador.</p>
+        </details>
+      </div>
     </section>
 
     <section class="wrap closing" aria-labelledby="closing-title">

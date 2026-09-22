@@ -1,6 +1,7 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, catchError, tap, throwError } from 'rxjs';
+import { Observable, catchError, tap } from 'rxjs';
+import { apiError } from './api-error';
 
 export interface RegisterPayload {
   businessName: string;
@@ -19,11 +20,20 @@ interface AuthResponse {
   expiresAtUtc: string;
   businessName: string;
   email: string;
+  rol: string;
 }
 
 export interface Session {
   businessName: string;
   email: string;
+  rol: string;
+}
+
+export interface EmpresaMembresia {
+  id: number;
+  razonSocial: string;
+  rol: string;
+  esActiva: boolean;
 }
 
 const SESSION_KEY = 'cashpyme.session';
@@ -36,18 +46,33 @@ export class AuthService {
   readonly session = signal<Session | null>(this.readStoredSession());
   readonly isAuthenticated = signal(this.session() !== null);
 
+  listEmpresas(): Observable<EmpresaMembresia[]> {
+    return this.http.get<EmpresaMembresia[]>('/api/empresas').pipe(catchError(apiError));
+  }
+
+  cambiarEmpresa(idEmpresa: number): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`/api/empresas/${idEmpresa}/activar`, {}).pipe(
+      tap((response) => this.storeSession(response, localStorage.getItem(TOKEN_KEY) !== null)),
+      catchError(apiError)
+    );
+  }
+
   register(payload: RegisterPayload): Observable<AuthResponse> {
     return this.http.post<AuthResponse>('/api/auth/register', payload).pipe(
       tap((response) => this.storeSession(response, true)),
-      catchError((error: HttpErrorResponse) => throwError(() => new Error(this.messageFor(error))))
+      catchError(apiError)
     );
   }
 
   login(payload: LoginPayload): Observable<AuthResponse> {
     return this.http.post<AuthResponse>('/api/auth/login', payload).pipe(
       tap((response) => this.storeSession(response, payload.rememberMe)),
-      catchError((error: HttpErrorResponse) => throwError(() => new Error(this.messageFor(error))))
+      catchError(apiError)
     );
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
   }
 
   logout(): void {
@@ -61,7 +86,11 @@ export class AuthService {
 
   private storeSession(response: AuthResponse, persist: boolean): void {
     const storage = persist ? localStorage : sessionStorage;
-    const session: Session = { businessName: response.businessName, email: response.email };
+    const session: Session = {
+      businessName: response.businessName,
+      email: response.email,
+      rol: response.rol
+    };
     storage.setItem(SESSION_KEY, JSON.stringify(session));
     storage.setItem(TOKEN_KEY, response.token);
     this.session.set(session);
@@ -75,29 +104,11 @@ export class AuthService {
     }
 
     try {
-      return JSON.parse(raw) as Session;
+      const session = JSON.parse(raw) as Session;
+      // Sesión guardada antes de que existiera el rol: se descarta para forzar login.
+      return typeof session.rol === 'string' ? session : null;
     } catch {
       return null;
     }
-  }
-
-  private messageFor(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return 'No pudimos conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.';
-    }
-
-    if (error.status === 409) {
-      return 'Ya existe una cuenta con este correo electrónico.';
-    }
-
-    if (error.status === 401) {
-      return 'Correo o contraseña incorrectos.';
-    }
-
-    if (error.status >= 500) {
-      return 'Tuvimos un problema de nuestro lado. Inténtalo de nuevo en unos minutos.';
-    }
-
-    return error.error?.message ?? 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.';
   }
 }

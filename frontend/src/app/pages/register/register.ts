@@ -51,7 +51,7 @@ export class Register {
     const { businessName, email, password } = this.form.getRawValue();
 
     this.authService.register({ businessName, email, password }).subscribe({
-      next: () => this.router.navigateByUrl('/'),
+      next: () => this.router.navigateByUrl('/backoffice'),
       error: (error: unknown) => {
         this.errorMessage.set(error instanceof Error ? error.message : 'Ocurrió un error inesperado. Inténtalo nuevamente.');
         this.isSubmitting.set(false);

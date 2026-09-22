@@ -486,6 +486,27 @@ CREATE TABLE auditoria (
 CREATE INDEX ix_auditoria_empresa_fecha ON auditoria (id_empresa, fecha_evento);
 CREATE INDEX ix_auditoria_registro      ON auditoria (tabla_afectada, id_registro_afectado);
 
+-- ---------------------------------------------------------------------
+-- 18. PANTALLA — registro de las pantallas del backoffice. La app solo
+--     muestra lo que está aquí con activo = TRUE: una pantalla que no
+--     existe en esta tabla no aparece en el menú ni es navegable.
+--     permiso_requerido debe coincidir con el enum Permiso del backend;
+--     si no coincide con ninguno, la pantalla no se muestra (falla cerrado).
+--     Esto controla la navegación, NO la autorización: cada endpoint sigue
+--     validando el permiso por su cuenta.
+-- ---------------------------------------------------------------------
+CREATE TABLE pantalla (
+    id_pantalla        SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    codigo             VARCHAR(50)  NOT NULL,
+    nombre             VARCHAR(100) NOT NULL,
+    ruta               VARCHAR(100) NOT NULL,
+    orden              SMALLINT     NOT NULL DEFAULT 0,
+    permiso_requerido  VARCHAR(50),
+    activo             BOOLEAN      NOT NULL DEFAULT TRUE,
+    CONSTRAINT uq_pantalla_codigo UNIQUE (codigo),
+    CONSTRAINT uq_pantalla_ruta   UNIQUE (ruta)
+);
+
 -- =====================================================================
 -- REGLAS DE NEGOCIO (triggers)
 -- =====================================================================
@@ -511,6 +532,23 @@ $$;
 CREATE TRIGGER trg_empresa_categorias_base
 AFTER INSERT ON empresa
 FOR EACH ROW EXECUTE FUNCTION fn_crear_categorias_base();
+
+-- Cuenta base al crear una empresa -----------------------------------
+-- Sin al menos una cuenta no se puede registrar ningún movimiento, así que
+-- la empresa nace con una caja en efectivo en cero. El dueño puede
+-- renombrarla, ajustar su saldo inicial o agregar cuentas bancarias después.
+CREATE FUNCTION fn_crear_cuenta_base() RETURNS TRIGGER
+LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO cuenta_financiera (id_empresa, nombre_cuenta, tipo_cuenta, saldo_inicial)
+    VALUES (NEW.id_empresa, 'Caja', 'efectivo', 0);
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_empresa_cuenta_base
+AFTER INSERT ON empresa
+FOR EACH ROW EXECUTE FUNCTION fn_crear_cuenta_base();
 
 -- Estado de pago de un documento (pendiente / parcial / pagado) ------
 -- Solo cuentan los pagos cuyo movimiento sigue "registrado".
@@ -1043,5 +1081,12 @@ INSERT INTO rol (nombre_rol, descripcion) VALUES
     ('Administrador', 'Acceso total a la empresa: configuración, usuarios y datos financieros.'),
     ('Contador',      'Gestión de movimientos, cuentas por cobrar/pagar y reportes.'),
     ('Operador',      'Registro de movimientos y consulta de dashboard, sin configuración de la empresa.');
+
+-- Pantallas disponibles en el backoffice. Para publicar una pantalla nueva:
+-- agregar la fila aquí y la ruta con el mismo valor de "ruta" en app.routes.ts.
+INSERT INTO pantalla (codigo, nombre, ruta, orden, permiso_requerido) VALUES
+    ('movimientos.ingresos', 'Ingresos', 'movimientos/ingreso', 1, 'MovimientosRegistrar'),
+    ('movimientos.egresos',  'Egresos',  'movimientos/egreso',  2, 'MovimientosRegistrar'),
+    ('empresa.cuentas',      'Cuentas',  'cuentas',  3, 'CuentasGestionar');
 
 COMMIT;

@@ -1,0 +1,162 @@
+<section class="wrap">
+  <h1>{{ tipoActual()?.titulo }}</h1>
+  <p class="page-subtitle">{{ tipoActual()?.subtitulo }}</p>
+
+  @if (!isLoading() && !hasCuentas()) {
+    <div class="form-alert" role="alert">
+      Todavía no tienes una cuenta registrada.
+      <a routerLink="/backoffice/cuentas">Crea una cuenta</a> antes de registrar un movimiento.
+    </div>
+  }
+
+  <div class="content-grid">
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (errorMessage()) {
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+      }
+      @if (successMessage()) {
+        <div class="form-success" role="status">{{ successMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="fecha">Fecha</label>
+        <input
+          id="fecha"
+          type="date"
+          formControlName="fecha"
+          [attr.aria-invalid]="form.controls.fecha.invalid && form.controls.fecha.touched"
+        />
+      </div>
+
+      <div class="field">
+        <label for="monto">Monto</label>
+        <input
+          id="monto"
+          type="number"
+          min="0.01"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="monto"
+          placeholder="0"
+          [attr.aria-invalid]="form.controls.monto.invalid && form.controls.monto.touched"
+          aria-describedby="monto-error"
+        />
+        @if (form.controls.monto.invalid && form.controls.monto.touched) {
+          <small id="monto-error" class="field-error" role="alert">Ingresa un monto mayor a 0.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="idCuenta">Cuenta</label>
+        <select
+          id="idCuenta"
+          formControlName="idCuenta"
+          [attr.aria-invalid]="form.controls.idCuenta.invalid && form.controls.idCuenta.touched"
+          aria-describedby="idCuenta-error"
+        >
+          <option [ngValue]="null" disabled>Selecciona una cuenta</option>
+          @for (cuenta of cuentas(); track cuenta.id) {
+            <option [ngValue]="cuenta.id">{{ cuenta.nombreCuenta }}</option>
+          }
+        </select>
+        @if (form.controls.idCuenta.invalid && form.controls.idCuenta.touched) {
+          <small id="idCuenta-error" class="field-error" role="alert">Selecciona una cuenta.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="idCategoria">Categoría</label>
+        <select
+          id="idCategoria"
+          formControlName="idCategoria"
+          [attr.aria-invalid]="form.controls.idCategoria.invalid && form.controls.idCategoria.touched"
+          aria-describedby="idCategoria-error"
+        >
+          <option [ngValue]="null" disabled>Selecciona una categoría</option>
+          @for (categoria of categorias(); track categoria.id) {
+            <option [ngValue]="categoria.id">{{ categoria.nombreCategoria }}</option>
+          }
+        </select>
+        @if (form.controls.idCategoria.invalid && form.controls.idCategoria.touched) {
+          <small id="idCategoria-error" class="field-error" role="alert">Selecciona una categoría.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="medioPago">Medio de pago</label>
+        <select id="medioPago" formControlName="medioPago">
+          @for (medio of mediosPago(); track medio.valor) {
+            <option [value]="medio.valor">{{ medio.etiqueta }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="descripcion">Descripción (opcional)</label>
+        <input id="descripcion" type="text" formControlName="descripcion" [placeholder]="tipoActual()?.ejemploDescripcion" />
+      </div>
+
+      <button
+        type="submit"
+        class="button button-primary button-large"
+        [disabled]="isSubmitting() || !hasCuentas() || !hasCategorias()"
+      >
+        @if (isSubmitting()) {
+          <span class="spinner" aria-hidden="true"></span> Guardando…
+        } @else {
+          {{ tipoActual()?.boton }}
+        }
+      </button>
+    </form>
+
+    <aside class="card">
+      <h2>Saldo por cuenta</h2>
+      @if (cuentas().length === 0) {
+        <p class="muted">Aún no hay cuentas registradas.</p>
+      } @else {
+        <ul class="cuentas-list">
+          @for (cuenta of cuentas(); track cuenta.id) {
+            <li>
+              <span>{{ cuenta.nombreCuenta }}</span>
+              <strong>{{ cuenta.saldoActual | number: '1.0-0' }}</strong>
+            </li>
+          }
+        </ul>
+      }
+    </aside>
+  </div>
+
+  <section class="card listado">
+    <h2>{{ tipoActual()?.tituloListado }}</h2>
+    @if (isLoading()) {
+      <p class="muted">Cargando…</p>
+    } @else if (movimientos().length === 0) {
+      <p class="muted">{{ tipoActual()?.mensajeVacio }}</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fecha</th>
+            <th scope="col">Cuenta</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Medio de pago</th>
+            <th scope="col">Descripción</th>
+            <th scope="col">Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (movimiento of movimientos(); track movimiento.id) {
+            <tr>
+              <td>{{ movimiento.fecha }}</td>
+              <td>{{ movimiento.nombreCuenta }}</td>
+              <td>{{ movimiento.nombreCategoria }}</td>
+              <td>{{ movimiento.medioPago }}</td>
+              <td>{{ movimiento.descripcion || '—' }}</td>
+              <td class="monto">{{ movimiento.monto | number: '1.0-0' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</section>

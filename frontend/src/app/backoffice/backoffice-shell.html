@@ -1,0 +1,40 @@
+<div class="shell">
+  <header class="shell-header">
+    <a class="brand" routerLink="/" aria-label="CashPyme, inicio">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Cash<span>Pyme</span></span>
+    </a>
+    <div class="header-actions">
+      @if (tieneVariasEmpresas()) {
+        <label class="empresa-switch">
+          <span class="visually-hidden">Empresa activa</span>
+          <select (change)="cambiarEmpresa($event)">
+            @for (empresa of empresas(); track empresa.id) {
+              <option [value]="empresa.id" [selected]="empresa.esActiva">{{ empresa.razonSocial }}</option>
+            }
+          </select>
+        </label>
+      }
+      @if (session(); as current) {
+        <span class="session-name">{{ current.businessName }}<span class="session-rol">{{ current.rol }}</span></span>
+      }
+      <button type="button" class="button button-ghost" (click)="logout()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="shell-body">
+    <nav class="shell-nav" aria-label="Secciones del backoffice">
+      <ul>
+        @for (pantalla of pantallas(); track pantalla.codigo) {
+          <li>
+            <a [routerLink]="pantalla.ruta.split('/')" routerLinkActive="active">{{ pantalla.nombre }}</a>
+          </li>
+        }
+      </ul>
+    </nav>
+
+    <main class="shell-main">
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -10,6 +10,12 @@ public class ApiExceptionHandler : IExceptionHandler
         {
             EmailAlreadyRegisteredException => StatusCodes.Status409Conflict,
             InvalidCredentialsException => StatusCodes.Status401Unauthorized,
+            CuentaNoEncontradaException => StatusCodes.Status404NotFound,
+            TerceroNoEncontradoException => StatusCodes.Status404NotFound,
+            CategoriaInvalidaException => StatusCodes.Status400BadRequest,
+            CuentaDuplicadaException => StatusCodes.Status409Conflict,
+            MembresiaNoEncontradaException => StatusCodes.Status403Forbidden,
+            EmpresaNoEncontradaException => StatusCodes.Status404NotFound,
             _ => 0
         };
 

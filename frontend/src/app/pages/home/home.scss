@@ -49,7 +49,7 @@ h1 { font-size: clamp(2.5rem, 1.6rem + 2.6vw, 3.5rem); line-height: 1.06; letter
 .key { flex: 0 0 auto; width: 18px; height: 0; border-top: 2.5px solid var(--accent); }
 .key-forecast { border-top-style: dotted; }
 
-.steps, .glossary, .closing { padding-block: 72px; border-top: 1px solid var(--border); }
+.steps, .features, .benefits, .glossary, .faq, .closing { padding-block: 72px; border-top: 1px solid var(--border); }
 .steps { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 32px 64px; }
 h2 { font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); line-height: 1.1; }
 .steps ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
@@ -59,10 +59,31 @@ h2 { font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); line-height: 1.1; }
 h3 { font-size: 1.25rem; line-height: 1.3; letter-spacing: -.01em; }
 .steps p { max-width: 52ch; margin: 6px 0 0; color: var(--text-secondary); font-size: 1rem; line-height: 1.6; }
 
+.features h2 { max-width: 22ch; }
+.features-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 32px; margin: 48px 0 0; }
+.features-grid article { padding-top: 24px; border-top: 1px solid var(--border-strong); }
+.features-grid h3 { margin-top: 16px; font-size: 1.125rem; }
+.features-grid p { max-width: 34ch; margin: 8px 0 0; color: var(--text-secondary); line-height: 1.6; text-wrap: pretty; }
+.feature-icon { width: 28px; height: 28px; color: var(--accent); }
+
+.benefits-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin: 40px 0 0; }
+.benefits-grid article { padding-top: 24px; border-top: 1px solid var(--border-strong); }
+.benefits-grid h3 { margin-top: 16px; font-size: 1.125rem; }
+.benefits-grid p { max-width: 32ch; margin: 8px 0 0; color: var(--text-secondary); line-height: 1.6; text-wrap: pretty; }
+
+.faq-list { display: grid; max-width: 74ch; gap: 0; margin: 32px 0 0; }
+.faq-list details { padding-block: 20px; border-top: 1px solid var(--border); }
+.faq-list details:first-child { padding-top: 0; border-top: 0; }
+.faq-list summary { list-style: none; font-size: 1.0625rem; font-weight: 500; cursor: pointer; }
+.faq-list summary::-webkit-details-marker { display: none; }
+.faq-list summary::after { content: '+'; float: right; color: var(--muted); }
+.faq-list details[open] summary::after { content: '\2212'; }
+.faq-list p { max-width: 62ch; margin: 12px 0 0; color: var(--text-secondary); line-height: 1.6; }
+
 .glossary h2 { max-width: 20ch; }
 .glossary dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin: 40px 0 0; }
-.glossary dl > div { padding-top: 20px; border-top: 1px solid var(--border-strong); }
-.glossary dt { font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
+.glossary dl > div { padding-top: 24px; border-top: 1px solid var(--border-strong); }
+.glossary dt { margin-top: 16px; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
 .glossary dd { margin: 8px 0 0; color: var(--text-secondary); line-height: 1.6; text-wrap: pretty; }
 
 .closing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px 48px; }
@@ -84,12 +105,15 @@ h3 { font-size: 1.25rem; line-height: 1.3; letter-spacing: -.01em; }
 @media (max-width: 900px) {
 	.hero { grid-template-columns: minmax(0, 1fr); padding-block: 32px 72px; }
 	.steps { grid-template-columns: minmax(0, 1fr); }
+	.features-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 24px; }
+	.benefits-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
 	.glossary dl { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-	.steps, .glossary, .closing { padding-block: 56px; }
+	.steps, .features, .benefits, .glossary, .faq, .closing { padding-block: 56px; }
 }
 
 @media (max-width: 560px) {
 	.wrap { width: min(1120px, 100% - 32px); }
+	.features-grid { grid-template-columns: minmax(0, 1fr); }
 	.site-header { gap: 8px; }
 	.header-actions { gap: 6px; }
 	.header-actions .button { padding-inline: 10px; white-space: nowrap; }

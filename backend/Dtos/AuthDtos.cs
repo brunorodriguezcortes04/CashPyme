@@ -14,4 +14,16 @@ public record LoginRequest(
     bool RememberMe
 );
 
-public record AuthResponse(string Token, DateTime ExpiresAtUtc, string BusinessName, string Email);
+/// <summary>
+/// Rol viaja solo para mostrarlo en la UI (ej. el badge del backoffice). La lista de permisos
+/// del rol NO se manda: el menú ya sale filtrado desde /api/pantallas y cada endpoint vuelve
+/// a autorizar por su cuenta (ver PermisoAuthorizationHandler), así que exponer la matriz
+/// completa de permisos en cada login no le servía a nadie, solo daba más información de más.
+/// </summary>
+public record AuthResponse(
+    string Token,
+    DateTime ExpiresAtUtc,
+    string BusinessName,
+    string Email,
+    string Rol
+);

@@ -61,7 +61,7 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService)
             throw new EmailAlreadyRegisteredException();
         }
 
-        return CreateAuthResponse(user, company.Id, company.LegalName);
+        return CreateAuthResponse(user, company.Id, company.LegalName, Role.Administrator);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -75,13 +75,13 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService)
         }
 
         // Empresa con la que se inicia sesión: la primera membresía activa.
-        var company = await db.CompanyMemberships
+        var membership = await db.CompanyMemberships
             .Where(m => m.UserId == user.Id && m.IsActive && m.Company.IsActive)
             .OrderBy(m => m.Id)
-            .Select(m => new { m.Company.Id, m.Company.LegalName })
+            .Select(m => new { m.Company.Id, m.Company.LegalName, Rol = m.Role.Name })
             .FirstOrDefaultAsync();
 
-        if (company is null)
+        if (membership is null)
         {
             throw new InvalidCredentialsException();
         }
@@ -89,12 +89,30 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService)
         user.LastAccessAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        return CreateAuthResponse(user, company.Id, company.LegalName);
+        return CreateAuthResponse(user, membership.Id, membership.LegalName, membership.Rol);
     }
 
-    private AuthResponse CreateAuthResponse(User user, long companyId, string businessName)
+    /// <summary>
+    /// Cambia la empresa activa emitiendo un token nuevo. Los permisos no se guardan en el
+    /// token: al cambiar de empresa, el siguiente request los recalcula desde usuario_empresa.
+    /// </summary>
+    public async Task<AuthResponse> CambiarEmpresaActivaAsync(long userId, long companyId)
     {
-        var (token, expiresAtUtc) = jwtTokenService.CreateToken(user.Id, user.Email, companyId, businessName);
-        return new AuthResponse(token, expiresAtUtc, businessName, user.Email);
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.IsActive)
+            ?? throw new InvalidCredentialsException();
+
+        var membership = await db.CompanyMemberships
+            .Where(m => m.UserId == userId && m.CompanyId == companyId && m.IsActive && m.Company.IsActive)
+            .Select(m => new { m.Company.Id, m.Company.LegalName, Rol = m.Role.Name })
+            .SingleOrDefaultAsync()
+            ?? throw new MembresiaNoEncontradaException();
+
+        return CreateAuthResponse(user, membership.Id, membership.LegalName, membership.Rol);
+    }
+
+    private AuthResponse CreateAuthResponse(User user, long companyId, string businessName, string rol)
+    {
+        var (token, expiresAtUtc) = jwtTokenService.CreateToken(user.Id, companyId);
+        return new AuthResponse(token, expiresAtUtc, businessName, user.Email, rol);
     }
 }

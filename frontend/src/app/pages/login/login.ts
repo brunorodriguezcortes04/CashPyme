@@ -39,7 +39,7 @@ export class Login {
     this.errorMessage.set(null);
 
     this.authService.login(this.form.getRawValue()).subscribe({
-      next: () => this.router.navigateByUrl('/'),
+      next: () => this.router.navigateByUrl('/backoffice'),
       error: (error: unknown) => {
         this.errorMessage.set(error instanceof Error ? error.message : 'Ocurrió un error inesperado. Inténtalo nuevamente.');
         this.isSubmitting.set(false);

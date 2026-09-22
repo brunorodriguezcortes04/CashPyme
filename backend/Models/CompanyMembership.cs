@@ -11,4 +11,5 @@ public class CompanyMembership
 
     public User User { get; set; } = null!;
     public Company Company { get; set; } = null!;
+    public Role Role { get; set; } = null!;
 }

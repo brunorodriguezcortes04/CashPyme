@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
-const PERIODS = [30, 60, 90] as const;
+const PERIODS = [30, 60] as const;
 type Period = (typeof PERIODS)[number];
 
 const TODAY_BALANCE = 4_820_000;
