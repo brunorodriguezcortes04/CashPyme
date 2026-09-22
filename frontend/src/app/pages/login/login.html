@@ -1,8 +1,9 @@
-<div class="auth-shell">
+<header class="auth-header">
   <a class="brand" routerLink="/" aria-label="CashPyme, inicio"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Cash<span>Pyme</span></span></a>
+</header>
 
+<main class="auth-main">
   <div class="auth-card">
-    <span class="eyebrow"><span class="eyebrow-dot"></span> Bienvenido de nuevo</span>
     <h1>Inicia sesión en tu cuenta</h1>
     <p class="auth-subtitle">Accede para ver el estado de tu caja y tus proyecciones.</p>
 
@@ -34,10 +35,7 @@
       </div>
 
       <div class="field">
-        <div class="field-label-row">
-          <label for="password">Contraseña</label>
-          <a class="forgot-link" routerLink="/" fragment="contacto">¿Olvidaste tu contraseña?</a>
-        </div>
+        <label for="password">Contraseña</label>
         <div class="password-input">
           <input
             id="password"
@@ -64,11 +62,7 @@
         </div>
         @if (form.controls.password.invalid && form.controls.password.touched) {
           <small id="password-error" class="field-error" role="alert">
-            @if (form.controls.password.hasError('required')) {
-              Ingresa tu contraseña.
-            } @else {
-              La contraseña debe tener al menos 6 caracteres.
-            }
+            Ingresa tu contraseña.
           </small>
         }
       </div>
@@ -87,6 +81,6 @@
       </button>
     </form>
 
-    <p class="auth-footer">¿No tienes cuenta? <a routerLink="/registro">Crear cuenta gratis</a></p>
+    <p class="auth-footer">¿No tienes cuenta? <a routerLink="/registro">Crear cuenta</a></p>
   </div>
-</div>
+</main>

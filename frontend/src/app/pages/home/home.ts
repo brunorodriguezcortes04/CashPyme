@@ -1,47 +1,95 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { RevealOnScrollDirective } from './reveal-on-scroll.directive';
-import { ParallaxDirective } from './parallax.directive';
+import { AuthService } from '../../core/auth.service';
+
+const PERIODS = [30, 60, 90] as const;
+type Period = (typeof PERIODS)[number];
+
+const TODAY_BALANCE = 4_820_000;
+const HISTORY_DAYS = 30;
+const CHART_WIDTH = 640;
+const CHART_HEIGHT = 240;
+const CHART_PAD_X = 8;
+const CHART_PAD_TOP = 16;
+const CHART_PAD_BOTTOM = 12;
+
+const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+const percent = new Intl.NumberFormat('es-CL', { style: 'percent', maximumFractionDigits: 0 });
+
+function balanceAt(day: number): number {
+  const value = day <= 0
+    ? TODAY_BALANCE + 11_000 * day + 110_000 * Math.sin(day / 7)
+    : TODAY_BALANCE + 14_000 * day + 160_000 * Math.sin(day / 11);
+  return Math.round(value / 10_000) * 10_000;
+}
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, RevealOnScrollDirective, ParallaxDirective],
+  imports: [RouterLink],
   templateUrl: './home.html',
   styleUrl: './home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Home {
-  protected readonly isMenuOpen = signal(false);
-  protected readonly projectionDays = signal(60);
+  private readonly authService = inject(AuthService);
 
-  protected readonly projections = {
-    30: { amount: '$5.240.000', change: '+ 8,4%', points: '0,68 36,60 72,64 108,49 144,55 180,40 216,44 252,27' },
-    60: { amount: '$6.760.000', change: '+ 14,8%', points: '0,68 36,60 72,64 108,49 144,55 180,40 216,44 252,27 288,18' },
-    90: { amount: '$8.120.000', change: '+ 21,6%', points: '0,68 36,60 72,64 108,49 144,55 180,40 216,44 252,27 288,18 324,10' }
-  } as const;
+  protected readonly periods = PERIODS;
+  protected readonly period = signal<Period>(60);
+  protected readonly session = this.authService.session;
 
-  protected readonly features = [
-    { icon: 'chart', title: 'Saldo en tiempo real', text: 'Conoce el estado exacto de tu caja en todo momento.' },
-    { icon: 'bell', title: 'Alertas anticipadas', text: 'Detecta riesgos y oportunidades antes de que sucedan.' },
-    { icon: 'calendar', title: 'Proyección 30/60/90', text: 'Planifica con escenarios basados en tus datos.' },
-    { icon: 'shield', title: 'Seguro y confiable', text: 'Tus datos siempre protegidos con la mejor tecnología.' }
-  ];
+  protected readonly summary = computed(() => {
+    const days = this.period();
+    const end = balanceAt(days);
+    const difference = end - TODAY_BALANCE;
+    const sign = difference >= 0 ? '+' : '−';
+    return {
+      days,
+      today: currency.format(TODAY_BALANCE),
+      end: currency.format(end),
+      change: `${sign}${currency.format(Math.abs(difference))} (${sign}${percent.format(Math.abs(difference) / TODAY_BALANCE)})`,
+      rises: difference >= 0
+    };
+  });
 
-  protected readonly testimonials = [
-    { quote: 'Desde que usamos CashPyme tenemos claridad en un viaje y eso ayuda planificar con más tranquilidad.', name: 'Camila Torres', role: 'Tienda de ropa', initials: 'CT' },
-    { quote: 'Las proyecciones de 90 y 60 días me han ayudado a evitar situaciones difíciles y anticiparme.', name: 'Metas Reyes', role: 'Servicios de marketing', initials: 'MR' },
-    { quote: 'El equipo dejó de vivir al límite y ahora tenemos una visión clara de lo que viene.', name: 'Daniela Fuentes', role: 'Cafetería', initials: 'DF' }
-  ];
+  protected readonly chart = computed(() => {
+    const days = this.period();
+    const span = HISTORY_DAYS + days;
+    const offsets = Array.from({ length: span + 1 }, (_, index) => index - HISTORY_DAYS);
+    const values = offsets.map(balanceAt);
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    const margin = (high - low) * 0.08;
+    const x = (day: number) => CHART_PAD_X + ((day + HISTORY_DAYS) / span) * (CHART_WIDTH - CHART_PAD_X * 2);
+    const y = (value: number) =>
+      CHART_PAD_TOP + (1 - (value - (low - margin)) / (high - low + margin * 2)) * (CHART_HEIGHT - CHART_PAD_TOP - CHART_PAD_BOTTOM);
+    const points = offsets.map((day, index) => ({ day, x: x(day), y: y(values[index]) }));
+    const line = (from: number, to: number) =>
+      points
+        .filter((point) => point.day >= from && point.day <= to)
+        .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+        .join(' ');
+    const today = points.find((point) => point.day === 0)!;
+    const end = points[points.length - 1];
+    const first = points[0];
 
-  protected currentProjection() {
-    return this.projections[this.projectionDays() as keyof typeof this.projections];
+    return {
+      width: CHART_WIDTH,
+      height: CHART_HEIGHT,
+      history: line(-HISTORY_DAYS, 0),
+      forecast: line(0, days),
+      area: `${line(-HISTORY_DAYS, days)} L${end.x.toFixed(1)} ${CHART_HEIGHT} L${first.x.toFixed(1)} ${CHART_HEIGHT} Z`,
+      today,
+      end,
+      todayLeft: (today.x / CHART_WIDTH) * 100,
+      description: `Gráfico de ejemplo: hoy la caja es ${currency.format(TODAY_BALANCE)} y en ${days} días sería ${currency.format(balanceAt(days))}.`
+    };
+  });
+
+  protected selectPeriod(days: Period) {
+    this.period.set(days);
   }
 
-  protected toggleMenu() {
-    this.isMenuOpen.update((isOpen) => !isOpen);
-  }
-
-  protected closeMenu() {
-    this.isMenuOpen.set(false);
+  protected logout() {
+    this.authService.logout();
   }
 }

@@ -1,10 +1,12 @@
 namespace Backend.Models;
 
+/// <summary>Persona que accede a la plataforma. Tabla: usuario.</summary>
 public class User
 {
-    public int Id { get; set; }
-    public required string BusinessName { get; set; }
+    public long Id { get; set; }
+    public required string Name { get; set; }
     public required string Email { get; set; }
     public required string PasswordHash { get; set; }
-    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? LastAccessAtUtc { get; set; }
+    public bool IsActive { get; set; } = true;
 }

@@ -94,6 +94,10 @@ export class AuthService {
       return 'Correo o contraseña incorrectos.';
     }
 
-    return error.error?.message ?? 'Ocurrió un error inesperado. Inténtalo nuevamente.';
+    if (error.status >= 500) {
+      return 'Tuvimos un problema de nuestro lado. Inténtalo de nuevo en unos minutos.';
+    }
+
+    return error.error?.message ?? 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.';
   }
 }

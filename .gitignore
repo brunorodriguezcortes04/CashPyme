@@ -18,6 +18,13 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 
+# Playwright MCP
+.playwright-mcp/
+
+# Claude Code / tooling artifacts
+.impeccable/
+Claude outputs/
+
 # OS
 Thumbs.db
 .DS_Store

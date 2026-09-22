@@ -1,10 +1,11 @@
-<div class="auth-shell">
+<header class="auth-header">
   <a class="brand" routerLink="/" aria-label="CashPyme, inicio"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Cash<span>Pyme</span></span></a>
+</header>
 
+<main class="auth-main">
   <div class="auth-card">
-    <span class="eyebrow"><span class="eyebrow-dot"></span> Crea tu cuenta</span>
-    <h1>Empieza gratis con CashPyme</h1>
-    <p class="auth-subtitle">En minutos tendrás visibilidad total sobre la caja de tu negocio.</p>
+    <h1>Crea tu cuenta en CashPyme</h1>
+    <p class="auth-subtitle">Con tu cuenta podrás seguir la caja de tu negocio y ver cuánto tendrás en los próximos meses.</p>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       @if (errorMessage()) {
@@ -51,15 +52,15 @@
 
       <div class="field">
         <label for="password">Contraseña</label>
+        <small id="password-hint" class="field-hint">Mínimo 8 caracteres.</small>
         <div class="password-input">
           <input
             id="password"
             [type]="showPassword() ? 'text' : 'password'"
             autocomplete="new-password"
             formControlName="password"
-            placeholder="Mínimo 8 caracteres"
             [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
-            aria-describedby="password-error"
+            aria-describedby="password-hint password-error"
           />
           <button
             type="button"
@@ -106,11 +107,11 @@
         @if (isSubmitting()) {
           <span class="spinner" aria-hidden="true"></span> Creando cuenta…
         } @else {
-          Crear cuenta gratis
+          Crear cuenta
         }
       </button>
     </form>
 
     <p class="auth-footer">¿Ya tienes cuenta? <a routerLink="/login">Iniciar sesión</a></p>
   </div>
-</div>
+</main>

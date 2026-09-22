@@ -27,8 +27,15 @@ builder.Services.AddCors(options =>
     });
 });
 
+// PostgreSQL (Supabase). La cadena de conexión NO va en el repo:
+//   dev:  dotnet user-secrets set "ConnectionStrings:Default" "<cadena del Session pooler>"
+//   prod: variable de entorno ConnectionStrings__Default
+var connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException(
+        "Falta ConnectionStrings:Default. Configúrala con 'dotnet user-secrets set' (ver README).");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? "Data Source=cashpyme.db"));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection("Jwt"))
@@ -57,11 +64,8 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
-}
+// El esquema de la base lo define database/cashpyme_modelo_datos_v2.sql (se ejecuta
+// en el SQL Editor de Supabase), por eso ya no se usa EnsureCreated().
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

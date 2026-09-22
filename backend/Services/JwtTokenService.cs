@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Backend.Models;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Backend.Services;
@@ -18,15 +17,16 @@ public class JwtTokenService(Microsoft.Extensions.Options.IOptions<JwtOptions> o
 {
     private readonly JwtOptions _options = options.Value;
 
-    public (string Token, DateTime ExpiresAtUtc) CreateToken(User user)
+    public (string Token, DateTime ExpiresAtUtc) CreateToken(long userId, string email, long companyId, string businessName)
     {
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(_options.ExpiresMinutes);
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim("business_name", user.BusinessName)
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim("empresa_id", companyId.ToString()),
+            new Claim("business_name", businessName)
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));

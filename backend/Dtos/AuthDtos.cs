@@ -4,7 +4,7 @@ namespace Backend.Dtos;
 
 public record RegisterRequest(
     [Required, MaxLength(120)] string BusinessName,
-    [Required, EmailAddress, MaxLength(256)] string Email,
+    [Required, EmailAddress, MaxLength(150)] string Email,
     [Required, MinLength(8), MaxLength(100)] string Password
 );
 
