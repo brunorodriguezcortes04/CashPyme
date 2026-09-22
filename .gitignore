@@ -17,6 +17,7 @@ npm-debug.log*
 .vs/
 .vscode/*
 !.vscode/extensions.json
+!.vscode/launch.json
 
 # Playwright MCP
 .playwright-mcp/

@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/bin/Debug/net10.0/Backend.dll",
+      "cwd": "${workspaceFolder}/backend",
+      "preLaunchTask": "backend: build",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "launchBrowser": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "Frontend (Angular)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm start",
+      "cwd": "${workspaceFolder}/frontend",
+      "preLaunchTask": "frontend: build",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "CashPyme: Frontend + Backend",
+      "configurations": [
+        "Backend (.NET)",
+        "Frontend (Angular)"
+      ],
+      "stopAll": true
+    }
+  ]
+}
