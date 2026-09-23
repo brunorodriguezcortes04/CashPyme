@@ -16,6 +16,11 @@ public class ApiExceptionHandler : IExceptionHandler
             CuentaDuplicadaException => StatusCodes.Status409Conflict,
             MembresiaNoEncontradaException => StatusCodes.Status403Forbidden,
             EmpresaNoEncontradaException => StatusCodes.Status404NotFound,
+            RutDuplicadoException => StatusCodes.Status409Conflict,
+            MovimientoNoEncontradoException => StatusCodes.Status404NotFound,
+            MovimientoYaAnuladoException => StatusCodes.Status409Conflict,
+            MovimientoConPagosEditException => StatusCodes.Status409Conflict,
+            MovimientoConPagosAnularException => StatusCodes.Status409Conflict,
             _ => 0
         };
 

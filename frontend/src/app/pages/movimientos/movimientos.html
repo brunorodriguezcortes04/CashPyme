@@ -11,6 +11,8 @@
 
   <div class="content-grid">
     <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <h2>{{ estaEditando() ? 'Editar movimiento' : tipoActual()?.titulo }}</h2>
+
       @if (errorMessage()) {
         <div class="form-alert" role="alert">{{ errorMessage() }}</div>
       }
@@ -96,17 +98,22 @@
         <input id="descripcion" type="text" formControlName="descripcion" [placeholder]="tipoActual()?.ejemploDescripcion" />
       </div>
 
-      <button
-        type="submit"
-        class="button button-primary button-large"
-        [disabled]="isSubmitting() || !hasCuentas() || !hasCategorias()"
-      >
-        @if (isSubmitting()) {
-          <span class="spinner" aria-hidden="true"></span> Guardando…
-        } @else {
-          {{ tipoActual()?.boton }}
+      <div class="form-actions">
+        <button
+          type="submit"
+          class="button button-primary button-large"
+          [disabled]="isSubmitting() || !hasCuentas() || !hasCategorias()"
+        >
+          @if (isSubmitting()) {
+            <span class="spinner" aria-hidden="true"></span> Guardando…
+          } @else {
+            {{ estaEditando() ? 'Guardar cambios' : tipoActual()?.boton }}
+          }
+        </button>
+        @if (estaEditando()) {
+          <button type="button" class="button button-ghost" (click)="cancelarEdicion()">Cancelar</button>
         }
-      </button>
+      </div>
     </form>
 
     <aside class="card">
@@ -142,21 +149,55 @@
             <th scope="col">Medio de pago</th>
             <th scope="col">Descripción</th>
             <th scope="col">Monto</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="visually-hidden">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
           @for (movimiento of movimientos(); track movimiento.id) {
-            <tr>
+            <tr [class.anulado]="movimiento.estadoMovimiento === 'anulado'">
               <td>{{ movimiento.fecha }}</td>
               <td>{{ movimiento.nombreCuenta }}</td>
               <td>{{ movimiento.nombreCategoria }}</td>
               <td>{{ movimiento.medioPago }}</td>
               <td>{{ movimiento.descripcion || '—' }}</td>
               <td class="monto">{{ movimiento.monto | number: '1.0-0' }}</td>
+              <td>
+                <span class="estado-badge" [class.anulado]="movimiento.estadoMovimiento === 'anulado'">
+                  {{ movimiento.estadoMovimiento === 'anulado' ? 'Anulado' : 'Registrado' }}
+                </span>
+              </td>
+              <td class="acciones">
+                @if (movimiento.estadoMovimiento !== 'anulado') {
+                  <button type="button" class="button button-ghost" (click)="editar(movimiento)">Editar</button>
+                  <button
+                    type="button"
+                    class="button button-ghost boton-anular"
+                    [disabled]="anulandoId() === movimiento.id"
+                    (click)="anular(movimiento)"
+                  >
+                    {{ anulandoId() === movimiento.id ? 'Anulando…' : 'Anular' }}
+                  </button>
+                }
+              </td>
             </tr>
           }
         </tbody>
       </table>
     }
   </section>
+    @if (confirmandoAnulacion(); as pendiente) {
+    <div class="modal-overlay" (click)="cancelarConfirmacion()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true">
+        <h2>¿Anular este movimiento?</h2>
+        <p>{{ pendiente.mensaje }}</p>
+        <div class="modal-actions">
+          <button type="button" class="button button-ghost" (click)="cancelarConfirmacion()">No anular</button>
+          <button type="button" class="button button-primary" (click)="confirmarAnulacion()">
+            Confirmar de todas formas
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </section>

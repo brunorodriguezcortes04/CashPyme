@@ -20,6 +20,9 @@ public class MovimientoFinanciero
     public required string PaymentMethod { get; set; }
     public string? Description { get; set; }
     public string Status { get; set; } = Registrado;
+    public DateTime? CanceledAtUtc { get; set; }
+    public long? CanceledByUserId { get; set; }
+    public string? CancellationReason { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 

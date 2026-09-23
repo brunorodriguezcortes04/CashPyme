@@ -1,7 +1,1 @@
-{
-  "/api": {
-    "target": "https://localhost:7016",
-    "secure": false,
-    "changeOrigin": true
-  }
-}
+ { "/api": { "target": "http://localhost:5131", "secure": false, "changeOrigin": true } }

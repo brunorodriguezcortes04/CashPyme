@@ -6,7 +6,12 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { mensajeDeError } from '../../core/api-error';
 import { CatalogosService, OpcionCatalogo, TipoMovimiento } from '../../core/catalogos.service';
 import { Cuenta, CuentasService } from '../../core/cuentas.service';
-import { Categoria, Movimiento, MovimientosService } from '../../core/movimientos.service';
+import {
+  Categoria,
+  Movimiento,
+  MovimientosService,
+  RequiereConfirmacionError
+} from '../../core/movimientos.service';
 
 function hoy(): string {
   const ahora = new Date();
@@ -31,7 +36,6 @@ export class Movimientos {
   private readonly tipo = signal('');
   private readonly tiposMovimiento = signal<TipoMovimiento[]>([]);
 
-  /** Todo el vocabulario visible del tipo viene del backend; acá solo se arma la frase. */
   protected readonly tipoActual = computed(() =>
     this.tiposMovimiento().find((t) => t.valor === this.tipo()) ?? null
   );
@@ -46,6 +50,14 @@ export class Movimientos {
   protected readonly successMessage = signal<string | null>(null);
   protected readonly hasCuentas = computed(() => this.cuentas().length > 0);
   protected readonly hasCategorias = computed(() => this.categorias().length > 0);
+
+  /** null = creando un movimiento nuevo; un id = editando ese movimiento. */
+  protected readonly editandoId = signal<number | null>(null);
+  protected readonly estaEditando = computed(() => this.editandoId() !== null);
+
+  /** Movimiento sobre el que se pidió anular y el backend avisó que tiene pagos aplicados. */
+  protected readonly confirmandoAnulacion = signal<{ id: number; mensaje: string } | null>(null);
+  protected readonly anulandoId = signal<number | null>(null);
 
   protected readonly form = this.formBuilder.nonNullable.group({
     fecha: [hoy(), [Validators.required]],
@@ -75,7 +87,7 @@ export class Movimientos {
       .paramMap.pipe(takeUntilDestroyed())
       .subscribe((params) => {
         this.tipo.set(params.get('tipo') ?? '');
-        this.reiniciarFormulario();
+        this.cancelarEdicion();
         this.cargarDatos();
       });
   }
@@ -87,34 +99,124 @@ export class Movimientos {
     }
 
     const { fecha, monto, idCuenta, idCategoria, medioPago, descripcion } = this.form.getRawValue();
+    const payload = {
+      fecha,
+      monto: monto!,
+      idCuenta: idCuenta!,
+      idCategoria: idCategoria!,
+      medioPago,
+      descripcion: descripcion || null
+    };
 
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.movimientosService
-      .crearMovimiento({
-        tipoMovimiento: this.tipo(),
-        fecha,
-        monto: monto!,
-        idCuenta: idCuenta!,
-        idCategoria: idCategoria!,
-        medioPago,
-        descripcion: descripcion || null
-      })
-      .subscribe({
-        next: (movimiento) => {
+    const idEditando = this.editandoId();
+    const peticion = idEditando === null
+      ? this.movimientosService.crearMovimiento({ ...payload, tipoMovimiento: this.tipo() })
+      : this.movimientosService.actualizarMovimiento(idEditando, payload);
+
+    peticion.subscribe({
+      next: (movimiento) => {
+        if (idEditando === null) {
           this.movimientos.update((actuales) => [movimiento, ...actuales]);
-          this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
           this.successMessage.set(this.tipoActual()?.mensajeExito ?? null);
-          this.reiniciarFormulario(movimiento.idCuenta);
-          this.isSubmitting.set(false);
-        },
-        error: (error: unknown) => {
-          this.errorMessage.set(mensajeDeError(error));
-          this.isSubmitting.set(false);
+        } else {
+          this.movimientos.update((actuales) =>
+            actuales.map((m) => (m.id === movimiento.id ? movimiento : m))
+          );
+          this.successMessage.set('Movimiento actualizado.');
         }
-      });
+        this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
+        this.editandoId.set(null);
+        this.reiniciarFormulario(idEditando === null ? movimiento.idCuenta : null);
+        this.isSubmitting.set(false);
+      },
+      error: (error: unknown) => {
+        this.errorMessage.set(mensajeDeError(error));
+        this.isSubmitting.set(false);
+      }
+    });
+  }
+
+  /** Solo movimientos registrados (sin pagos aplicados) se pueden editar; el backend igual lo valida. */
+  protected editar(movimiento: Movimiento): void {
+    this.editandoId.set(movimiento.id);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.form.setValue({
+      fecha: movimiento.fecha,
+      monto: movimiento.monto,
+      idCuenta: movimiento.idCuenta,
+      idCategoria: movimiento.idCategoria,
+      medioPago: movimiento.medioPago,
+      descripcion: movimiento.descripcion ?? ''
+    });
+  }
+
+  protected cancelarEdicion(): void {
+    this.editandoId.set(null);
+    this.reiniciarFormulario();
+  }
+
+  /**
+   * Primera llamada sin confirmar: si el backend avisa que hay pagos aplicados, se guarda el
+   * aviso en confirmandoAnulacion() en vez de tratarlo como un error, para ofrecer el botón
+   * de confirmar en vez de solo mostrar un mensaje rojo.
+   */
+  protected anular(movimiento: Movimiento): void {
+    this.anulandoId.set(movimiento.id);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.confirmandoAnulacion.set(null);
+
+    this.movimientosService.anularMovimiento(movimiento.id, null, false).subscribe({
+      next: (actualizado) => this.onAnulado(actualizado),
+      error: (error: unknown) => {
+        this.anulandoId.set(null);
+        if (error instanceof RequiereConfirmacionError) {
+          this.confirmandoAnulacion.set({ id: movimiento.id, mensaje: error.message });
+        } else {
+          this.errorMessage.set(mensajeDeError(error));
+        }
+      }
+    });
+  }
+
+  protected confirmarAnulacion(): void {
+    const pendiente = this.confirmandoAnulacion();
+    if (!pendiente) {
+      return;
+    }
+
+    this.anulandoId.set(pendiente.id);
+
+    this.movimientosService.anularMovimiento(pendiente.id, null, true).subscribe({
+      next: (actualizado) => this.onAnulado(actualizado),
+      error: (error: unknown) => {
+        this.anulandoId.set(null);
+        this.confirmandoAnulacion.set(null);
+        this.errorMessage.set(mensajeDeError(error));
+      }
+    });
+  }
+
+  protected cancelarConfirmacion(): void {
+    this.confirmandoAnulacion.set(null);
+  }
+
+  private onAnulado(movimiento: Movimiento): void {
+    this.anulandoId.set(null);
+    this.confirmandoAnulacion.set(null);
+    this.successMessage.set('Movimiento anulado.');
+    this.movimientos.update((actuales) =>
+      actuales.map((m) => (m.id === movimiento.id ? movimiento : m))
+    );
+    if (this.editandoId() === movimiento.id) {
+      this.cancelarEdicion();
+    }
+    this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
   }
 
   private cargarDatos(): void {

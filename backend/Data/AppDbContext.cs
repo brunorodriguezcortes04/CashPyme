@@ -20,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MovimientoFinanciero> MovimientosFinancieros => Set<MovimientoFinanciero>();
     public DbSet<SaldoCuenta> SaldosCuenta => Set<SaldoCuenta>();
     public DbSet<Pantalla> Pantallas => Set<Pantalla>();
+    public DbSet<PagoDocumento> PagosDocumento => Set<PagoDocumento>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,10 +119,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.PaymentMethod).HasColumnName("medio_pago").HasMaxLength(20);
             e.Property(x => x.Description).HasColumnName("descripcion").HasMaxLength(250);
             e.Property(x => x.Status).HasColumnName("estado_movimiento").HasMaxLength(15);
+            e.Property(x => x.CanceledAtUtc).HasColumnName("fecha_anulacion");
+            e.Property(x => x.CanceledByUserId).HasColumnName("id_usuario_anulacion");
+            e.Property(x => x.CancellationReason).HasColumnName("motivo_anulacion").HasMaxLength(250);
             e.Property(x => x.CreatedByUserId).HasColumnName("id_usuario_creador");
             e.Property(x => x.CreatedAtUtc).HasColumnName("fecha_creacion").HasDefaultValueSql("now()").ValueGeneratedOnAdd();
             e.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId);
             e.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId);
+        });
+
+         modelBuilder.Entity<PagoDocumento>(e =>
+        {
+            e.ToTable("pago_documento");
+            e.Property(x => x.Id).HasColumnName("id_pago");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.DocumentId).HasColumnName("id_documento");
+            e.Property(x => x.MovementId).HasColumnName("id_movimiento");
+            e.Property(x => x.AppliedAmount).HasColumnName("monto_aplicado").HasColumnType("numeric(14,2)");
         });
 
         modelBuilder.Entity<Pantalla>(e =>
