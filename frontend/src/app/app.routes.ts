@@ -23,6 +23,11 @@ export const routes: Routes = [
         path: 'cuentas',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/cuentas/cuentas').then((m) => m.Cuentas)
+      },
+      {
+        path: 'empresa',
+        canActivate: [pantallaGuard],
+        loadComponent: () => import('./pages/empresa/empresa').then((m) => m.EmpresaPage)
       }
     ]
   }

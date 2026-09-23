@@ -1,0 +1,107 @@
+<section class="wrap">
+  <h1>Datos de la empresa</h1>
+  <p class="page-subtitle">Esta información aparece en tus reportes y en las alertas de vencimiento.</p>
+
+  @if (isLoading()) {
+    <p class="muted">Cargando…</p>
+  } @else {
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (errorMessage()) {
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+      }
+      @if (successMessage()) {
+        <div class="form-success" role="status">{{ successMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="razonSocial">Razón social</label>
+        <input
+          id="razonSocial"
+          type="text"
+          formControlName="razonSocial"
+          placeholder="Ej: Panadería Don Juan SpA"
+          [attr.aria-invalid]="form.controls.razonSocial.invalid && form.controls.razonSocial.touched"
+          aria-describedby="razonSocial-error"
+        />
+        @if (form.controls.razonSocial.invalid && form.controls.razonSocial.touched) {
+          <small id="razonSocial-error" class="field-error" role="alert">Ingresa la razón social.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="rut">RUT de la empresa (opcional)</label>
+        <input
+          id="rut"
+          type="text"
+          formControlName="rut"
+          placeholder="Ej: 12345678-9"
+          (blur)="formatearRut()"
+          [attr.aria-invalid]="form.controls.rut.invalid && form.controls.rut.touched"
+          aria-describedby="rut-error"
+        />
+        @if (form.controls.rut.invalid && form.controls.rut.touched) {
+          <small id="rut-error" class="field-error" role="alert">
+            El RUT no es válido. Verifica el número y el dígito verificador (ej: 12345678-9).
+          </small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="giro">Giro (opcional)</label>
+        <input id="giro" type="text" formControlName="giro" placeholder="Ej: Elaboración de productos de panadería" />
+      </div>
+
+      <div class="field">
+        <label for="direccion">Dirección (opcional)</label>
+        <input id="direccion" type="text" formControlName="direccion" placeholder="Ej: Av. Siempre Viva 123, Santiago" />
+      </div>
+
+      <div class="two-cols">
+        <div class="field">
+          <label for="telefono">Teléfono (opcional)</label>
+          <input id="telefono" type="tel" formControlName="telefono" placeholder="Ej: +56 9 1234 5678" />
+        </div>
+
+        <div class="field">
+          <label for="emailContacto">Correo de contacto (opcional)</label>
+          <input
+            id="emailContacto"
+            type="email"
+            formControlName="emailContacto"
+            placeholder="contacto@tunegocio.cl"
+            [attr.aria-invalid]="form.controls.emailContacto.invalid && form.controls.emailContacto.touched"
+          />
+          @if (form.controls.emailContacto.invalid && form.controls.emailContacto.touched) {
+            <small class="field-error" role="alert">Ingresa un correo válido.</small>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Moneda</label>
+        <span class="badge-static">CLP</span>
+        <small class="field-hint">Por ahora CashPyme solo trabaja en pesos chilenos.</small>
+      </div>
+
+      <div class="two-cols">
+        <div class="field">
+          <label for="diasAvisoVencimiento">Días de aviso antes de un vencimiento</label>
+          <input id="diasAvisoVencimiento" type="number" min="0" max="60" formControlName="diasAvisoVencimiento" />
+        </div>
+
+        <div class="field">
+          <label for="umbralSaldoBajo">Umbral de saldo bajo</label>
+          <input id="umbralSaldoBajo" type="number" min="0" step="0.01" formControlName="umbralSaldoBajo" />
+        </div>
+      </div>
+
+      <button type="submit" class="button button-primary button-large" [disabled]="isSubmitting()">
+        @if (isSubmitting()) {
+          <span class="spinner" aria-hidden="true"></span> Guardando…
+        } @else {
+          Guardar cambios
+        }
+      </button>
+    </form>
+  }
+</section>
