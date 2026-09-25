@@ -1,0 +1,35 @@
+<header class="auth-header">
+  <a class="brand" routerLink="/" aria-label="CashPyme, inicio"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Cash<span>Pyme</span></span></a>
+</header>
+
+<main class="auth-main">
+  <div class="auth-card" aria-live="polite">
+    @switch (estado()) {
+      @case ('verificando') {
+        <h1>Confirmando tu correo…</h1>
+        <p class="auth-subtitle cargando"><span class="spinner" aria-hidden="true"></span> Un momento, por favor.</p>
+      }
+      @case ('ok') {
+        <h1>¡Correo confirmado!</h1>
+        <div class="form-success" role="status">
+          Desde ahora te llegarán las alertas de vencimientos y el resumen semanal de tu caja.
+        </div>
+      }
+      @case ('error') {
+        <h1>No pudimos confirmar tu correo</h1>
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+        <p class="auth-subtitle hint">
+          Puedes pedir un enlace nuevo desde <strong>Mi cuenta</strong> una vez que inicies sesión.
+        </p>
+      }
+    }
+
+    <p class="auth-footer">
+      @if (isAuthenticated()) {
+        <a routerLink="/backoffice">Ir a CashPyme</a>
+      } @else {
+        <a routerLink="/login">Iniciar sesión</a>
+      }
+    </p>
+  </div>
+</main>

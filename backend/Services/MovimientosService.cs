@@ -82,30 +82,8 @@ public class MovimientosService(AppDbContext db)
     {
         var tipoMovimiento = request.TipoMovimiento;
 
-        var cuentaValida = await db.CuentasFinancieras
-            .AnyAsync(c => c.Id == request.IdCuenta && c.CompanyId == companyId && c.IsActive);
-        if (!cuentaValida)
-        {
-            throw new CuentaNoEncontradaException();
-        }
-
-        var categoriaValida = await db.CategoriasMovimiento
-            .AnyAsync(c => c.Id == request.IdCategoria && c.CompanyId == companyId
-                && c.Type == tipoMovimiento && c.IsActive);
-        if (!categoriaValida)
-        {
-            throw new CategoriaInvalidaException();
-        }
-
-        if (request.IdTercero is { } idTercero)
-        {
-            var terceroValido = await db.Terceros
-                .AnyAsync(t => t.Id == idTercero && t.CompanyId == companyId && t.IsActive);
-            if (!terceroValido)
-            {
-                throw new TerceroNoEncontradoException();
-            }
-        }
+        await ValidarReferenciasAsync(
+            companyId, request.IdCuenta, request.IdCategoria, tipoMovimiento, request.IdTercero);
 
         var movimiento = new MovimientoFinanciero
         {
@@ -121,17 +99,10 @@ public class MovimientosService(AppDbContext db)
             CreatedByUserId = userId
         };
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.SetUsuarioAuditoriaAsync(userId);
-
         db.MovimientosFinancieros.Add(movimiento);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAuditadoAsync(userId);
 
-        await db.Entry(movimiento).Reference(m => m.Account).LoadAsync();
-        await db.Entry(movimiento).Reference(m => m.Category).LoadAsync();
-
-        return ToResponse(movimiento);
+        return await ToResponseConRelacionesAsync(movimiento);
     }
 
     /// <summary>
@@ -158,30 +129,10 @@ public class MovimientosService(AppDbContext db)
             throw new MovimientoConPagosEditException();
         }
 
-        var cuentaValida = await db.CuentasFinancieras
-            .AnyAsync(c => c.Id == request.IdCuenta && c.CompanyId == companyId && c.IsActive);
-        if (!cuentaValida)
-        {
-            throw new CuentaNoEncontradaException();
-        }
-
-        var categoriaValida = await db.CategoriasMovimiento
-            .AnyAsync(c => c.Id == request.IdCategoria && c.CompanyId == companyId
-                && c.Type == movimiento.Type && c.IsActive);
-        if (!categoriaValida)
-        {
-            throw new CategoriaInvalidaException();
-        }
-
-        if (request.IdTercero is { } idTercero)
-        {
-            var terceroValido = await db.Terceros
-                .AnyAsync(t => t.Id == idTercero && t.CompanyId == companyId && t.IsActive);
-            if (!terceroValido)
-            {
-                throw new TerceroNoEncontradoException();
-            }
-        }
+        // El tipo no se puede cambiar al editar, así que la categoría se valida contra el que
+        // el movimiento ya tiene, no contra uno que venga en el request.
+        await ValidarReferenciasAsync(
+            companyId, request.IdCuenta, request.IdCategoria, movimiento.Type, request.IdTercero);
 
         movimiento.AccountId = request.IdCuenta;
         movimiento.CategoryId = request.IdCategoria;
@@ -193,15 +144,9 @@ public class MovimientosService(AppDbContext db)
         movimiento.PaymentMethod = request.MedioPago;
         movimiento.Description = request.Descripcion;
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.SetUsuarioAuditoriaAsync(userId);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAuditadoAsync(userId);
 
-        await db.Entry(movimiento).Reference(m => m.Account).LoadAsync();
-        await db.Entry(movimiento).Reference(m => m.Category).LoadAsync();
-
-        return ToResponse(movimiento);
+        return await ToResponseConRelacionesAsync(movimiento);
     }
 
     /// <summary>
@@ -235,10 +180,63 @@ public class MovimientosService(AppDbContext db)
         movimiento.CanceledByUserId = userId;
         movimiento.CancellationReason = string.IsNullOrWhiteSpace(request.Motivo) ? null : request.Motivo.Trim();
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.SetUsuarioAuditoriaAsync(userId);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAuditadoAsync(userId);
+
+        return ToResponse(movimiento);
+    }
+
+    /// <summary>
+    /// Comprueba que cuenta, categoría y tercero existan, sean de esta empresa y estén activos.
+    /// Las FK compuestas de la base ya lo garantizan; se valida antes para poder responder
+    /// 404/400 con un mensaje que la persona entienda, en vez del 500 genérico que dejaría
+    /// escapar una violación de FK.
+    /// </summary>
+    private async Task ValidarReferenciasAsync(
+        long companyId,
+        long idCuenta,
+        long idCategoria,
+        string tipoMovimiento,
+        long? idTercero)
+    {
+        var cuentaValida = await db.CuentasFinancieras
+            .AnyAsync(c => c.Id == idCuenta && c.CompanyId == companyId && c.IsActive);
+        if (!cuentaValida)
+        {
+            throw new CuentaNoEncontradaException();
+        }
+
+        // La categoría tiene que ser del mismo tipo que el movimiento: una categoría de
+        // egreso en un ingreso es una inconsistencia, no solo una referencia inexistente.
+        var categoriaValida = await db.CategoriasMovimiento
+            .AnyAsync(c => c.Id == idCategoria && c.CompanyId == companyId
+                && c.Type == tipoMovimiento && c.IsActive);
+        if (!categoriaValida)
+        {
+            throw new CategoriaInvalidaException();
+        }
+
+        // El tercero es opcional: solo se valida si vino uno.
+        if (idTercero is not { } id)
+        {
+            return;
+        }
+
+        var terceroValido = await db.Terceros
+            .AnyAsync(t => t.Id == id && t.CompanyId == companyId && t.IsActive);
+        if (!terceroValido)
+        {
+            throw new TerceroNoEncontradoException();
+        }
+    }
+
+    /// <summary>
+    /// La respuesta lleva los nombres de cuenta y categoría, que no están en el movimiento
+    /// recién guardado: hay que traerlos antes de mapear.
+    /// </summary>
+    private async Task<MovimientoResponse> ToResponseConRelacionesAsync(MovimientoFinanciero movimiento)
+    {
+        await db.Entry(movimiento).Reference(m => m.Account).LoadAsync();
+        await db.Entry(movimiento).Reference(m => m.Category).LoadAsync();
 
         return ToResponse(movimiento);
     }

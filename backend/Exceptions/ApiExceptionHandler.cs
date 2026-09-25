@@ -2,35 +2,25 @@ using Microsoft.AspNetCore.Diagnostics;
 
 namespace Backend.Exceptions;
 
+/// <summary>
+/// Traduce los errores de negocio a respuestas HTTP. Solo maneja ApiException: cualquier
+/// otra excepción se deja pasar a propósito para que la trate el pipeline por defecto y no
+/// se filtre al cliente un detalle interno disfrazado de error de negocio.
+/// </summary>
 public class ApiExceptionHandler : IExceptionHandler
 {
-    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        var statusCode = exception switch
-        {
-            EmailAlreadyRegisteredException => StatusCodes.Status409Conflict,
-            InvalidCredentialsException => StatusCodes.Status401Unauthorized,
-            CuentaNoEncontradaException => StatusCodes.Status404NotFound,
-            TerceroNoEncontradoException => StatusCodes.Status404NotFound,
-            CategoriaInvalidaException => StatusCodes.Status400BadRequest,
-            CuentaDuplicadaException => StatusCodes.Status409Conflict,
-            MembresiaNoEncontradaException => StatusCodes.Status403Forbidden,
-            EmpresaNoEncontradaException => StatusCodes.Status404NotFound,
-            RutDuplicadoException => StatusCodes.Status409Conflict,
-            MovimientoNoEncontradoException => StatusCodes.Status404NotFound,
-            MovimientoYaAnuladoException => StatusCodes.Status409Conflict,
-            MovimientoConPagosEditException => StatusCodes.Status409Conflict,
-            MovimientoConPagosAnularException => StatusCodes.Status409Conflict,
-            _ => 0
-        };
-
-        if (statusCode == 0)
+        if (exception is not ApiException apiException)
         {
             return false;
         }
 
-        httpContext.Response.StatusCode = statusCode;
-        await httpContext.Response.WriteAsJsonAsync(new { message = exception.Message }, cancellationToken);
+        httpContext.Response.StatusCode = apiException.StatusCode;
+        await httpContext.Response.WriteAsJsonAsync(new { message = apiException.Message }, cancellationToken);
         return true;
     }
 }

@@ -19,6 +19,9 @@
       @if (successMessage()) {
         <div class="form-success" role="status">{{ successMessage() }}</div>
       }
+      @if (warningMessage()) {
+        <div class="form-warning" role="alert">{{ warningMessage() }}</div>
+      }
 
       <div class="field">
         <label for="fecha">Fecha</label>
@@ -125,7 +128,7 @@
           @for (cuenta of cuentas(); track cuenta.id) {
             <li>
               <span>{{ cuenta.nombreCuenta }}</span>
-              <strong>{{ cuenta.saldoActual | number: '1.0-0' }}</strong>
+              <strong>{{ cuenta.saldoActual | number: '1.0-2' }}</strong>
             </li>
           }
         </ul>
@@ -135,10 +138,64 @@
 
   <section class="card listado">
     <h2>{{ tipoActual()?.tituloListado }}</h2>
+
+    <form class="filtros" [formGroup]="filtros" (ngSubmit)="aplicarFiltros()" novalidate>
+      <h3 class="filtros-titulo">Filtrar</h3>
+
+      <div class="filtros-campos">
+        <div class="field">
+          <label for="filtro-desde">Desde</label>
+          <input id="filtro-desde" type="date" formControlName="fechaDesde" [attr.aria-invalid]="rangoInvalido()" />
+        </div>
+
+        <div class="field">
+          <label for="filtro-hasta">Hasta</label>
+          <input id="filtro-hasta" type="date" formControlName="fechaHasta" [attr.aria-invalid]="rangoInvalido()" />
+        </div>
+
+        <div class="field">
+          <label for="filtro-categoria">Categoría</label>
+          <select id="filtro-categoria" formControlName="idCategoria">
+            <option [ngValue]="null">Todas</option>
+            @for (categoria of categorias(); track categoria.id) {
+              <option [ngValue]="categoria.id">{{ categoria.nombreCategoria }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="filtro-cuenta">Cuenta</label>
+          <select id="filtro-cuenta" formControlName="idCuenta">
+            <option [ngValue]="null">Todas</option>
+            @for (cuenta of cuentas(); track cuenta.id) {
+              <option [ngValue]="cuenta.id">{{ cuenta.nombreCuenta }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      @if (rangoInvalido()) {
+        <small class="field-error" role="alert">
+          La fecha "Desde" no puede ser posterior a la fecha "Hasta".
+        </small>
+      }
+
+      <div class="filtros-acciones">
+        <button type="submit" class="button button-primary">Filtrar</button>
+        @if (hayFiltrosAplicados()) {
+          <button type="button" class="button button-ghost" (click)="limpiarFiltros()">Limpiar</button>
+        }
+      </div>
+    </form>
+
     @if (isLoading()) {
       <p class="muted">Cargando…</p>
     } @else if (movimientos().length === 0) {
-      <p class="muted">{{ tipoActual()?.mensajeVacio }}</p>
+      @if (hayFiltrosAplicados()) {
+        <p class="muted">No hay movimientos que coincidan con estos filtros. Prueba ampliando el rango de fechas o quitando algún filtro.</p>
+      } @else {
+        <p class="muted">{{ tipoActual()?.mensajeVacio }}</p>
+      }
     } @else {
       <table>
         <thead>
@@ -161,7 +218,7 @@
               <td>{{ movimiento.nombreCategoria }}</td>
               <td>{{ movimiento.medioPago }}</td>
               <td>{{ movimiento.descripcion || '—' }}</td>
-              <td class="monto">{{ movimiento.monto | number: '1.0-0' }}</td>
+              <td class="monto">{{ movimiento.monto | number: '1.0-2' }}</td>
               <td>
                 <span class="estado-badge" [class.anulado]="movimiento.estadoMovimiento === 'anulado'">
                   {{ movimiento.estadoMovimiento === 'anulado' ? 'Anulado' : 'Registrado' }}

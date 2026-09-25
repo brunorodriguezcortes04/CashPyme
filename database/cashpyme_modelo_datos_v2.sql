@@ -83,6 +83,7 @@ CREATE TABLE empresa (
     dias_aviso_vencimiento  SMALLINT      NOT NULL DEFAULT 3,
     umbral_saldo_bajo       NUMERIC(14,2) NOT NULL DEFAULT 0,
     fecha_creacion          TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    fecha_ultimo_reporte    TIMESTAMPTZ,  -- último resumen semanal enviado por correo
     activo                  BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT ck_empresa_rut     CHECK (rut IS NULL OR fn_rut_valido(rut)),
     CONSTRAINT ck_empresa_moneda  CHECK (moneda_base = 'CLP'),
@@ -449,6 +450,7 @@ CREATE TABLE alerta (
     fecha_generacion    TIMESTAMPTZ NOT NULL DEFAULT now(),
     fecha_lectura       TIMESTAMPTZ,
     id_usuario_lectura  BIGINT REFERENCES usuario(id_usuario),
+    fecha_envio_email   TIMESTAMPTZ,  -- NULL = aún no se envía por correo
     CONSTRAINT ck_alerta_tipo      CHECK (tipo_alerta IN ('vencimiento_proximo','documento_vencido','saldo_bajo','saldo_negativo_proyectado')),
     CONSTRAINT ck_alerta_severidad CHECK (nivel_severidad IN ('info','advertencia','critica')),
     CONSTRAINT ck_alerta_estado    CHECK (estado_alerta IN ('pendiente','leida','resuelta')),
@@ -468,6 +470,8 @@ CREATE UNIQUE INDEX ux_alerta_cuenta ON alerta (id_empresa, tipo_alerta, id_cuen
 CREATE UNIQUE INDEX ux_alerta_proyeccion ON alerta (id_empresa, fecha_referencia)
     WHERE tipo_alerta = 'saldo_negativo_proyectado' AND estado_alerta <> 'resuelta';
 CREATE INDEX ix_alerta_empresa_estado ON alerta (id_empresa, estado_alerta);
+CREATE INDEX ix_alerta_por_enviar ON alerta (id_empresa)
+    WHERE estado_alerta = 'pendiente' AND fecha_envio_email IS NULL;
 
 -- ---------------------------------------------------------------------
 -- 17. AUDITORIA — trazabilidad de cambios (poblada por fn_auditar)
@@ -1085,8 +1089,12 @@ INSERT INTO rol (nombre_rol, descripcion) VALUES
 -- Pantallas disponibles en el backoffice. Para publicar una pantalla nueva:
 -- agregar la fila aquí y la ruta con el mismo valor de "ruta" en app.routes.ts.
 INSERT INTO pantalla (codigo, nombre, ruta, orden, permiso_requerido) VALUES
-    ('movimientos.ingresos', 'Ingresos', 'movimientos/ingreso', 1, 'MovimientosRegistrar'),
-    ('movimientos.egresos',  'Egresos',  'movimientos/egreso',  2, 'MovimientosRegistrar'),
-    ('empresa.cuentas',      'Cuentas',  'cuentas',  3, 'CuentasGestionar');
+    ('movimientos.ingresos',   'Ingresos', 'movimientos/ingreso', 1, 'MovimientosRegistrar'),
+    ('movimientos.egresos',    'Egresos',  'movimientos/egreso',  2, 'MovimientosRegistrar'),
+    ('empresa.cuentas',        'Cuentas',  'cuentas',  3, 'CuentasGestionar'),
+    ('empresa.datos',          'Datos de la empresa', 'empresa',  4, 'ConfiguracionEmpresaVer'),
+    ('empresa.usuarios',       'Usuarios',            'usuarios', 5, 'GestionUsuarios'),
+    -- Sin permiso: cambiar la contraseña propia no depende del rol en la empresa.
+    ('usuario.mi_cuenta',      'Mi cuenta',           'cuenta',   6, NULL);
 
 COMMIT;

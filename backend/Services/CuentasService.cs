@@ -3,7 +3,6 @@ using Backend.Dtos;
 using Backend.Exceptions;
 using Backend.Models;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Backend.Services;
 
@@ -37,12 +36,8 @@ public class CuentasService(AppDbContext db)
             InitialBalance = request.SaldoInicial
         };
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.SetUsuarioAuditoriaAsync(userId);
-
         db.CuentasFinancieras.Add(cuenta);
-        await GuardarAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAuditadoAsync(userId, () => new CuentaDuplicadaException());
 
         // Cuenta recién creada: aún no tiene movimientos, el saldo actual es el inicial.
         return ToResponse(cuenta, cuenta.InitialBalance);
@@ -59,11 +54,7 @@ public class CuentasService(AppDbContext db)
         cuenta.Number = request.NumeroCuenta?.Trim();
         cuenta.InitialBalance = request.SaldoInicial;
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.SetUsuarioAuditoriaAsync(userId);
-
-        await GuardarAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAuditadoAsync(userId, () => new CuentaDuplicadaException());
 
         return ToResponse(cuenta, await SaldoActualAsync(idCuenta));
     }
@@ -77,11 +68,7 @@ public class CuentasService(AppDbContext db)
         var cuenta = await BuscarAsync(companyId, idCuenta);
         cuenta.IsActive = activo;
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.Database.SetUsuarioAuditoriaAsync(userId);
-
-        await GuardarAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAuditadoAsync(userId, () => new CuentaDuplicadaException());
 
         return ToResponse(cuenta, await SaldoActualAsync(idCuenta));
     }
@@ -99,20 +86,6 @@ public class CuentasService(AppDbContext db)
             .Where(s => s.AccountId == idCuenta)
             .Select(s => s.CurrentBalance)
             .SingleAsync();
-    }
-
-    private async Task GuardarAsync()
-    {
-        try
-        {
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex)
-            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            // uq_cuenta_nombre: mismo nombre de cuenta dentro de la empresa.
-            throw new CuentaDuplicadaException();
-        }
     }
 
     private static CuentaResponse ToResponse(CuentaFinanciera c, decimal saldoActual) => new(

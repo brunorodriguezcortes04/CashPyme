@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { map } from 'rxjs';
+import { catchError, map, of } from 'rxjs';
 import { PantallasService } from './pantallas.service';
 
 /**
@@ -22,6 +22,10 @@ export const pantallaGuard: CanActivateFn = (route) => {
 
       const primera = pantallas[0];
       return router.createUrlTree(primera ? ['/backoffice', ...primera.ruta.split('/')] : ['/']);
-    })
+    }),
+    // No se pudieron resolver las pantallas: sesión vencida o backend caído. Se manda al
+    // login con el aviso, en vez de rebotar a la landing sin decir nada (que era lo que
+    // hacía parecer que el botón "Ir al backoffice" no funcionaba).
+    catchError(() => of(router.createUrlTree(['/login'], { queryParams: { sesionExpirada: 1 } })))
   );
 };

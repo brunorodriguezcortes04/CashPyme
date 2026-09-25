@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<CompanyMembership> CompanyMemberships => Set<CompanyMembership>();
+    public DbSet<TokenUsuario> TokensUsuario => Set<TokenUsuario>();
     public DbSet<CuentaFinanciera> CuentasFinancieras => Set<CuentaFinanciera>();
     public DbSet<CategoriaMovimiento> CategoriasMovimiento => Set<CategoriaMovimiento>();
     public DbSet<Tercero> Terceros => Set<Tercero>();
@@ -57,7 +58,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Email).HasColumnName("email").HasMaxLength(150);
             e.Property(x => x.PasswordHash).HasColumnName("password_hash").HasMaxLength(255);
             e.Property(x => x.LastAccessAtUtc).HasColumnName("ultimo_acceso");
+            e.Property(x => x.EmailVerifiedAtUtc).HasColumnName("email_verificado_en");
             e.Property(x => x.IsActive).HasColumnName("activo");
+        });
+
+        modelBuilder.Entity<TokenUsuario>(e =>
+        {
+            e.ToTable("token_usuario");
+            e.Property(x => x.Id).HasColumnName("id_token");
+            e.Property(x => x.UserId).HasColumnName("id_usuario");
+            e.Property(x => x.Type).HasColumnName("tipo_token").HasMaxLength(20);
+            e.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(64);
+            e.Property(x => x.CreatedAtUtc).HasColumnName("fecha_creacion").ValueGeneratedOnAdd();
+            e.Property(x => x.ExpiresAtUtc).HasColumnName("fecha_expiracion");
+            e.Property(x => x.UsedAtUtc).HasColumnName("fecha_uso");
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         });
 
         modelBuilder.Entity<CompanyMembership>(e =>

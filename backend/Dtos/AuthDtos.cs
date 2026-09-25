@@ -8,10 +8,29 @@ public record RegisterRequest(
     [Required, MinLength(8), MaxLength(100)] string Password
 );
 
+public record VerificarEmailRequest([Required, MaxLength(100)] string Token);
+
+public record OlvidePasswordRequest([Required, EmailAddress, MaxLength(150)] string Email);
+
+public record RestablecerPasswordRequest(
+    [Required, MaxLength(100)] string Token,
+    [Required, MinLength(8), MaxLength(100)] string PasswordNueva
+);
+
 public record LoginRequest(
     [Required, EmailAddress] string Email,
     [Required] string Password,
     bool RememberMe
+);
+
+/// <summary>
+/// Exige la contraseña actual aunque la sesión ya esté autenticada: si alguien deja el
+/// equipo abierto, no debería poder quedarse con la cuenta cambiando la clave. El mínimo
+/// de 8 es el mismo del registro.
+/// </summary>
+public record CambiarPasswordRequest(
+    [Required] string PasswordActual,
+    [Required, MinLength(8), MaxLength(100)] string PasswordNueva
 );
 
 /// <summary>

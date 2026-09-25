@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, of, shareReplay, tap } from 'rxjs';
+import { Observable, catchError, shareReplay, tap, throwError } from 'rxjs';
 
 export interface Pantalla {
   codigo: string;
@@ -20,8 +20,15 @@ export class PantallasService {
   listPantallas(): Observable<Pantalla[]> {
     this.pantallas$ ??= this.http.get<Pantalla[]>('/api/pantallas').pipe(
       tap((pantallas) => (this.ultimas = pantallas)),
-      catchError(() => of([])),
-      shareReplay({ bufferSize: 1, refCount: false })
+      shareReplay({ bufferSize: 1, refCount: false }),
+      catchError((error: unknown) => {
+        // Un fallo NO se puede quedar cacheado. Antes se devolvía una lista vacía que
+        // shareReplay guardaba para siempre: si /api/pantallas fallaba una vez (sesión
+        // vencida, backend reiniciado), el backoffice quedaba inalcanzable sin volver a
+        // pedir nada, y solo se recuperaba recargando la página entera.
+        this.limpiarCache();
+        return throwError(() => error);
+      })
     );
 
     return this.pantallas$;

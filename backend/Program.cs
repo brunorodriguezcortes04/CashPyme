@@ -3,6 +3,8 @@ using Backend.Data;
 using Backend.Exceptions;
 using Backend.Security;
 using Backend.Services;
+using Backend.Services.Correo;
+using Backend.Services.Notificaciones;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +60,30 @@ builder.Services.AddScoped<RolEmpresaService>();
 // Scoped porque resuelve el rol contra AppDbContext en cada request.
 builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
+// Correo (Resend). Sin Email:ResendApiKey los correos se escriben en la consola en vez de
+// enviarse, para que se pueda desarrollar sin cuenta de Resend (ver README).
+//   dev:  dotnet user-secrets set "Email:ResendApiKey" "re_..."
+//   prod: variable de entorno Email__ResendApiKey
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<AppOptions>(builder.Configuration.GetSection("App"));
+builder.Services.Configure<NotificacionesOptions>(builder.Configuration.GetSection("Notificaciones"));
+if (string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
+{
+    builder.Services.AddSingleton<IEmailSender, ConsolaEmailSender>();
+}
+else
+{
+    builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+    {
+        client.BaseAddress = new Uri("https://api.resend.com/");
+        client.Timeout = TimeSpan.FromSeconds(15);
+    });
+}
+builder.Services.AddScoped<CorreoCuentaService>();
+builder.Services.AddScoped<NotificacionesService>();
+builder.Services.AddHostedService<NotificacionesWorker>();
+builder.Services.AddCashPymeRateLimits();
+
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -91,13 +117,36 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 
-app.UseHttpsRedirection();
+// En desarrollo NO se redirige a HTTPS. El proxy de Angular apunta a http://localhost:5131,
+// y si el perfil https está levantado esto respondía 307 hacia https://localhost:7016: el
+// navegador seguía ese redirect cruzando de origen (4200 -> 7016) y, por regla de seguridad,
+// BORRA el header Authorization al hacerlo. Resultado: cada petición autenticada llegaba sin
+// token y devolvía 401 con cuerpo vacío, así que la aplicación parecía cerrar sesión sola.
+// En producción el frontend y la API se sirven bajo el mismo origen y esto no aplica.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors(FrontendCorsPolicy);
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+{
+    // Solo desarrollo: dispara a mano el ciclo de notificaciones sin esperar al worker ni al
+    // lunes. Genera y envía las alertas pendientes y fuerza el resumen semanal de una empresa.
+    //   POST http://localhost:5131/api/dev/notificaciones?idEmpresa=1
+    app.MapPost("/api/dev/notificaciones", async (long idEmpresa, NotificacionesService service) =>
+    {
+        var alertas = await service.ProcesarAlertasAsync();
+        var reportes = await service.ProcesarReportesSemanalesAsync(idEmpresa);
+        return Results.Ok(new { alertasEnviadas = alertas, reportesEnviados = reportes });
+    });
+}
 
 app.Run();

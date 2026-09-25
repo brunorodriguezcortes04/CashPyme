@@ -49,6 +49,12 @@ input[aria-invalid='true'] { border-color: var(--danger); }
 
 .form-alert { padding: 12px 14px; border: 1px solid rgba(255, 138, 138, .4); border-radius: var(--radius-sm); color: var(--danger); background: rgba(255, 138, 138, .08); font-size: 15px; line-height: 1.45; }
 
+.form-success { padding: 12px 14px; border: 1px solid rgba(110, 231, 166, .4); border-radius: var(--radius-sm); color: #8ff0bd; background: rgba(110, 231, 166, .08); font-size: 15px; line-height: 1.45; }
+
+.auth-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.auth-link { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; color: var(--accent); font-size: 15px; font-weight: 500; text-decoration: underline; text-underline-offset: 4px; }
+.auth-link:hover { color: #8db9ff; }
+
 .remember-me { display: flex; align-items: center; gap: 12px; min-height: 44px; color: var(--text-secondary); font-size: 15px; cursor: pointer; }
 .remember-me input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; accent-color: var(--accent-strong); }
 

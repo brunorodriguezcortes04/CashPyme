@@ -1,0 +1,116 @@
+<section class="wrap">
+  <h1>Mi cuenta</h1>
+  <p class="page-subtitle">Cambia tu contraseña. Es la misma para todas las empresas a las que tengas acceso.</p>
+
+  <div class="content-grid">
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <h2>Cambiar contraseña</h2>
+
+      @if (errorMessage()) {
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+      }
+      @if (successMessage()) {
+        <div class="form-success" role="status">{{ successMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="passwordActual">Contraseña actual</label>
+        <input
+          id="passwordActual"
+          [type]="showPassword() ? 'text' : 'password'"
+          autocomplete="current-password"
+          formControlName="passwordActual"
+          [attr.aria-invalid]="form.controls.passwordActual.invalid && form.controls.passwordActual.touched"
+        />
+        @if (form.controls.passwordActual.invalid && form.controls.passwordActual.touched) {
+          <small class="field-error" role="alert">Escribe tu contraseña actual.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="passwordNueva">Contraseña nueva</label>
+        <small class="field-hint">Mínimo 8 caracteres.</small>
+        <div class="password-row">
+          <input
+            id="passwordNueva"
+            [type]="showPassword() ? 'text' : 'password'"
+            autocomplete="new-password"
+            formControlName="passwordNueva"
+            [attr.aria-invalid]="form.controls.passwordNueva.invalid && form.controls.passwordNueva.touched"
+          />
+          <button
+            type="button"
+            class="button button-ghost"
+            [attr.aria-pressed]="showPassword()"
+            (click)="togglePasswordVisibility()"
+          >
+            {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
+          </button>
+        </div>
+        @if (form.controls.passwordNueva.invalid && form.controls.passwordNueva.touched) {
+          <small class="field-error" role="alert">La contraseña nueva debe tener al menos 8 caracteres.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="confirmPassword">Confirmar contraseña nueva</label>
+        <input
+          id="confirmPassword"
+          [type]="showPassword() ? 'text' : 'password'"
+          autocomplete="new-password"
+          formControlName="confirmPassword"
+          [attr.aria-invalid]="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched"
+        />
+        @if (form.hasError('passwordMismatch') && form.controls.confirmPassword.touched) {
+          <small class="field-error" role="alert">Las contraseñas no coinciden.</small>
+        }
+      </div>
+
+      <button type="submit" class="button button-primary" [disabled]="isSubmitting()">
+        {{ isSubmitting() ? 'Guardando…' : 'Cambiar contraseña' }}
+      </button>
+    </form>
+
+    <aside class="card">
+      <h2>Tus datos</h2>
+      @if (session(); as datos) {
+        <dl class="datos">
+          <div>
+            <dt>Correo</dt>
+            <dd>{{ datos.email }}</dd>
+          </div>
+          <div>
+            <dt>Empresa activa</dt>
+            <dd>{{ datos.businessName }}</dd>
+          </div>
+          <div>
+            <dt>Tu rol aquí</dt>
+            <dd>{{ datos.rol }}</dd>
+          </div>
+        </dl>
+      }
+      <div class="verificacion">
+        <h3>Confirmación del correo</h3>
+        <p class="muted">
+          Las alertas y el resumen semanal llegan a este correo. Si no te llegó el enlace para
+          confirmarlo, o ya venció, pide uno nuevo.
+        </p>
+        @if (verificacionMensaje()) {
+          <p class="verificacion-mensaje" role="status">{{ verificacionMensaje() }}</p>
+        }
+        <button
+          type="button"
+          class="button button-ghost"
+          [disabled]="reenviandoVerificacion()"
+          (click)="reenviarVerificacion()"
+        >
+          {{ reenviandoVerificacion() ? 'Enviando…' : 'Reenviar enlace de confirmación' }}
+        </button>
+      </div>
+      <p class="muted nota">
+        Si entraste con una contraseña provisional que te entregó un administrador, cámbiala
+        acá: esa clave la conoce quien te dio el acceso.
+      </p>
+    </aside>
+  </div>
+</section>

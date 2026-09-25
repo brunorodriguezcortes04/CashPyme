@@ -1,0 +1,167 @@
+<section class="wrap">
+  <h1>Usuarios</h1>
+  <p class="page-subtitle">Da acceso a tu equipo y define qué puede hacer cada persona en esta empresa.</p>
+
+  @if (credencialNueva(); as credencial) {
+    <div class="credencial" role="alert">
+      <h2>Cuenta creada</h2>
+      <p>
+        Entrégale estos datos a la persona. <strong>Esta contraseña no se vuelve a mostrar</strong>,
+        así que cópiala antes de cerrar este aviso.
+      </p>
+      <dl>
+        <div>
+          <dt>Correo</dt>
+          <dd>{{ credencial.email }}</dd>
+        </div>
+        <div>
+          <dt>Contraseña provisional</dt>
+          <dd><code>{{ credencial.password }}</code></dd>
+        </div>
+      </dl>
+      <button type="button" class="button button-ghost" (click)="cerrarCredencial()">Ya la copié</button>
+    </div>
+  }
+
+  <div class="content-grid">
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <h2>Dar acceso a una persona</h2>
+
+      @if (errorMessage()) {
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+      }
+      @if (successMessage()) {
+        <div class="form-success" role="status">{{ successMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="nombre">Nombre</label>
+        <input
+          id="nombre"
+          type="text"
+          formControlName="nombre"
+          placeholder="Ej: María Pérez"
+          [attr.aria-invalid]="form.controls.nombre.invalid && form.controls.nombre.touched"
+        />
+        @if (form.controls.nombre.invalid && form.controls.nombre.touched) {
+          <small class="field-error" role="alert">Escribe el nombre de la persona.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="email">Correo electrónico</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="Ej: maria@minegocio.cl"
+          [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+        />
+        @if (form.controls.email.invalid && form.controls.email.touched) {
+          <small class="field-error" role="alert">Escribe un correo válido.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="idRol">Rol</label>
+        <select
+          id="idRol"
+          formControlName="idRol"
+          [attr.aria-invalid]="form.controls.idRol.invalid && form.controls.idRol.touched"
+        >
+          <option [ngValue]="null" disabled>Selecciona un rol</option>
+          @for (rol of roles(); track rol.id) {
+            <option [ngValue]="rol.id">{{ rol.nombreRol }}</option>
+          }
+        </select>
+        @if (form.controls.idRol.invalid && form.controls.idRol.touched) {
+          <small class="field-error" role="alert">Selecciona un rol.</small>
+        }
+      </div>
+
+      <button type="submit" class="button button-primary" [disabled]="isSubmitting()">
+        {{ isSubmitting() ? 'Dando acceso…' : 'Dar acceso' }}
+      </button>
+    </form>
+
+    <aside class="card">
+      <h2>Qué puede hacer cada rol</h2>
+      <dl class="roles-ayuda">
+        <div>
+          <dt>Administrador</dt>
+          <dd>Todo: movimientos, cuentas, datos de la empresa y usuarios.</dd>
+        </div>
+        <div>
+          <dt>Contador</dt>
+          <dd>Movimientos y cuentas. Ve los datos de la empresa, pero no los edita.</dd>
+        </div>
+        <div>
+          <dt>Operador</dt>
+          <dd>Solo registra y consulta movimientos.</dd>
+        </div>
+      </dl>
+    </aside>
+  </div>
+
+  <section class="card listado">
+    <h2>Personas con acceso</h2>
+    @if (isLoading()) {
+      <p class="muted">Cargando…</p>
+    } @else if (usuarios().length === 0) {
+      <p class="muted">Todavía no hay nadie más con acceso a esta empresa.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Correo</th>
+            <th scope="col">Rol</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (usuario of usuarios(); track usuario.idUsuario) {
+            <tr [class.inactivo]="!usuario.activo">
+              <td>{{ usuario.nombre }}</td>
+              <td>{{ usuario.email }}</td>
+              <td>
+                <label class="visually-hidden" [attr.for]="'rol-' + usuario.idUsuario">
+                  Rol de {{ usuario.nombre }}
+                </label>
+                <select
+                  [attr.id]="'rol-' + usuario.idUsuario"
+                  [value]="idRolDe(usuario)"
+                  [disabled]="actualizandoId() === usuario.idUsuario"
+                  (change)="cambiarRol(usuario, $event)"
+                >
+                  @for (rol of roles(); track rol.id) {
+                    <option [value]="rol.id" [selected]="rol.nombreRol === usuario.rol">
+                      {{ rol.nombreRol }}
+                    </option>
+                  }
+                </select>
+              </td>
+              <td>
+                <span class="estado-badge" [class.inactivo]="!usuario.activo">
+                  {{ usuario.activo ? 'Activo' : 'Sin acceso' }}
+                </span>
+              </td>
+              <td class="acciones">
+                <button
+                  type="button"
+                  class="button button-ghost"
+                  [class.boton-quitar]="usuario.activo"
+                  [disabled]="actualizandoId() === usuario.idUsuario"
+                  (click)="cambiarEstado(usuario)"
+                >
+                  {{ usuario.activo ? 'Quitar acceso' : 'Restablecer acceso' }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</section>

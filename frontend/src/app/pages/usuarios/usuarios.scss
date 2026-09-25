@@ -1,0 +1,23 @@
+@use '../backoffice-page';
+
+// Aviso de la contraseña provisional: se muestra una sola vez, así que tiene que destacar
+// más que un mensaje de éxito cualquiera.
+.credencial { padding: 20px 24px; border: 1px solid rgba(122, 214, 158, .45); border-radius: var(--radius-lg); background: rgba(122, 214, 158, .08); }
+.credencial h2 { font-size: 1.1rem; margin-bottom: 8px; color: #7ad69e; }
+.credencial p { margin: 0 0 16px; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
+.credencial dl { display: grid; gap: 12px; margin: 0 0 20px; }
+.credencial dt { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+.credencial dd { margin: 0; font-size: 16px; }
+.credencial code { padding: 4px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-strong); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 17px; letter-spacing: .05em; user-select: all; }
+
+.roles-ayuda { display: grid; gap: 16px; margin: 0; }
+.roles-ayuda dt { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.roles-ayuda dd { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.45; }
+
+// Ancho suficiente para "Administrador", el rol más largo: si no, se corta a "Admi".
+td select { min-height: 38px; min-width: 150px; font-size: 14px; }
+
+tr.inactivo td { opacity: .55; }
+.estado-badge.inactivo { color: var(--muted); }
+
+.boton-quitar:hover { border-color: var(--danger); color: var(--danger); background: rgba(255, 138, 138, .08); }

@@ -41,8 +41,8 @@ export class BackofficeShell {
   }
 
   protected logout(): void {
+    // El caché de pantallas lo limpia AuthService.logout(): no hace falta recordarlo acá.
     this.authService.logout();
-    this.pantallasService.limpiarCache();
     this.router.navigateByUrl('/');
   }
 }

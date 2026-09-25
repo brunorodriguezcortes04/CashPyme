@@ -48,6 +48,8 @@ export class Movimientos {
   protected readonly isSubmitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
+  /** Aviso de sobregiro: el movimiento se guardó, pero la cuenta quedó en negativo. */
+  protected readonly warningMessage = signal<string | null>(null);
   protected readonly hasCuentas = computed(() => this.cuentas().length > 0);
   protected readonly hasCategorias = computed(() => this.categorias().length > 0);
 
@@ -67,6 +69,22 @@ export class Movimientos {
     medioPago: ['', [Validators.required]],
     descripcion: ['', [Validators.maxLength(250)]]
   });
+
+  /** Filtros del listado. Viven aparte del formulario de registro: no se pisan entre sí. */
+  protected readonly filtros = this.formBuilder.nonNullable.group({
+    fechaDesde: [''],
+    fechaHasta: [''],
+    idCategoria: [null as number | null],
+    idCuenta: [null as number | null]
+  });
+
+  /**
+   * Si el listado vuelve vacío, el mensaje cambia según esto: sin filtros es "todavía no
+   * registras nada"; con filtros es "no hay resultados para esta búsqueda", que es un
+   * estado vacío, no un error.
+   */
+  protected readonly hayFiltrosAplicados = signal(false);
+  protected readonly rangoInvalido = signal(false);
 
   constructor() {
     this.catalogosService.listTiposMovimiento().subscribe({
@@ -88,8 +106,47 @@ export class Movimientos {
       .subscribe((params) => {
         this.tipo.set(params.get('tipo') ?? '');
         this.cancelarEdicion();
+        // Al cambiar de ingresos a egresos las categorías ya no aplican: se parte limpio.
+        this.limpiarFiltros({ recargar: false });
         this.cargarDatos();
       });
+  }
+
+  /**
+   * El MVP no bloquea el sobregiro: el movimiento ya se guardó. Esto solo avisa, después
+   * de recalcular el saldo, que la cuenta quedó en negativo, para que la persona se entere
+   * en el momento y no al revisar la caja más tarde.
+   */
+  private avisarSiQuedaSobregirada(idCuenta: number): void {
+    const cuenta = this.cuentas().find((c) => c.id === idCuenta);
+
+    this.warningMessage.set(
+      cuenta && cuenta.saldoActual < 0
+        ? `La cuenta "${cuenta.nombreCuenta}" quedó con saldo negativo. El movimiento se guardó igual.`
+        : null
+    );
+  }
+
+  protected aplicarFiltros(): void {
+    const { fechaDesde, fechaHasta } = this.filtros.getRawValue();
+
+    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+      this.rangoInvalido.set(true);
+      return;
+    }
+
+    this.rangoInvalido.set(false);
+    this.cargarMovimientos();
+  }
+
+  protected limpiarFiltros(opciones: { recargar: boolean } = { recargar: true }): void {
+    this.filtros.reset({ fechaDesde: '', fechaHasta: '', idCategoria: null, idCuenta: null });
+    this.rangoInvalido.set(false);
+    this.hayFiltrosAplicados.set(false);
+
+    if (opciones.recargar) {
+      this.cargarMovimientos();
+    }
   }
 
   protected submit(): void {
@@ -111,6 +168,7 @@ export class Movimientos {
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
+    this.warningMessage.set(null);
 
     const idEditando = this.editandoId();
     const peticion = idEditando === null
@@ -119,16 +177,26 @@ export class Movimientos {
 
     peticion.subscribe({
       next: (movimiento) => {
-        if (idEditando === null) {
+        this.successMessage.set(
+          idEditando === null ? this.tipoActual()?.mensajeExito ?? null : 'Movimiento actualizado.'
+        );
+
+        // Con filtros puestos el movimiento recién guardado puede no pertenecer al resultado
+        // (otra fecha, otra categoría): se recarga en vez de insertarlo a mano, para que el
+        // listado siempre coincida con lo que el filtro dice que está mostrando.
+        if (this.hayFiltrosAplicados()) {
+          this.cargarMovimientos();
+        } else if (idEditando === null) {
           this.movimientos.update((actuales) => [movimiento, ...actuales]);
-          this.successMessage.set(this.tipoActual()?.mensajeExito ?? null);
         } else {
           this.movimientos.update((actuales) =>
             actuales.map((m) => (m.id === movimiento.id ? movimiento : m))
           );
-          this.successMessage.set('Movimiento actualizado.');
         }
-        this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
+        this.cuentasService.listCuentas().subscribe((cuentas) => {
+          this.cuentas.set(cuentas);
+          this.avisarSiQuedaSobregirada(movimiento.idCuenta);
+        });
         this.editandoId.set(null);
         this.reiniciarFormulario(idEditando === null ? movimiento.idCuenta : null);
         this.isSubmitting.set(false);
@@ -145,6 +213,7 @@ export class Movimientos {
     this.editandoId.set(movimiento.id);
     this.errorMessage.set(null);
     this.successMessage.set(null);
+    this.warningMessage.set(null);
     this.form.setValue({
       fecha: movimiento.fecha,
       monto: movimiento.monto,
@@ -169,6 +238,7 @@ export class Movimientos {
     this.anulandoId.set(movimiento.id);
     this.errorMessage.set(null);
     this.successMessage.set(null);
+    this.warningMessage.set(null);
     this.confirmandoAnulacion.set(null);
 
     this.movimientosService.anularMovimiento(movimiento.id, null, false).subscribe({
@@ -232,16 +302,31 @@ export class Movimientos {
       error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
     });
 
-    this.movimientosService.listMovimientos(this.tipo()).subscribe({
-      next: (movimientos) => {
-        this.movimientos.set(movimientos);
-        this.isLoading.set(false);
-      },
-      error: (error: unknown) => {
-        this.errorMessage.set(mensajeDeError(error));
-        this.isLoading.set(false);
-      }
-    });
+    this.cargarMovimientos();
+  }
+
+  /**
+   * Trae el listado con los filtros que estén puestos. Un resultado vacío es un estado
+   * válido, no un error: solo cambia el mensaje que se muestra.
+   */
+  private cargarMovimientos(): void {
+    const { fechaDesde, fechaHasta, idCategoria, idCuenta } = this.filtros.getRawValue();
+    this.hayFiltrosAplicados.set(Boolean(fechaDesde || fechaHasta || idCategoria || idCuenta));
+
+    this.isLoading.set(true);
+
+    this.movimientosService
+      .listMovimientos(this.tipo(), { fechaDesde, fechaHasta, idCategoria, idCuenta })
+      .subscribe({
+        next: (movimientos) => {
+          this.movimientos.set(movimientos);
+          this.isLoading.set(false);
+        },
+        error: (error: unknown) => {
+          this.errorMessage.set(mensajeDeError(error));
+          this.isLoading.set(false);
+        }
+      });
   }
 
   private reiniciarFormulario(idCuenta: number | null = null): void {

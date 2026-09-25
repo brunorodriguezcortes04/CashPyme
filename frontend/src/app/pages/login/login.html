@@ -8,6 +8,16 @@
     <p class="auth-subtitle">Accede para ver el estado de tu caja y tus proyecciones.</p>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (sesionExpirada() && !errorMessage()) {
+        <div class="form-alert" role="status">
+          Tu sesión expiró por seguridad. Vuelve a iniciar sesión para continuar.
+        </div>
+      }
+      @if (passwordRestablecida() && !errorMessage()) {
+        <div class="form-success" role="status">
+          Tu contraseña se actualizó. Ya puedes iniciar sesión con la nueva.
+        </div>
+      }
       @if (errorMessage()) {
         <div class="form-alert" role="alert">{{ errorMessage() }}</div>
       }
@@ -67,10 +77,13 @@
         }
       </div>
 
-      <label class="remember-me">
-        <input type="checkbox" formControlName="rememberMe" />
-        <span>Mantener sesión iniciada</span>
-      </label>
+      <div class="auth-row">
+        <label class="remember-me">
+          <input type="checkbox" formControlName="rememberMe" />
+          <span>Mantener sesión iniciada</span>
+        </label>
+        <a class="auth-link" routerLink="/olvide-password">¿Olvidaste tu contraseña?</a>
+      </div>
 
       <button type="submit" class="button button-primary button-large auth-submit" [disabled]="isSubmitting()">
         @if (isSubmitting()) {

@@ -22,7 +22,20 @@ export function apiError(error: HttpErrorResponse) {
     return throwError(() => new Error('Tuvimos un problema de nuestro lado. Inténtalo de nuevo en unos minutos.'));
   }
 
+  // Los errores de negocio traen su propio mensaje (ver ApiExceptionHandler): siempre gana,
+  // porque es el único que sabe qué pasó de verdad.
+  if (error.error?.message) {
+    return throwError(() => new Error(error.error.message));
+  }
+
+  // Un 401 SIN cuerpo no lo produjo la aplicación sino el middleware del JWT: token vencido
+  // o inválido. Las credenciales incorrectas del login sí traen mensaje, así que salen por
+  // el if de arriba y conservan el suyo.
+  if (error.status === 401) {
+    return throwError(() => new Error('Tu sesión expiró. Vuelve a iniciar sesión.'));
+  }
+
   return throwError(
-    () => new Error(error.error?.message ?? 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.')
+    () => new Error('No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.')
   );
 }

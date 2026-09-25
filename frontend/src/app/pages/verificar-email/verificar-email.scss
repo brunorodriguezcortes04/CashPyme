@@ -1,0 +1,10 @@
+@use '../auth-shell';
+
+.auth-card h1 { margin-bottom: 20px; }
+
+// Solo la línea del spinner es flex, para que el círculo quede junto al texto. Si se aplica
+// a todos los .auth-subtitle rompe el párrafo de ayuda: flex trata cada trozo de texto y el
+// <strong> como items separados y la frase queda partida en columnas.
+.cargando { display: flex; align-items: center; gap: 10px; }
+
+.hint { margin-bottom: 0; }

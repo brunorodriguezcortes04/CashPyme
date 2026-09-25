@@ -4,11 +4,10 @@ using Backend.Exceptions;
 using Backend.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Backend.Services;
 
-public class AuthService(AppDbContext db, JwtTokenService jwtTokenService)
+public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, CorreoCuentaService correoCuenta)
 {
     private static readonly PasswordHasher<User> PasswordHasher = new();
 
@@ -51,15 +50,11 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService)
             RoleId = adminRoleId
         });
 
-        try
-        {
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            // Dos registros simultáneos con el mismo correo (ux_usuario_email).
-            throw new EmailAlreadyRegisteredException();
-        }
+        // Dos registros simultáneos con el mismo correo (ux_usuario_email).
+        await db.SaveChangesTraducidoAsync(() => new EmailAlreadyRegisteredException());
+
+        // Después del commit: si el correo falla, la cuenta igual existe (ver EnviarVerificacionAsync).
+        await correoCuenta.EnviarVerificacionAsync(user);
 
         return CreateAuthResponse(user, company.Id, company.LegalName, Role.Administrator);
     }
@@ -90,6 +85,35 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService)
         await db.SaveChangesAsync();
 
         return CreateAuthResponse(user, membership.Id, membership.LegalName, membership.Rol);
+    }
+
+    /// <summary>
+    /// Cambia la contraseña de la persona autenticada. Pide la actual para que una sesión
+    /// abierta y sin dueño no alcance para apoderarse de la cuenta. Es también la única
+    /// forma de reemplazar una contraseña provisional (ver EmpresaService.AgregarUsuarioAsync):
+    /// esa nace válida pero la conoce quien dio el alta, así que conviene cambiarla.
+    /// </summary>
+    public async Task CambiarPasswordAsync(long userId, CambiarPasswordRequest request)
+    {
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.IsActive)
+            ?? throw new InvalidCredentialsException();
+
+        var verificacion = PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, request.PasswordActual);
+        if (verificacion == PasswordVerificationResult.Failed)
+        {
+            throw new PasswordActualIncorrectaException();
+        }
+
+        if (PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, request.PasswordNueva)
+            != PasswordVerificationResult.Failed)
+        {
+            throw new PasswordRepetidaException();
+        }
+
+        user.PasswordHash = PasswordHasher.HashPassword(user, request.PasswordNueva);
+        await db.SaveChangesAsync();
+
+        await correoCuenta.AvisarPasswordCambiadaAsync(user);
     }
 
     /// <summary>

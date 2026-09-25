@@ -1,0 +1,17 @@
+@use '../backoffice-page';
+
+// El botón Mostrar/Ocultar va al lado del campo, no encima, para no tapar el texto.
+.password-row { display: flex; gap: 12px; }
+.password-row input { flex: 1; }
+.password-row .button { min-height: 46px; padding-inline: 16px; font-size: 14px; white-space: nowrap; }
+
+.datos { display: grid; gap: 14px; margin: 0; }
+.datos dt { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+.datos dd { margin: 0; font-size: 15px; }
+
+.nota { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border); font-size: 14px; line-height: 1.5; }
+
+.verificacion { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.verificacion h3 { margin: 0 0 8px; font-size: 15px; }
+.verificacion p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+.verificacion-mensaje { color: var(--text); }
