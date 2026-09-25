@@ -1,0 +1,52 @@
+services:
+  # API .NET (backend/)
+  - type: web
+    name: cashpyme-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Cadena de conexión al pooler de Supabase (Connect -> Session pooler).
+      # Se pide al crear el Blueprint porque es secreta y no vive en el repo.
+      - key: ConnectionStrings__Default
+        sync: false
+      - key: Jwt__Issuer
+        value: CashPyme
+      - key: Jwt__Audience
+        value: CashPymeClient
+      # Clave de firma JWT: Render genera un valor aleatorio seguro al crear el servicio.
+      - key: Jwt__Key
+        generateValue: true
+      - key: Cors__AllowedOrigins__0
+        value: https://cashpyme-frontend.onrender.com
+      - key: App__FrontendUrl
+        value: https://cashpyme-frontend.onrender.com
+      - key: Email__From
+        value: "CashPyme <onboarding@resend.dev>"
+      # Opcional: sin esta key los correos solo se escriben en el log (ver README).
+      - key: Email__ResendApiKey
+        sync: false
+      - key: Notificaciones__Habilitado
+        value: "false"
+
+  # Angular (frontend/), servido como sitio estático
+  - type: web
+    name: cashpyme-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build -- --configuration production
+    staticPublishPath: frontend/dist/frontend/browser
+    routes:
+      # Reenvía las llamadas /api/* al backend para que el navegador vea todo bajo
+      # un solo origen (así funcionan las rutas relativas /api/... del frontend).
+      - type: rewrite
+        source: /api/*
+        destination: https://cashpyme-backend.onrender.com/api/*
+      # Fallback de Angular (routing por historial del navegador).
+      - type: rewrite
+        source: /*
+        destination: /index.html

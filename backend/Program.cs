@@ -7,6 +7,7 @@ using Backend.Services.Correo;
 using Backend.Services.Notificaciones;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -125,6 +126,17 @@ app.UseExceptionHandler();
 // En producción el frontend y la API se sirven bajo el mismo origen y esto no aplica.
 if (!app.Environment.IsDevelopment())
 {
+    // Render (y proxies similares) terminan TLS antes del contenedor y reenvían la
+    // petición como HTTP puro. Sin confiar en X-Forwarded-Proto, UseHttpsRedirection()
+    // ve siempre "http" y redirige sin parar. KnownNetworks/KnownProxies se limpian
+    // porque el proxy de Render no está en un rango fijo conocido de antemano.
+    var forwardedHeadersOptions = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+    forwardedHeadersOptions.KnownNetworks.Clear();
+    forwardedHeadersOptions.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwardedHeadersOptions);
     app.UseHttpsRedirection();
 }
 
@@ -135,6 +147,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Health check simple para el servicio web de Render.
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 if (app.Environment.IsDevelopment())
 {
