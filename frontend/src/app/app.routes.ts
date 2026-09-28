@@ -55,7 +55,13 @@ export const routes: Routes = [
         path: 'cuenta',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/cuenta/cuenta').then((m) => m.Cuenta)
+      },
+      {
+        path: 'terceros',
+        canActivate: [pantallaGuard],
+         loadComponent: () => import('./pages/terceros/terceros').then((m) => m.Terceros)
       }
+      
     ]
   }
 ];

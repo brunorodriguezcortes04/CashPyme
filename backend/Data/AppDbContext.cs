@@ -116,7 +116,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.ToTable("tercero");
             e.Property(x => x.Id).HasColumnName("id_tercero");
             e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.Type).HasColumnName("tipo_tercero").HasMaxLength(10);
             e.Property(x => x.Name).HasColumnName("nombre_razon_social").HasMaxLength(150);
+            e.Property(x => x.Rut).HasColumnName("rut").HasMaxLength(12);
+            e.Property(x => x.BusinessActivity).HasColumnName("giro").HasMaxLength(150);
+            e.Property(x => x.Email).HasColumnName("email").HasMaxLength(150);
+            e.Property(x => x.Phone).HasColumnName("telefono").HasMaxLength(20);
+            e.Property(x => x.Address).HasColumnName("direccion").HasMaxLength(200);
             e.Property(x => x.IsActive).HasColumnName("activo");
         });
 

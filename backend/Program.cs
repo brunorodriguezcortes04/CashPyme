@@ -53,6 +53,7 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<TercerosService>();
 builder.Services.AddScoped<MovimientosService>();
 builder.Services.AddScoped<EmpresaService>();
 builder.Services.AddScoped<CuentasService>();

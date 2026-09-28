@@ -33,6 +33,10 @@ export class CatalogosService {
     return this.http.get<OpcionCatalogo[]>('/api/opciones/tipos-cuenta').pipe(catchError(apiError));
   }
 
+    listTiposTercero(): Observable<OpcionCatalogo[]> {
+    return this.http.get<OpcionCatalogo[]>('/api/opciones/tipos-tercero').pipe(catchError(apiError));
+  }
+
   listTiposMovimiento(): Observable<TipoMovimiento[]> {
     return this.http.get<TipoMovimiento[]>('/api/opciones/tipos-movimiento').pipe(catchError(apiError));
   }

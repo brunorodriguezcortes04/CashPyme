@@ -18,14 +18,16 @@ public static class MatrizPermisos
             Permiso.CuentasGestionar,
             Permiso.ConfiguracionEmpresaVer,
             Permiso.ConfiguracionEmpresaEditar,
-            Permiso.GestionUsuarios
+            Permiso.GestionUsuarios,
+            Permiso.TercerosGestionar
         ],
         [Role.Accountant] =
         [
             Permiso.MovimientosVer,
             Permiso.MovimientosRegistrar,
             Permiso.CuentasGestionar,
-            Permiso.ConfiguracionEmpresaVer
+            Permiso.ConfiguracionEmpresaVer,
+            Permiso.TercerosGestionar
         ],
         [Role.Operator] =
         [

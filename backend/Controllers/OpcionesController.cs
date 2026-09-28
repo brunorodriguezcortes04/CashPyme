@@ -22,4 +22,7 @@ public class OpcionesController : ControllerBase
     [HttpGet("tipos-movimiento")]
     public ActionResult<IReadOnlyList<TipoMovimientoResponse>> TiposMovimiento()
         => Ok(Dominio.TiposMovimiento.Todos);
+    
+    [HttpGet("tipos-tercero")]
+    public ActionResult<IReadOnlyList<OpcionCatalogo>> TiposTercero() => Ok(Dominio.TiposTercero.Todos);
 }
