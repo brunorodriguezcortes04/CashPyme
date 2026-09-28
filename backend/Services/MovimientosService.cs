@@ -18,21 +18,32 @@ public class MovimientosService(AppDbContext db)
     }
 
     /// <summary>
-    /// Todos los filtros son opcionales y combinables. Se filtra primero por empresa y
+    /// Todos los filtros son opcionales y combinables. Si no se especifica ningún rango de
+    /// fecha, se muestra el mes actual por defecto. Se filtra primero por empresa y
     /// fecha_movimiento (en ese orden) para que Postgres pueda usar ix_movimiento_empresa_fecha;
-    /// sin coincidencias se devuelve una lista vacía, nunca un error.
+    /// sin coincidencias se devuelve una página vacía, nunca un error.
     /// </summary>
-    public async Task<IReadOnlyList<MovimientoResponse>> ListMovimientosAsync(
+    public async Task<MovimientosPaginadosResponse> ListMovimientosAsync(
         long companyId,
         string? tipo,
-        DateOnly? fechaDesde = null,
-        DateOnly? fechaHasta = null,
-        long? idCategoria = null,
-        long? idCuenta = null)
+        DateOnly? fechaDesde,
+        DateOnly? fechaHasta,
+        long? idCategoria,
+        long? idCuenta,
+        int pagina = 1,
+        int tamanoPagina = 20)
     {
+        pagina = pagina < 1 ? 1 : pagina;
+        tamanoPagina = tamanoPagina is < 1 or > 100 ? 20 : tamanoPagina;
+
+        if (fechaDesde is null && fechaHasta is null)
+        {
+            var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+            fechaDesde = new DateOnly(hoy.Year, hoy.Month, 1);
+            fechaHasta = fechaDesde.Value.AddMonths(1).AddDays(-1);
+        }
+
         var query = db.MovimientosFinancieros
-            .Include(m => m.Account)
-            .Include(m => m.Category)
             .Where(m => m.CompanyId == companyId && m.Status == MovimientoFinanciero.Registrado);
 
         if (fechaDesde is not null)
@@ -60,12 +71,19 @@ public class MovimientosService(AppDbContext db)
             query = query.Where(m => m.AccountId == idCuenta.Value);
         }
 
+        var total = await query.CountAsync();
+
         var movimientos = await query
+            .Include(m => m.Account)
+            .Include(m => m.Category)
             .OrderByDescending(m => m.MovementDate)
             .ThenByDescending(m => m.Id)
+            .Skip((pagina - 1) * tamanoPagina)
+            .Take(tamanoPagina)
             .ToListAsync();
 
-        return movimientos.Select(ToResponse).ToList();
+        return new MovimientosPaginadosResponse(
+            movimientos.Select(ToResponse).ToList(), total, pagina, tamanoPagina);
     }
 
     /// <summary>
@@ -137,8 +155,6 @@ public class MovimientosService(AppDbContext db)
         movimiento.AccountId = request.IdCuenta;
         movimiento.CategoryId = request.IdCategoria;
         movimiento.ThirdPartyId = request.IdTercero;
-        // El signo sobre el saldo lo recalcula vista_saldo_cuenta al vuelo a partir de este
-        // Amount: no hay ningún saldo guardado que actualizar aparte.
         movimiento.Amount = request.Monto;
         movimiento.MovementDate = request.Fecha;
         movimiento.PaymentMethod = request.MedioPago;
@@ -153,8 +169,7 @@ public class MovimientosService(AppDbContext db)
     /// "Eliminar" nunca borra la fila: pasa estado_movimiento a 'anulado' para conservar la
     /// trazabilidad (regla del diccionario de datos). Si el movimiento ya tiene pagos
     /// aplicados, la primera llamada (Confirmar = false) se rechaza con el detalle para que
-    /// la persona decida; solo anula cuando Confirmar llega en true. El trigger
-    /// trg_movimiento_estado se encarga de recalcular el estado de los documentos afectados.
+    /// la persona decida; solo anula cuando Confirmar llega en true.
     /// </summary>
     public async Task<MovimientoResponse> AnularMovimientoAsync(
         long companyId,

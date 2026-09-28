@@ -37,3 +37,26 @@
 .modal-dialog h2 { font-size: 1.1rem; margin-bottom: 12px; }
 .modal-dialog p { margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.listado-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+
+.filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 16px 0 20px; }
+.filtros .field { min-width: 160px; }
+.filtros-actions { display: flex; gap: 10px; }
+
+.paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.paginacion-info { color: var(--text-secondary); font-size: 14px; }
+.paginacion-actions { display: flex; gap: 10px; }
+

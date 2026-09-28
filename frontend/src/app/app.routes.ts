@@ -33,7 +33,7 @@ export const routes: Routes = [
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/movimientos/movimientos').then((m) => m.Movimientos)
       },
-      {
+        {
         path: 'cuentas',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/cuentas/cuentas').then((m) => m.Cuentas)
@@ -42,16 +42,6 @@ export const routes: Routes = [
         path: 'empresa',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/empresa/empresa').then((m) => m.EmpresaPage)
-      },
-      {
-        path: 'usuarios',
-        canActivate: [pantallaGuard],
-        loadComponent: () => import('./pages/usuarios/usuarios').then((m) => m.Usuarios)
-      },
-      {
-        path: 'cuenta',
-        canActivate: [pantallaGuard],
-        loadComponent: () => import('./pages/cuenta/cuenta').then((m) => m.Cuenta)
       }
     ]
   }

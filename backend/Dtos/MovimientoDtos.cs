@@ -61,3 +61,11 @@ public record AnularMovimientoRequest(
     [MaxLength(250)] string? Motivo,
     bool Confirmar = false
 );
+
+/// <summary>Respuesta paginada del listado de movimientos, con el total para calcular las páginas.</summary>
+public record MovimientosPaginadosResponse(
+    IReadOnlyList<MovimientoResponse> Items,
+    int TotalResultados,
+    int Pagina,
+    int TamanoPagina
+);

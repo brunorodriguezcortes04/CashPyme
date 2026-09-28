@@ -20,6 +20,19 @@ function hoy(): string {
   return `${ahora.getFullYear()}-${mes}-${dia}`;
 }
 
+function primerDiaMes(): string {
+  const ahora = new Date();
+  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function ultimoDiaMes(): string {
+  const ahora = new Date();
+  const ultimo = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
+  const mes = String(ultimo.getMonth() + 1).padStart(2, '0');
+  const dia = String(ultimo.getDate()).padStart(2, '0');
+  return `${ultimo.getFullYear()}-${mes}-${dia}`;
+}
+
 @Component({
   selector: 'app-movimientos',
   imports: [ReactiveFormsModule, DecimalPipe, RouterLink],
@@ -61,6 +74,13 @@ export class Movimientos {
   protected readonly confirmandoAnulacion = signal<{ id: number; mensaje: string } | null>(null);
   protected readonly anulandoId = signal<number | null>(null);
 
+  private readonly tamanoPagina = 20;
+  protected readonly pagina = signal(1);
+  protected readonly totalResultados = signal(0);
+  protected readonly totalPaginas = computed(() =>
+    Math.max(1, Math.ceil(this.totalResultados() / this.tamanoPagina))
+  );
+
   protected readonly form = this.formBuilder.nonNullable.group({
     fecha: [hoy(), [Validators.required]],
     monto: [null as number | null, [Validators.required, Validators.min(0.01)]],
@@ -70,21 +90,13 @@ export class Movimientos {
     descripcion: ['', [Validators.maxLength(250)]]
   });
 
-  /** Filtros del listado. Viven aparte del formulario de registro: no se pisan entre sí. */
-  protected readonly filtros = this.formBuilder.nonNullable.group({
-    fechaDesde: [''],
-    fechaHasta: [''],
-    idCategoria: [null as number | null],
-    idCuenta: [null as number | null]
+  /** Por defecto se filtra el mes actual, igual que hace el backend cuando no se envía rango. */
+  protected readonly filtrosForm = this.formBuilder.nonNullable.group({
+    fechaDesde: [primerDiaMes()],
+    fechaHasta: [ultimoDiaMes()],
+    idCategoria: [''],
+    idCuenta: ['']
   });
-
-  /**
-   * Si el listado vuelve vacío, el mensaje cambia según esto: sin filtros es "todavía no
-   * registras nada"; con filtros es "no hay resultados para esta búsqueda", que es un
-   * estado vacío, no un error.
-   */
-  protected readonly hayFiltrosAplicados = signal(false);
-  protected readonly rangoInvalido = signal(false);
 
   constructor() {
     this.catalogosService.listTiposMovimiento().subscribe({
@@ -106,8 +118,13 @@ export class Movimientos {
       .subscribe((params) => {
         this.tipo.set(params.get('tipo') ?? '');
         this.cancelarEdicion();
-        // Al cambiar de ingresos a egresos las categorías ya no aplican: se parte limpio.
-        this.limpiarFiltros({ recargar: false });
+        this.pagina.set(1);
+        this.filtrosForm.reset({
+          fechaDesde: primerDiaMes(),
+          fechaHasta: ultimoDiaMes(),
+          idCategoria: '',
+          idCuenta: ''
+        });
         this.cargarDatos();
       });
   }
@@ -178,28 +195,15 @@ export class Movimientos {
     peticion.subscribe({
       next: (movimiento) => {
         this.successMessage.set(
-          idEditando === null ? this.tipoActual()?.mensajeExito ?? null : 'Movimiento actualizado.'
+          idEditando === null
+            ? (this.tipoActual()?.mensajeExito ?? 'Movimiento registrado.')
+            : 'Movimiento actualizado.'
         );
-
-        // Con filtros puestos el movimiento recién guardado puede no pertenecer al resultado
-        // (otra fecha, otra categoría): se recarga en vez de insertarlo a mano, para que el
-        // listado siempre coincida con lo que el filtro dice que está mostrando.
-        if (this.hayFiltrosAplicados()) {
-          this.cargarMovimientos();
-        } else if (idEditando === null) {
-          this.movimientos.update((actuales) => [movimiento, ...actuales]);
-        } else {
-          this.movimientos.update((actuales) =>
-            actuales.map((m) => (m.id === movimiento.id ? movimiento : m))
-          );
-        }
-        this.cuentasService.listCuentas().subscribe((cuentas) => {
-          this.cuentas.set(cuentas);
-          this.avisarSiQuedaSobregirada(movimiento.idCuenta);
-        });
+        this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
         this.editandoId.set(null);
         this.reiniciarFormulario(idEditando === null ? movimiento.idCuenta : null);
         this.isSubmitting.set(false);
+        this.cargarMovimientos();
       },
       error: (error: unknown) => {
         this.errorMessage.set(mensajeDeError(error));
@@ -242,7 +246,7 @@ export class Movimientos {
     this.confirmandoAnulacion.set(null);
 
     this.movimientosService.anularMovimiento(movimiento.id, null, false).subscribe({
-      next: (actualizado) => this.onAnulado(actualizado),
+      next: () => this.onAnulado(),
       error: (error: unknown) => {
         this.anulandoId.set(null);
         if (error instanceof RequiereConfirmacionError) {
@@ -263,7 +267,7 @@ export class Movimientos {
     this.anulandoId.set(pendiente.id);
 
     this.movimientosService.anularMovimiento(pendiente.id, null, true).subscribe({
-      next: (actualizado) => this.onAnulado(actualizado),
+      next: () => this.onAnulado(),
       error: (error: unknown) => {
         this.anulandoId.set(null);
         this.confirmandoAnulacion.set(null);
@@ -276,22 +280,56 @@ export class Movimientos {
     this.confirmandoAnulacion.set(null);
   }
 
-  private onAnulado(movimiento: Movimiento): void {
+  protected aplicarFiltros(): void {
+    this.pagina.set(1);
+    this.cargarMovimientos();
+  }
+
+  protected limpiarFiltros(): void {
+    this.filtrosForm.reset({
+      fechaDesde: primerDiaMes(),
+      fechaHasta: ultimoDiaMes(),
+      idCategoria: '',
+      idCuenta: ''
+    });
+    this.pagina.set(1);
+    this.cargarMovimientos();
+  }
+
+  /** Método normal, no computed(): el formulario de filtros no es una señal. */
+  protected hayFiltrosActivos(): boolean {
+    const f = this.filtrosForm.getRawValue();
+    return Boolean(
+      f.idCategoria ||
+      f.idCuenta ||
+      f.fechaDesde !== primerDiaMes() ||
+      f.fechaHasta !== ultimoDiaMes()
+    );
+  }
+
+  protected paginaAnterior(): void {
+    if (this.pagina() > 1) {
+      this.pagina.update((p) => p - 1);
+      this.cargarMovimientos();
+    }
+  }
+
+  protected paginaSiguiente(): void {
+    if (this.pagina() < this.totalPaginas()) {
+      this.pagina.update((p) => p + 1);
+      this.cargarMovimientos();
+    }
+  }
+
+  private onAnulado(): void {
     this.anulandoId.set(null);
     this.confirmandoAnulacion.set(null);
     this.successMessage.set('Movimiento anulado.');
-    this.movimientos.update((actuales) =>
-      actuales.map((m) => (m.id === movimiento.id ? movimiento : m))
-    );
-    if (this.editandoId() === movimiento.id) {
-      this.cancelarEdicion();
-    }
     this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
+    this.cargarMovimientos();
   }
 
   private cargarDatos(): void {
-    this.isLoading.set(true);
-
     this.cuentasService.listCuentas().subscribe({
       next: (cuentas) => this.cuentas.set(cuentas),
       error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
@@ -305,21 +343,24 @@ export class Movimientos {
     this.cargarMovimientos();
   }
 
-  /**
-   * Trae el listado con los filtros que estén puestos. Un resultado vacío es un estado
-   * válido, no un error: solo cambia el mensaje que se muestra.
-   */
   private cargarMovimientos(): void {
-    const { fechaDesde, fechaHasta, idCategoria, idCuenta } = this.filtros.getRawValue();
-    this.hayFiltrosAplicados.set(Boolean(fechaDesde || fechaHasta || idCategoria || idCuenta));
-
     this.isLoading.set(true);
+    const f = this.filtrosForm.getRawValue();
 
     this.movimientosService
-      .listMovimientos(this.tipo(), { fechaDesde, fechaHasta, idCategoria, idCuenta })
+      .listMovimientos({
+        tipo: this.tipo(),
+        fechaDesde: f.fechaDesde || undefined,
+        fechaHasta: f.fechaHasta || undefined,
+        idCategoria: f.idCategoria ? Number(f.idCategoria) : undefined,
+        idCuenta: f.idCuenta ? Number(f.idCuenta) : undefined,
+        pagina: this.pagina(),
+        tamanoPagina: this.tamanoPagina
+      })
       .subscribe({
-        next: (movimientos) => {
-          this.movimientos.set(movimientos);
+        next: (resultado) => {
+          this.movimientos.set(resultado.items);
+          this.totalResultados.set(resultado.totalResultados);
           this.isLoading.set(false);
         },
         error: (error: unknown) => {
