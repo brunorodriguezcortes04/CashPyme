@@ -1,5 +1,4 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 import { apiError } from './api-error';
@@ -26,6 +25,7 @@ export interface Movimiento {
   fechaCreacion: string;
 }
 
+/** Una página del listado. totalResultados es el total sin paginar, para calcular las páginas. */
 export interface MovimientosPaginados {
   items: Movimiento[];
   totalResultados: number;
@@ -33,6 +33,10 @@ export interface MovimientosPaginados {
   tamanoPagina: number;
 }
 
+/**
+ * Filtros del listado. Todos opcionales y combinables: los que no se mandan el backend los
+ * trata como "sin filtro". Sin rango de fecha el backend asume el mes actual.
+ */
 export interface FiltrosMovimientos {
   tipo?: string;
   fechaDesde?: string;
@@ -56,14 +60,6 @@ export interface CrearMovimientoPayload {
 /** Igual que CrearMovimientoPayload pero sin tipoMovimiento: no se puede cambiar al editar. */
 export type ActualizarMovimientoPayload = Omit<CrearMovimientoPayload, 'tipoMovimiento'>;
 
-/** Filtros del listado. Todos opcionales y combinables; el tipo va aparte, sale de la ruta. */
-export interface FiltrosMovimiento {
-  fechaDesde?: string | null;
-  fechaHasta?: string | null;
-  idCategoria?: number | null;
-  idCuenta?: number | null;
-}
-
 /**
  * Se lanza cuando el backend rechaza una anulación porque el movimiento tiene pagos
  * aplicados (409) y todavía no se confirmó. El componente la distingue de un error
@@ -81,6 +77,7 @@ export class MovimientosService {
     return this.http.get<Categoria[]>('/api/categorias', { params: { tipo } }).pipe(catchError(apiError));
   }
 
+  /** Devuelve una página del listado. Una página vacía es un resultado válido, no un error. */
   listMovimientos(filtros: FiltrosMovimientos): Observable<MovimientosPaginados> {
     return this.http
       .get<MovimientosPaginados>('/api/movimientos', { params: this.toParams(filtros) })
@@ -114,6 +111,10 @@ export class MovimientosService {
       );
   }
 
+  /**
+   * Los filtros vacíos no se mandan, para que el backend los trate como "sin filtro" en vez
+   * de como un valor vacío que no calza con nada.
+   */
   private toParams(filtros: FiltrosMovimientos): HttpParams {
     let params = new HttpParams();
     if (filtros.tipo) params = params.set('tipo', filtros.tipo);

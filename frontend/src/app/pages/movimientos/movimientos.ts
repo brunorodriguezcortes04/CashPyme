@@ -74,6 +74,9 @@ export class Movimientos {
   protected readonly confirmandoAnulacion = signal<{ id: number; mensaje: string } | null>(null);
   protected readonly anulandoId = signal<number | null>(null);
 
+  /** El rango "Desde" > "Hasta" no se manda al backend: devolvería vacío sin explicar por qué. */
+  protected readonly rangoInvalido = signal(false);
+
   private readonly tamanoPagina = 20;
   protected readonly pagina = signal(1);
   protected readonly totalResultados = signal(0);
@@ -119,6 +122,8 @@ export class Movimientos {
         this.tipo.set(params.get('tipo') ?? '');
         this.cancelarEdicion();
         this.pagina.set(1);
+        this.rangoInvalido.set(false);
+        // Al cambiar de ingresos a egresos las categorías ya no aplican: se parte limpio.
         this.filtrosForm.reset({
           fechaDesde: primerDiaMes(),
           fechaHasta: ultimoDiaMes(),
@@ -142,28 +147,6 @@ export class Movimientos {
         ? `La cuenta "${cuenta.nombreCuenta}" quedó con saldo negativo. El movimiento se guardó igual.`
         : null
     );
-  }
-
-  protected aplicarFiltros(): void {
-    const { fechaDesde, fechaHasta } = this.filtros.getRawValue();
-
-    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
-      this.rangoInvalido.set(true);
-      return;
-    }
-
-    this.rangoInvalido.set(false);
-    this.cargarMovimientos();
-  }
-
-  protected limpiarFiltros(opciones: { recargar: boolean } = { recargar: true }): void {
-    this.filtros.reset({ fechaDesde: '', fechaHasta: '', idCategoria: null, idCuenta: null });
-    this.rangoInvalido.set(false);
-    this.hayFiltrosAplicados.set(false);
-
-    if (opciones.recargar) {
-      this.cargarMovimientos();
-    }
   }
 
   protected submit(): void {
@@ -199,10 +182,20 @@ export class Movimientos {
             ? (this.tipoActual()?.mensajeExito ?? 'Movimiento registrado.')
             : 'Movimiento actualizado.'
         );
-        this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
+        this.cuentasService.listCuentas().subscribe((cuentas) => {
+          this.cuentas.set(cuentas);
+          this.avisarSiQuedaSobregirada(movimiento.idCuenta);
+        });
         this.editandoId.set(null);
         this.reiniciarFormulario(idEditando === null ? movimiento.idCuenta : null);
         this.isSubmitting.set(false);
+
+        // El listado va por fecha descendente: un movimiento recién creado vive en la
+        // página 1, así que quedarse en la que estabas lo escondería. Al editar se respeta
+        // la página actual, que es donde está la fila que acabas de tocar.
+        if (idEditando === null) {
+          this.pagina.set(1);
+        }
         this.cargarMovimientos();
       },
       error: (error: unknown) => {
@@ -246,7 +239,7 @@ export class Movimientos {
     this.confirmandoAnulacion.set(null);
 
     this.movimientosService.anularMovimiento(movimiento.id, null, false).subscribe({
-      next: () => this.onAnulado(),
+      next: () => this.onAnulado(movimiento.id),
       error: (error: unknown) => {
         this.anulandoId.set(null);
         if (error instanceof RequiereConfirmacionError) {
@@ -267,7 +260,7 @@ export class Movimientos {
     this.anulandoId.set(pendiente.id);
 
     this.movimientosService.anularMovimiento(pendiente.id, null, true).subscribe({
-      next: () => this.onAnulado(),
+      next: () => this.onAnulado(pendiente.id),
       error: (error: unknown) => {
         this.anulandoId.set(null);
         this.confirmandoAnulacion.set(null);
@@ -281,6 +274,16 @@ export class Movimientos {
   }
 
   protected aplicarFiltros(): void {
+    const { fechaDesde, fechaHasta } = this.filtrosForm.getRawValue();
+
+    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+      this.rangoInvalido.set(true);
+      return;
+    }
+
+    this.rangoInvalido.set(false);
+    // Filtro nuevo, resultados nuevos: quedarse en la página 3 del filtro anterior no
+    // significa nada para este.
     this.pagina.set(1);
     this.cargarMovimientos();
   }
@@ -292,6 +295,7 @@ export class Movimientos {
       idCategoria: '',
       idCuenta: ''
     });
+    this.rangoInvalido.set(false);
     this.pagina.set(1);
     this.cargarMovimientos();
   }
@@ -321,10 +325,18 @@ export class Movimientos {
     }
   }
 
-  private onAnulado(): void {
+  private onAnulado(idAnulado: number): void {
     this.anulandoId.set(null);
     this.confirmandoAnulacion.set(null);
     this.successMessage.set('Movimiento anulado.');
+
+    // Si se estaba editando justo el movimiento que se anuló, el formulario apuntaría a una
+    // fila que ya no se puede guardar (el backend responde MovimientoYaAnuladoException):
+    // se sale de edición en vez de dejar que la persona escriba para nada.
+    if (this.editandoId() === idAnulado) {
+      this.cancelarEdicion();
+    }
+
     this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
     this.cargarMovimientos();
   }
@@ -343,6 +355,10 @@ export class Movimientos {
     this.cargarMovimientos();
   }
 
+  /**
+   * Trae una página del listado con los filtros que estén puestos. Un resultado vacío es un
+   * estado válido, no un error: solo cambia el mensaje que se muestra.
+   */
   private cargarMovimientos(): void {
     this.isLoading.set(true);
     const f = this.filtrosForm.getRawValue();
@@ -359,8 +375,20 @@ export class Movimientos {
       })
       .subscribe({
         next: (resultado) => {
-          this.movimientos.set(resultado.items);
           this.totalResultados.set(resultado.totalResultados);
+
+          // La página pedida puede haber quedado fuera de rango: pasa al anular el último
+          // movimiento de la última página. Los controles de paginación solo se dibujan
+          // cuando hay filas, así que sin esto se queda atrapado en una página vacía sin
+          // botón para volver. Retrocede una sola vez: ultimaPagina ya es válida.
+          const ultimaPagina = Math.max(1, Math.ceil(resultado.totalResultados / this.tamanoPagina));
+          if (resultado.items.length === 0 && this.pagina() > ultimaPagina) {
+            this.pagina.set(ultimaPagina);
+            this.cargarMovimientos();
+            return;
+          }
+
+          this.movimientos.set(resultado.items);
           this.isLoading.set(false);
         },
         error: (error: unknown) => {

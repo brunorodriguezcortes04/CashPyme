@@ -33,7 +33,7 @@ export const routes: Routes = [
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/movimientos/movimientos').then((m) => m.Movimientos)
       },
-        {
+      {
         path: 'cuentas',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/cuentas/cuentas').then((m) => m.Cuentas)
@@ -42,6 +42,19 @@ export const routes: Routes = [
         path: 'empresa',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/empresa/empresa').then((m) => m.EmpresaPage)
+      },
+      // Estas dos rutas tienen que existir mientras las pantallas 'usuarios' y 'cuenta'
+      // sigan publicadas en la tabla `pantalla` (migraciones 006 y 007): la nav del
+      // backoffice se arma desde ahí, así que borrarlas deja enlaces que no resuelven.
+      {
+        path: 'usuarios',
+        canActivate: [pantallaGuard],
+        loadComponent: () => import('./pages/usuarios/usuarios').then((m) => m.Usuarios)
+      },
+      {
+        path: 'cuenta',
+        canActivate: [pantallaGuard],
+        loadComponent: () => import('./pages/cuenta/cuenta').then((m) => m.Cuenta)
       }
     ]
   }

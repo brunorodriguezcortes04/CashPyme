@@ -144,11 +144,11 @@
     <form class="filtros" [formGroup]="filtrosForm" (ngSubmit)="aplicarFiltros()" novalidate>
       <div class="field">
         <label for="fechaDesde">Desde</label>
-        <input id="fechaDesde" type="date" formControlName="fechaDesde" />
+        <input id="fechaDesde" type="date" formControlName="fechaDesde" [attr.aria-invalid]="rangoInvalido()" />
       </div>
       <div class="field">
         <label for="fechaHasta">Hasta</label>
-        <input id="fechaHasta" type="date" formControlName="fechaHasta" />
+        <input id="fechaHasta" type="date" formControlName="fechaHasta" [attr.aria-invalid]="rangoInvalido()" />
       </div>
       <div class="field">
         <label for="filtroCategoria">Categoría</label>
@@ -174,6 +174,12 @@
           <button type="button" class="button button-ghost" (click)="limpiarFiltros()">Limpiar filtros</button>
         }
       </div>
+
+      @if (rangoInvalido()) {
+        <small class="field-error" role="alert">
+          La fecha "Desde" no puede ser posterior a la fecha "Hasta".
+        </small>
+      }
     </form>
 
     @if (isLoading()) {

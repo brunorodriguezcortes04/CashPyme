@@ -8,6 +8,34 @@ namespace Backend.Services;
 
 public class MovimientosService(AppDbContext db)
 {
+    /// <summary>
+    /// El "mes actual" que se usa como filtro por defecto es el mes en Chile, no en UTC.
+    /// Con UtcNow, el último día del mes después de las ~21:00 hora local el backend ya
+    /// estaría mostrando el mes siguiente mientras la persona sigue en el mes anterior.
+    /// Si el sistema no tiene la zona instalada (contenedor sin tzdata) se cae a UTC en vez
+    /// de reventar: el filtro por defecto es una comodidad, no una regla de negocio.
+    /// </summary>
+    private static readonly TimeZoneInfo ZonaNegocio = ResolverZonaNegocio();
+
+    private static TimeZoneInfo ResolverZonaNegocio()
+    {
+        // "America/Santiago" es el id IANA; "Pacific SA Standard Time" es el id Windows.
+        // .NET acepta ambos en las dos plataformas, pero no en instalaciones sin ICU.
+        foreach (var id in new[] { "America/Santiago", "Pacific SA Standard Time" })
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
+            {
+                // Se prueba el siguiente id.
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
     public async Task<IReadOnlyList<CategoriaResponse>> ListCategoriasAsync(long companyId, string tipo)
     {
         return await db.CategoriasMovimiento
@@ -38,7 +66,7 @@ public class MovimientosService(AppDbContext db)
 
         if (fechaDesde is null && fechaHasta is null)
         {
-            var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+            var hoy = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ZonaNegocio));
             fechaDesde = new DateOnly(hoy.Year, hoy.Month, 1);
             fechaHasta = fechaDesde.Value.AddMonths(1).AddDays(-1);
         }
@@ -155,6 +183,8 @@ public class MovimientosService(AppDbContext db)
         movimiento.AccountId = request.IdCuenta;
         movimiento.CategoryId = request.IdCategoria;
         movimiento.ThirdPartyId = request.IdTercero;
+        // El signo sobre el saldo lo recalcula vista_saldo_cuenta al vuelo a partir de este
+        // Amount: no hay ningún saldo guardado que actualizar aparte.
         movimiento.Amount = request.Monto;
         movimiento.MovementDate = request.Fecha;
         movimiento.PaymentMethod = request.MedioPago;
@@ -169,7 +199,8 @@ public class MovimientosService(AppDbContext db)
     /// "Eliminar" nunca borra la fila: pasa estado_movimiento a 'anulado' para conservar la
     /// trazabilidad (regla del diccionario de datos). Si el movimiento ya tiene pagos
     /// aplicados, la primera llamada (Confirmar = false) se rechaza con el detalle para que
-    /// la persona decida; solo anula cuando Confirmar llega en true.
+    /// la persona decida; solo anula cuando Confirmar llega en true. El trigger
+    /// trg_movimiento_estado se encarga de recalcular el estado de los documentos afectados.
     /// </summary>
     public async Task<MovimientoResponse> AnularMovimientoAsync(
         long companyId,
