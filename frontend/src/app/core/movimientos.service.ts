@@ -25,6 +25,28 @@ export interface Movimiento {
   fechaCreacion: string;
 }
 
+/** Una página del listado. totalResultados es el total sin paginar, para calcular las páginas. */
+export interface MovimientosPaginados {
+  items: Movimiento[];
+  totalResultados: number;
+  pagina: number;
+  tamanoPagina: number;
+}
+
+/**
+ * Filtros del listado. Todos opcionales y combinables: los que no se mandan el backend los
+ * trata como "sin filtro". Sin rango de fecha el backend asume el mes actual.
+ */
+export interface FiltrosMovimientos {
+  tipo?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  idCategoria?: number;
+  idCuenta?: number;
+  pagina?: number;
+  tamanoPagina?: number;
+}
+
 export interface CrearMovimientoPayload {
   tipoMovimiento: string;
   fecha: string;
@@ -37,14 +59,6 @@ export interface CrearMovimientoPayload {
 
 /** Igual que CrearMovimientoPayload pero sin tipoMovimiento: no se puede cambiar al editar. */
 export type ActualizarMovimientoPayload = Omit<CrearMovimientoPayload, 'tipoMovimiento'>;
-
-/** Filtros del listado. Todos opcionales y combinables; el tipo va aparte, sale de la ruta. */
-export interface FiltrosMovimiento {
-  fechaDesde?: string | null;
-  fechaHasta?: string | null;
-  idCategoria?: number | null;
-  idCuenta?: number | null;
-}
 
 /**
  * Se lanza cuando el backend rechaza una anulación porque el movimiento tiene pagos
@@ -63,30 +77,11 @@ export class MovimientosService {
     return this.http.get<Categoria[]>('/api/categorias', { params: { tipo } }).pipe(catchError(apiError));
   }
 
-  /**
-   * Los filtros son opcionales y combinables: los vacíos no se mandan, para que el backend
-   * los trate como "sin filtro" en vez de como un valor vacío que no calza con nada.
-   */
-  listMovimientos(tipo?: string, filtros: FiltrosMovimiento = {}): Observable<Movimiento[]> {
-    let params = new HttpParams();
-
-    if (tipo) {
-      params = params.set('tipo', tipo);
-    }
-    if (filtros.fechaDesde) {
-      params = params.set('fechaDesde', filtros.fechaDesde);
-    }
-    if (filtros.fechaHasta) {
-      params = params.set('fechaHasta', filtros.fechaHasta);
-    }
-    if (filtros.idCategoria != null) {
-      params = params.set('idCategoria', filtros.idCategoria);
-    }
-    if (filtros.idCuenta != null) {
-      params = params.set('idCuenta', filtros.idCuenta);
-    }
-
-    return this.http.get<Movimiento[]>('/api/movimientos', { params }).pipe(catchError(apiError));
+  /** Devuelve una página del listado. Una página vacía es un resultado válido, no un error. */
+  listMovimientos(filtros: FiltrosMovimientos): Observable<MovimientosPaginados> {
+    return this.http
+      .get<MovimientosPaginados>('/api/movimientos', { params: this.toParams(filtros) })
+      .pipe(catchError(apiError));
   }
 
   crearMovimiento(payload: CrearMovimientoPayload): Observable<Movimiento> {
@@ -114,5 +109,21 @@ export class MovimientosService {
           return apiError(error);
         })
       );
+  }
+
+  /**
+   * Los filtros vacíos no se mandan, para que el backend los trate como "sin filtro" en vez
+   * de como un valor vacío que no calza con nada.
+   */
+  private toParams(filtros: FiltrosMovimientos): HttpParams {
+    let params = new HttpParams();
+    if (filtros.tipo) params = params.set('tipo', filtros.tipo);
+    if (filtros.fechaDesde) params = params.set('fechaDesde', filtros.fechaDesde);
+    if (filtros.fechaHasta) params = params.set('fechaHasta', filtros.fechaHasta);
+    if (filtros.idCategoria) params = params.set('idCategoria', filtros.idCategoria);
+    if (filtros.idCuenta) params = params.set('idCuenta', filtros.idCuenta);
+    if (filtros.pagina) params = params.set('pagina', filtros.pagina);
+    if (filtros.tamanoPagina) params = params.set('tamanoPagina', filtros.tamanoPagina);
+    return params;
   }
 }

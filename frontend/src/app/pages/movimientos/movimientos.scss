@@ -4,13 +4,6 @@
 .cuentas-list li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .cuentas-list li:last-child { border-bottom: 0; }
 
-.filtros { padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.filtros-titulo { font-size: 15px; font-weight: 500; margin: 0 0 12px; color: var(--text-secondary); }
-.filtros-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.filtros-acciones { display: flex; gap: 12px; margin-top: 16px; }
-.filtros-acciones .button { min-height: 38px; padding-inline: 16px; font-size: 14px; }
-.filtros .field-error { display: block; margin-top: 12px; }
-
 .estado-badge.anulado { color: var(--danger); border-color: rgba(255, 138, 138, .4); }
 .boton-anular:hover { border-color: var(--danger); color: var(--danger); background: rgba(255, 138, 138, .08); }
 
@@ -37,3 +30,29 @@
 .modal-dialog h2 { font-size: 1.1rem; margin-bottom: 12px; }
 .modal-dialog p { margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.listado-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+
+.filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; padding: 16px; margin: 16px 0 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.filtros .field { min-width: 160px; }
+// El aviso de rango inválido ocupa su propia línea bajo la fila de campos.
+.filtros .field-error { display: block; flex-basis: 100%; margin-top: 4px; }
+.filtros-actions { display: flex; gap: 10px; }
+.filtros-actions .button { min-height: 38px; padding-inline: 16px; font-size: 14px; }
+
+.paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.paginacion-info { color: var(--text-secondary); font-size: 14px; }
+.paginacion-actions { display: flex; gap: 10px; }
+

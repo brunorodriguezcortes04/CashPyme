@@ -13,20 +13,23 @@ public class MovimientosController(MovimientosService movimientosService) : Cont
 {
     /// <summary>
     /// Todos los filtros son opcionales y combinables entre sí: rango de fecha, categoría,
-    /// tipo y cuenta. Sin coincidencias responde 200 con lista vacía, nunca un error: el
-    /// estado vacío lo decide el front, no el backend.
+    /// tipo y cuenta. Sin filtro de fecha, muestra el mes actual por defecto. Sin
+    /// coincidencias responde 200 con una página vacía, nunca un error: el estado vacío lo
+    /// decide el front, no el backend.
     /// </summary>
     [HttpGet]
     [RequierePermiso(Permiso.MovimientosVer)]
-    public async Task<ActionResult<IReadOnlyList<MovimientoResponse>>> List(
+    public async Task<ActionResult<MovimientosPaginadosResponse>> List(
         [FromQuery] string? tipo,
         [FromQuery] DateOnly? fechaDesde,
         [FromQuery] DateOnly? fechaHasta,
         [FromQuery] long? idCategoria,
-        [FromQuery] long? idCuenta)
+        [FromQuery] long? idCuenta,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanoPagina = 20)
     {
         var result = await movimientosService.ListMovimientosAsync(
-            User.GetCompanyId(), tipo, fechaDesde, fechaHasta, idCategoria, idCuenta);
+            User.GetCompanyId(), tipo, fechaDesde, fechaHasta, idCategoria, idCuenta, pagina, tamanoPagina);
         return Ok(result);
     }
 

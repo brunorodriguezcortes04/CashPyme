@@ -8,6 +8,34 @@ namespace Backend.Services;
 
 public class MovimientosService(AppDbContext db)
 {
+    /// <summary>
+    /// El "mes actual" que se usa como filtro por defecto es el mes en Chile, no en UTC.
+    /// Con UtcNow, el último día del mes después de las ~21:00 hora local el backend ya
+    /// estaría mostrando el mes siguiente mientras la persona sigue en el mes anterior.
+    /// Si el sistema no tiene la zona instalada (contenedor sin tzdata) se cae a UTC en vez
+    /// de reventar: el filtro por defecto es una comodidad, no una regla de negocio.
+    /// </summary>
+    private static readonly TimeZoneInfo ZonaNegocio = ResolverZonaNegocio();
+
+    private static TimeZoneInfo ResolverZonaNegocio()
+    {
+        // "America/Santiago" es el id IANA; "Pacific SA Standard Time" es el id Windows.
+        // .NET acepta ambos en las dos plataformas, pero no en instalaciones sin ICU.
+        foreach (var id in new[] { "America/Santiago", "Pacific SA Standard Time" })
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
+            {
+                // Se prueba el siguiente id.
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
     public async Task<IReadOnlyList<CategoriaResponse>> ListCategoriasAsync(long companyId, string tipo)
     {
         return await db.CategoriasMovimiento
@@ -18,21 +46,32 @@ public class MovimientosService(AppDbContext db)
     }
 
     /// <summary>
-    /// Todos los filtros son opcionales y combinables. Se filtra primero por empresa y
+    /// Todos los filtros son opcionales y combinables. Si no se especifica ningún rango de
+    /// fecha, se muestra el mes actual por defecto. Se filtra primero por empresa y
     /// fecha_movimiento (en ese orden) para que Postgres pueda usar ix_movimiento_empresa_fecha;
-    /// sin coincidencias se devuelve una lista vacía, nunca un error.
+    /// sin coincidencias se devuelve una página vacía, nunca un error.
     /// </summary>
-    public async Task<IReadOnlyList<MovimientoResponse>> ListMovimientosAsync(
+    public async Task<MovimientosPaginadosResponse> ListMovimientosAsync(
         long companyId,
         string? tipo,
-        DateOnly? fechaDesde = null,
-        DateOnly? fechaHasta = null,
-        long? idCategoria = null,
-        long? idCuenta = null)
+        DateOnly? fechaDesde,
+        DateOnly? fechaHasta,
+        long? idCategoria,
+        long? idCuenta,
+        int pagina = 1,
+        int tamanoPagina = 20)
     {
+        pagina = pagina < 1 ? 1 : pagina;
+        tamanoPagina = tamanoPagina is < 1 or > 100 ? 20 : tamanoPagina;
+
+        if (fechaDesde is null && fechaHasta is null)
+        {
+            var hoy = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ZonaNegocio));
+            fechaDesde = new DateOnly(hoy.Year, hoy.Month, 1);
+            fechaHasta = fechaDesde.Value.AddMonths(1).AddDays(-1);
+        }
+
         var query = db.MovimientosFinancieros
-            .Include(m => m.Account)
-            .Include(m => m.Category)
             .Where(m => m.CompanyId == companyId && m.Status == MovimientoFinanciero.Registrado);
 
         if (fechaDesde is not null)
@@ -60,12 +99,19 @@ public class MovimientosService(AppDbContext db)
             query = query.Where(m => m.AccountId == idCuenta.Value);
         }
 
+        var total = await query.CountAsync();
+
         var movimientos = await query
+            .Include(m => m.Account)
+            .Include(m => m.Category)
             .OrderByDescending(m => m.MovementDate)
             .ThenByDescending(m => m.Id)
+            .Skip((pagina - 1) * tamanoPagina)
+            .Take(tamanoPagina)
             .ToListAsync();
 
-        return movimientos.Select(ToResponse).ToList();
+        return new MovimientosPaginadosResponse(
+            movimientos.Select(ToResponse).ToList(), total, pagina, tamanoPagina);
     }
 
     /// <summary>

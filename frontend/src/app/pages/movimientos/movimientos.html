@@ -137,41 +137,42 @@
   </div>
 
   <section class="card listado">
-    <h2>{{ tipoActual()?.tituloListado }}</h2>
+    <div class="listado-head">
+      <h2>{{ tipoActual()?.tituloListado }}</h2>
+    </div>
 
-    <form class="filtros" [formGroup]="filtros" (ngSubmit)="aplicarFiltros()" novalidate>
-      <h3 class="filtros-titulo">Filtrar</h3>
-
-      <div class="filtros-campos">
-        <div class="field">
-          <label for="filtro-desde">Desde</label>
-          <input id="filtro-desde" type="date" formControlName="fechaDesde" [attr.aria-invalid]="rangoInvalido()" />
-        </div>
-
-        <div class="field">
-          <label for="filtro-hasta">Hasta</label>
-          <input id="filtro-hasta" type="date" formControlName="fechaHasta" [attr.aria-invalid]="rangoInvalido()" />
-        </div>
-
-        <div class="field">
-          <label for="filtro-categoria">Categoría</label>
-          <select id="filtro-categoria" formControlName="idCategoria">
-            <option [ngValue]="null">Todas</option>
-            @for (categoria of categorias(); track categoria.id) {
-              <option [ngValue]="categoria.id">{{ categoria.nombreCategoria }}</option>
-            }
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="filtro-cuenta">Cuenta</label>
-          <select id="filtro-cuenta" formControlName="idCuenta">
-            <option [ngValue]="null">Todas</option>
-            @for (cuenta of cuentas(); track cuenta.id) {
-              <option [ngValue]="cuenta.id">{{ cuenta.nombreCuenta }}</option>
-            }
-          </select>
-        </div>
+    <form class="filtros" [formGroup]="filtrosForm" (ngSubmit)="aplicarFiltros()" novalidate>
+      <div class="field">
+        <label for="fechaDesde">Desde</label>
+        <input id="fechaDesde" type="date" formControlName="fechaDesde" [attr.aria-invalid]="rangoInvalido()" />
+      </div>
+      <div class="field">
+        <label for="fechaHasta">Hasta</label>
+        <input id="fechaHasta" type="date" formControlName="fechaHasta" [attr.aria-invalid]="rangoInvalido()" />
+      </div>
+      <div class="field">
+        <label for="filtroCategoria">Categoría</label>
+        <select id="filtroCategoria" formControlName="idCategoria">
+          <option value="">Todas</option>
+          @for (categoria of categorias(); track categoria.id) {
+            <option [value]="categoria.id">{{ categoria.nombreCategoria }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="filtroCuenta">Cuenta</label>
+        <select id="filtroCuenta" formControlName="idCuenta">
+          <option value="">Todas</option>
+          @for (cuenta of cuentas(); track cuenta.id) {
+            <option [value]="cuenta.id">{{ cuenta.nombreCuenta }}</option>
+          }
+        </select>
+      </div>
+      <div class="filtros-actions">
+        <button type="submit" class="button button-ghost">Filtrar</button>
+        @if (hayFiltrosActivos()) {
+          <button type="button" class="button button-ghost" (click)="limpiarFiltros()">Limpiar filtros</button>
+        }
       </div>
 
       @if (rangoInvalido()) {
@@ -179,23 +180,14 @@
           La fecha "Desde" no puede ser posterior a la fecha "Hasta".
         </small>
       }
-
-      <div class="filtros-acciones">
-        <button type="submit" class="button button-primary">Filtrar</button>
-        @if (hayFiltrosAplicados()) {
-          <button type="button" class="button button-ghost" (click)="limpiarFiltros()">Limpiar</button>
-        }
-      </div>
     </form>
 
     @if (isLoading()) {
       <p class="muted">Cargando…</p>
     } @else if (movimientos().length === 0) {
-      @if (hayFiltrosAplicados()) {
-        <p class="muted">No hay movimientos que coincidan con estos filtros. Prueba ampliando el rango de fechas o quitando algún filtro.</p>
-      } @else {
-        <p class="muted">{{ tipoActual()?.mensajeVacio }}</p>
-      }
+      <p class="muted">
+        {{ hayFiltrosActivos() ? 'No hay movimientos con estos filtros.' : tipoActual()?.mensajeVacio }}
+      </p>
     } @else {
       <table>
         <thead>
@@ -241,9 +233,29 @@
           }
         </tbody>
       </table>
+
+      <div class="paginacion">
+        <span class="paginacion-info">
+          {{ totalResultados() }} resultado{{ totalResultados() === 1 ? '' : 's' }} · página {{ pagina() }} de {{ totalPaginas() }}
+        </span>
+        <div class="paginacion-actions">
+          <button type="button" class="button button-ghost" [disabled]="pagina() <= 1" (click)="paginaAnterior()">
+            Anterior
+          </button>
+          <button
+            type="button"
+            class="button button-ghost"
+            [disabled]="pagina() >= totalPaginas()"
+            (click)="paginaSiguiente()"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
     }
   </section>
-    @if (confirmandoAnulacion(); as pendiente) {
+
+  @if (confirmandoAnulacion(); as pendiente) {
     <div class="modal-overlay" (click)="cancelarConfirmacion()">
       <div class="modal-dialog" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true">
         <h2>¿Anular este movimiento?</h2>
