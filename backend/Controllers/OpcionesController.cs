@@ -25,4 +25,8 @@ public class OpcionesController : ControllerBase
     
     [HttpGet("tipos-tercero")]
     public ActionResult<IReadOnlyList<OpcionCatalogo>> TiposTercero() => Ok(Dominio.TiposTercero.Todos);
+
+    [HttpGet("tipos-documento")]
+    public ActionResult<IReadOnlyList<TipoDocumentoResponse>> TiposDocumento()
+        => Ok(Dominio.TiposDocumento.Todos);
 }

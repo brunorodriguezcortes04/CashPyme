@@ -8,6 +8,18 @@ export interface OpcionCatalogo {
   etiqueta: string;
 }
 
+/**
+ * Tipo de documento tributario. esNota y signo los decide el backend para que el front no
+ * tenga que saber que 'nota_credito' resta: signo es -1 para la nota de crédito y +1 para
+ * el resto.
+ */
+export interface TipoDocumento {
+  valor: string;
+  etiqueta: string;
+  esNota: boolean;
+  signo: number;
+}
+
 /** Tipo de movimiento con los textos de su pantalla: los define el backend, no el front. */
 export interface TipoMovimiento {
   valor: string;
@@ -35,6 +47,10 @@ export class CatalogosService {
 
     listTiposTercero(): Observable<OpcionCatalogo[]> {
     return this.http.get<OpcionCatalogo[]>('/api/opciones/tipos-tercero').pipe(catchError(apiError));
+  }
+
+  listTiposDocumento(): Observable<TipoDocumento[]> {
+    return this.http.get<TipoDocumento[]>('/api/opciones/tipos-documento').pipe(catchError(apiError));
   }
 
   listTiposMovimiento(): Observable<TipoMovimiento[]> {

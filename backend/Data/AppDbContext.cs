@@ -19,6 +19,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CategoriaMovimiento> CategoriasMovimiento => Set<CategoriaMovimiento>();
     public DbSet<Tercero> Terceros => Set<Tercero>();
     public DbSet<MovimientoFinanciero> MovimientosFinancieros => Set<MovimientoFinanciero>();
+    public DbSet<DocumentoFinanciero> DocumentosFinancieros => Set<DocumentoFinanciero>();
+    public DbSet<SaldoDocumento> SaldosDocumento => Set<SaldoDocumento>();
     public DbSet<SaldoCuenta> SaldosCuenta => Set<SaldoCuenta>();
     public DbSet<Pantalla> Pantallas => Set<Pantalla>();
     public DbSet<PagoDocumento> PagosDocumento => Set<PagoDocumento>();
@@ -149,6 +151,32 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId);
         });
 
+        modelBuilder.Entity<DocumentoFinanciero>(e =>
+        {
+            e.ToTable("documento_financiero");
+            e.Property(x => x.Id).HasColumnName("id_documento");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.ThirdPartyId).HasColumnName("id_tercero");
+            e.Property(x => x.CategoryId).HasColumnName("id_categoria");
+            e.Property(x => x.ReferenceDocumentId).HasColumnName("id_documento_referencia");
+            e.Property(x => x.AccountType).HasColumnName("tipo_cuenta").HasMaxLength(12);
+            e.Property(x => x.DocumentType).HasColumnName("tipo_documento").HasMaxLength(20);
+            e.Property(x => x.DocumentNumber).HasColumnName("numero_documento").HasMaxLength(50);
+            e.Property(x => x.NetAmount).HasColumnName("monto_neto").HasColumnType("numeric(14,2)");
+            e.Property(x => x.VatAmount).HasColumnName("monto_iva").HasColumnType("numeric(14,2)");
+            e.Property(x => x.TotalAmount).HasColumnName("monto_total").HasColumnType("numeric(14,2)");
+            e.Property(x => x.IssueDate).HasColumnName("fecha_emision");
+            e.Property(x => x.DueDate).HasColumnName("fecha_vencimiento");
+            e.Property(x => x.Status).HasColumnName("estado_documento").HasMaxLength(20);
+            e.Property(x => x.Description).HasColumnName("descripcion").HasMaxLength(250);
+            e.Property(x => x.CreatedByUserId).HasColumnName("id_usuario_creador");
+            e.Property(x => x.CreatedAtUtc).HasColumnName("fecha_creacion").HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            // tipo_flujo es GENERATED ALWAYS en la base: no se mapea a propósito, porque EF
+            // intentaría escribirla en el INSERT y Postgres rechazaría la fila.
+            e.HasOne(x => x.ThirdParty).WithMany().HasForeignKey(x => x.ThirdPartyId);
+            e.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId);
+        });
+
          modelBuilder.Entity<PagoDocumento>(e =>
         {
             e.ToTable("pago_documento");
@@ -169,6 +197,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Order).HasColumnName("orden");
             e.Property(x => x.RequiredPermission).HasColumnName("permiso_requerido").HasMaxLength(50);
             e.Property(x => x.IsActive).HasColumnName("activo");
+        });
+
+        modelBuilder.Entity<SaldoDocumento>(e =>
+        {
+            e.HasNoKey();
+            e.ToView("vista_documento_saldo");
+            e.Property(x => x.DocumentId).HasColumnName("id_documento");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.TotalAmount).HasColumnName("monto_total");
+            e.Property(x => x.PaidAmount).HasColumnName("monto_pagado");
+            e.Property(x => x.CreditNotesAmount).HasColumnName("monto_notas_credito");
+            e.Property(x => x.DebitNotesAmount).HasColumnName("monto_notas_debito");
+            e.Property(x => x.OutstandingAmount).HasColumnName("saldo_pendiente");
+            e.Property(x => x.IsOverdue).HasColumnName("esta_vencido");
+            e.Property(x => x.DaysOverdue).HasColumnName("dias_atraso");
         });
 
         modelBuilder.Entity<SaldoCuenta>(e =>

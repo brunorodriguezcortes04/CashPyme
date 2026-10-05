@@ -9,6 +9,7 @@ public enum Permiso
     ConfiguracionEmpresaVer,
     ConfiguracionEmpresaEditar,
     GestionUsuarios,
-    TercerosGestionar
-
+    TercerosGestionar,
+    DocumentosVer,
+    DocumentosGestionar
 }

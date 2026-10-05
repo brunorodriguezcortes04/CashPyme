@@ -57,6 +57,12 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/cuenta/cuenta').then((m) => m.Cuenta)
       },
       {
+        path: 'cuentas-por-cobrar',
+        canActivate: [pantallaGuard],
+        loadComponent: () =>
+          import('./pages/cuentas-por-cobrar/cuentas-por-cobrar').then((m) => m.CuentasPorCobrar)
+      },
+      {
         path: 'terceros',
         canActivate: [pantallaGuard],
          loadComponent: () => import('./pages/terceros/terceros').then((m) => m.Terceros)
