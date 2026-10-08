@@ -63,6 +63,12 @@ export const routes: Routes = [
           import('./pages/cuentas-por-cobrar/cuentas-por-cobrar').then((m) => m.CuentasPorCobrar)
       },
       {
+        path: 'cuentas-por-pagar',
+        canActivate: [pantallaGuard],
+        loadComponent: () =>
+          import('./pages/cuentas-por-pagar/cuentas-por-pagar').then((m) => m.CuentasPorPagar)
+      },
+      {
         path: 'terceros',
         canActivate: [pantallaGuard],
          loadComponent: () => import('./pages/terceros/terceros').then((m) => m.Terceros)
