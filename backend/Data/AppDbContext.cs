@@ -20,10 +20,67 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Tercero> Terceros => Set<Tercero>();
     public DbSet<MovimientoFinanciero> MovimientosFinancieros => Set<MovimientoFinanciero>();
     public DbSet<DocumentoFinanciero> DocumentosFinancieros => Set<DocumentoFinanciero>();
-    public DbSet<SaldoDocumento> SaldosDocumento => Set<SaldoDocumento>();
-    public DbSet<SaldoCuenta> SaldosCuenta => Set<SaldoCuenta>();
+    public DbSet<Alerta> Alertas => Set<Alerta>();
     public DbSet<Pantalla> Pantallas => Set<Pantalla>();
     public DbSet<PagoDocumento> PagosDocumento => Set<PagoDocumento>();
+    public DbSet<TransferenciaCuentas> TransferenciasCuentas => Set<TransferenciaCuentas>();
+    public DbSet<FlujoRecurrente> FlujosRecurrentes => Set<FlujoRecurrente>();
+    public DbSet<Escenario> Escenarios => Set<Escenario>();
+    public DbSet<EscenarioAjuste> EscenarioAjustes => Set<EscenarioAjuste>();
+    public DbSet<Auditoria> Auditorias => Set<Auditoria>();
+
+    /// <summary>
+    /// Tablas en las que todo cambio deja rastro en auditoria. Antes lo garantizaban los
+    /// triggers trg_audit_*: cualquier INSERT/UPDATE/DELETE quedaba registrado aunque el código
+    /// se olvidara. Para no perder esa garantía, SaveChanges rechaza cambios en estas tablas que
+    /// no pasen por PersistenciaExtensions.SaveChangesAuditadoAsync.
+    /// </summary>
+    public static readonly IReadOnlySet<Type> TiposAuditados = new HashSet<Type>
+    {
+        typeof(CuentaFinanciera),
+        typeof(DocumentoFinanciero),
+        typeof(MovimientoFinanciero),
+        typeof(PagoDocumento),
+        typeof(TransferenciaCuentas)
+    };
+
+    /// <summary>Lo prende SaveChangesAuditadoAsync mientras guarda, para que el control de abajo lo deje pasar.</summary>
+    internal bool GuardandoConAuditoria { get; set; }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ExigirAuditoria();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ExigirAuditoria();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Falla fuerte en vez de guardar sin rastro: un cambio de plata sin auditoría es un error de
+    /// programación, y es preferible verlo en la primera prueba que descubrirlo en producción.
+    /// </summary>
+    private void ExigirAuditoria()
+    {
+        if (GuardandoConAuditoria)
+        {
+            return;
+        }
+
+        var sinAuditar = ChangeTracker.Entries()
+            .FirstOrDefault(e => TiposAuditados.Contains(e.Entity.GetType())
+                                 && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
+
+        if (sinAuditar is not null)
+        {
+            throw new InvalidOperationException(
+                $"Se intentó guardar un cambio en {sinAuditar.Metadata.GetTableName()} sin auditoría. " +
+                "Usa SaveChangesAuditadoAsync.");
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +100,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.LowBalanceThreshold).HasColumnName("umbral_saldo_bajo")
                 .HasColumnType("numeric(14,2)").ValueGeneratedOnAdd();
             e.Property(x => x.IsActive).HasColumnName("activo");
+            e.Property(x => x.LastReportAtUtc).HasColumnName("fecha_ultimo_reporte");
         });
 
         modelBuilder.Entity<Role>(e =>
@@ -184,7 +242,67 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.CompanyId).HasColumnName("id_empresa");
             e.Property(x => x.DocumentId).HasColumnName("id_documento");
             e.Property(x => x.MovementId).HasColumnName("id_movimiento");
+            e.Property(x => x.FlowType).HasColumnName("tipo_flujo").HasMaxLength(10);
             e.Property(x => x.AppliedAmount).HasColumnName("monto_aplicado").HasColumnType("numeric(14,2)");
+        });
+
+        modelBuilder.Entity<TransferenciaCuentas>(e =>
+        {
+            e.ToTable("transferencia_cuentas");
+            e.Property(x => x.Id).HasColumnName("id_transferencia");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.SourceAccountId).HasColumnName("id_cuenta_origen");
+            e.Property(x => x.TargetAccountId).HasColumnName("id_cuenta_destino");
+            e.Property(x => x.Amount).HasColumnName("monto").HasColumnType("numeric(14,2)");
+            e.Property(x => x.TransferDate).HasColumnName("fecha_transferencia");
+            e.Property(x => x.Status).HasColumnName("estado").HasMaxLength(10);
+        });
+
+        modelBuilder.Entity<FlujoRecurrente>(e =>
+        {
+            e.ToTable("flujo_recurrente");
+            e.Property(x => x.Id).HasColumnName("id_flujo");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.FlowType).HasColumnName("tipo_flujo").HasMaxLength(10);
+            e.Property(x => x.Amount).HasColumnName("monto").HasColumnType("numeric(14,2)");
+            e.Property(x => x.Frequency).HasColumnName("frecuencia").HasMaxLength(10);
+            e.Property(x => x.StartDate).HasColumnName("fecha_inicio");
+            e.Property(x => x.EndDate).HasColumnName("fecha_fin");
+            e.Property(x => x.IsActive).HasColumnName("activo");
+        });
+
+        modelBuilder.Entity<Escenario>(e =>
+        {
+            e.ToTable("escenario");
+            e.Property(x => x.Id).HasColumnName("id_escenario");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.Name).HasColumnName("nombre").HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<EscenarioAjuste>(e =>
+        {
+            e.ToTable("escenario_ajuste");
+            e.Property(x => x.Id).HasColumnName("id_ajuste");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.ScenarioId).HasColumnName("id_escenario");
+            e.Property(x => x.Type).HasColumnName("tipo_ajuste").HasMaxLength(15);
+            e.Property(x => x.FlowType).HasColumnName("tipo_flujo").HasMaxLength(10);
+            e.Property(x => x.Date).HasColumnName("fecha");
+            e.Property(x => x.Amount).HasColumnName("monto").HasColumnType("numeric(14,2)");
+            e.Property(x => x.DelayDays).HasColumnName("dias_retraso");
+        });
+
+        modelBuilder.Entity<Auditoria>(e =>
+        {
+            e.ToTable("auditoria");
+            e.Property(x => x.Id).HasColumnName("id_auditoria");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.UserId).HasColumnName("id_usuario");
+            e.Property(x => x.Table).HasColumnName("tabla_afectada").HasMaxLength(50);
+            e.Property(x => x.RecordId).HasColumnName("id_registro_afectado");
+            e.Property(x => x.Action).HasColumnName("accion").HasMaxLength(10);
+            e.Property(x => x.Detail).HasColumnName("detalle").HasColumnType("jsonb");
+            e.Property(x => x.EventAtUtc).HasColumnName("fecha_evento").ValueGeneratedOnAdd();
         });
 
         modelBuilder.Entity<Pantalla>(e =>
@@ -199,30 +317,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.IsActive).HasColumnName("activo");
         });
 
-        modelBuilder.Entity<SaldoDocumento>(e =>
+        modelBuilder.Entity<Alerta>(e =>
         {
-            e.HasNoKey();
-            e.ToView("vista_documento_saldo");
+            e.ToTable("alerta");
+            e.Property(x => x.Id).HasColumnName("id_alerta");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.Type).HasColumnName("tipo_alerta").HasMaxLength(30);
             e.Property(x => x.DocumentId).HasColumnName("id_documento");
-            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
-            e.Property(x => x.TotalAmount).HasColumnName("monto_total");
-            e.Property(x => x.PaidAmount).HasColumnName("monto_pagado");
-            e.Property(x => x.CreditNotesAmount).HasColumnName("monto_notas_credito");
-            e.Property(x => x.DebitNotesAmount).HasColumnName("monto_notas_debito");
-            e.Property(x => x.OutstandingAmount).HasColumnName("saldo_pendiente");
-            e.Property(x => x.IsOverdue).HasColumnName("esta_vencido");
-            e.Property(x => x.DaysOverdue).HasColumnName("dias_atraso");
-        });
-
-        modelBuilder.Entity<SaldoCuenta>(e =>
-        {
-            e.HasNoKey();
-            e.ToView("vista_saldo_cuenta");
             e.Property(x => x.AccountId).HasColumnName("id_cuenta");
-            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
-            e.Property(x => x.AccountName).HasColumnName("nombre_cuenta");
-            e.Property(x => x.IsActive).HasColumnName("activo");
-            e.Property(x => x.CurrentBalance).HasColumnName("saldo_actual");
+            e.Property(x => x.ReferenceDate).HasColumnName("fecha_referencia");
+            e.Property(x => x.Severity).HasColumnName("nivel_severidad").HasMaxLength(12);
+            e.Property(x => x.Message).HasColumnName("mensaje").HasMaxLength(300);
+            e.Property(x => x.Status).HasColumnName("estado_alerta").HasMaxLength(12);
+            e.Property(x => x.GeneratedAtUtc).HasColumnName("fecha_generacion").ValueGeneratedOnAdd();
+            e.Property(x => x.ReadAtUtc).HasColumnName("fecha_lectura");
+            e.Property(x => x.ReadByUserId).HasColumnName("id_usuario_lectura");
+            e.Property(x => x.EmailSentAtUtc).HasColumnName("fecha_envio_email");
         });
     }
 }

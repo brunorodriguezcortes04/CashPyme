@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Dominio;
 using Backend.Dtos;
 using Backend.Exceptions;
 using Backend.Models;
@@ -6,36 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
-public class MovimientosService(AppDbContext db)
+public class MovimientosService(AppDbContext db, SaldosService saldos)
 {
-    /// <summary>
-    /// El "mes actual" que se usa como filtro por defecto es el mes en Chile, no en UTC.
-    /// Con UtcNow, el último día del mes después de las ~21:00 hora local el backend ya
-    /// estaría mostrando el mes siguiente mientras la persona sigue en el mes anterior.
-    /// Si el sistema no tiene la zona instalada (contenedor sin tzdata) se cae a UTC en vez
-    /// de reventar: el filtro por defecto es una comodidad, no una regla de negocio.
-    /// </summary>
-    private static readonly TimeZoneInfo ZonaNegocio = ResolverZonaNegocio();
-
-    private static TimeZoneInfo ResolverZonaNegocio()
-    {
-        // "America/Santiago" es el id IANA; "Pacific SA Standard Time" es el id Windows.
-        // .NET acepta ambos en las dos plataformas, pero no en instalaciones sin ICU.
-        foreach (var id in new[] { "America/Santiago", "Pacific SA Standard Time" })
-        {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(id);
-            }
-            catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
-            {
-                // Se prueba el siguiente id.
-            }
-        }
-
-        return TimeZoneInfo.Utc;
-    }
-
     public async Task<IReadOnlyList<CategoriaResponse>> ListCategoriasAsync(long companyId, string tipo)
     {
         return await db.CategoriasMovimiento
@@ -64,11 +37,18 @@ public class MovimientosService(AppDbContext db)
         pagina = pagina < 1 ? 1 : pagina;
         tamanoPagina = tamanoPagina is < 1 or > 100 ? 20 : tamanoPagina;
 
+        // Un rango al revés devolvería una página vacía sin explicar por qué.
+        if (fechaDesde is not null && fechaHasta is not null && fechaDesde > fechaHasta)
+        {
+            throw new RangoFechasInvalidoException();
+        }
+
+        // El "mes actual" es el de la empresa, en su zona horaria: con la fecha del servidor (UTC),
+        // el último día del mes después de las ~21:00 en Chile ya se vería el mes siguiente.
+        var mesEnCurso = ReglasMovimiento.MesEnCurso(await saldos.HoyDeEmpresaAsync(companyId));
         if (fechaDesde is null && fechaHasta is null)
         {
-            var hoy = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ZonaNegocio));
-            fechaDesde = new DateOnly(hoy.Year, hoy.Month, 1);
-            fechaHasta = fechaDesde.Value.AddMonths(1).AddDays(-1);
+            (fechaDesde, fechaHasta) = mesEnCurso;
         }
 
         var query = db.MovimientosFinancieros
@@ -110,13 +90,24 @@ public class MovimientosService(AppDbContext db)
             .Take(tamanoPagina)
             .ToListAsync();
 
+        var idsMovimiento = movimientos.Select(m => m.Id).ToList();
+        var conPagos = (await db.PagosDocumento
+                .Where(p => idsMovimiento.Contains(p.MovementId))
+                .Select(p => p.MovementId)
+                .Distinct()
+                .ToListAsync())
+            .ToHashSet();
+
         return new MovimientosPaginadosResponse(
-            movimientos.Select(ToResponse).ToList(), total, pagina, tamanoPagina);
+            movimientos.Select(m => ToResponse(m, conPagos.Contains(m.Id))).ToList(),
+            total, pagina, tamanoPagina,
+            fechaDesde, fechaHasta,
+            PeriodoPorDefecto: (fechaDesde, fechaHasta) == mesEnCurso);
     }
 
     /// <summary>
     /// Registra un movimiento de caja ('ingreso' o 'egreso'). El signo sobre el saldo lo
-    /// determina tipo_movimiento en vista_saldo_cuenta, no el monto: el CHECK monto > 0 aplica
+    /// determina el tipo de movimiento (ver CalculoCuenta), no el monto: el CHECK monto > 0 aplica
     /// a ambos tipos. Las FK compuestas de cuenta/categoría ya protegen esto en la base; se
     /// valida antes para devolver 404/400 con un mensaje claro en vez de un 500 genérico.
     /// Un egreso que deja la cuenta en negativo se permite: el MVP no bloquea sobregiro.
@@ -148,7 +139,7 @@ public class MovimientosService(AppDbContext db)
         db.MovimientosFinancieros.Add(movimiento);
         await db.SaveChangesAuditadoAsync(userId);
 
-        return await ToResponseConRelacionesAsync(movimiento);
+        return await ConAdvertenciaDeSobregiroAsync(await ToResponseConRelacionesAsync(movimiento));
     }
 
     /// <summary>
@@ -163,44 +154,55 @@ public class MovimientosService(AppDbContext db)
         long idMovimiento,
         UpdateMovimientoRequest request)
     {
-        var movimiento = await BuscarAsync(companyId, idMovimiento);
-
-        if (movimiento.Status == MovimientoFinanciero.Anulado)
+        return await db.EnTransaccionAsync(async () =>
         {
-            throw new MovimientoYaAnuladoException();
-        }
+            // Bloqueado mientras se edita: así un pago que se esté aplicando sobre este mismo
+            // movimiento espera, y el control de abajo ve si quedó con pagos. Sin el bloqueo, el
+            // pago podría entrar entre el control y el guardado (antes lo atajaba el trigger
+            // fn_validar_movimiento).
+            await db.BloquearAsync("movimiento_financiero", "id_movimiento", [idMovimiento]);
+            var movimiento = await BuscarAsync(companyId, idMovimiento);
 
-        if (await TienePagosAplicadosAsync(idMovimiento))
-        {
-            throw new MovimientoConPagosEditException();
-        }
+            if (movimiento.Status == MovimientoFinanciero.Anulado)
+            {
+                throw new MovimientoYaAnuladoException();
+            }
 
-        // El tipo no se puede cambiar al editar, así que la categoría se valida contra el que
-        // el movimiento ya tiene, no contra uno que venga en el request.
-        await ValidarReferenciasAsync(
-            companyId, request.IdCuenta, request.IdCategoria, movimiento.Type, request.IdTercero);
+            if (await TienePagosAplicadosAsync(idMovimiento))
+            {
+                throw new MovimientoConPagosEditException();
+            }
 
-        movimiento.AccountId = request.IdCuenta;
-        movimiento.CategoryId = request.IdCategoria;
-        movimiento.ThirdPartyId = request.IdTercero;
-        // El signo sobre el saldo lo recalcula vista_saldo_cuenta al vuelo a partir de este
-        // Amount: no hay ningún saldo guardado que actualizar aparte.
-        movimiento.Amount = request.Monto;
-        movimiento.MovementDate = request.Fecha;
-        movimiento.PaymentMethod = request.MedioPago;
-        movimiento.Description = request.Descripcion;
+            // El tipo no se puede cambiar al editar, así que la categoría se valida contra el que
+            // el movimiento ya tiene, no contra uno que venga en el request.
+            await ValidarReferenciasAsync(
+                companyId, request.IdCuenta, request.IdCategoria, movimiento.Type, request.IdTercero);
 
-        await db.SaveChangesAuditadoAsync(userId);
+            movimiento.AccountId = request.IdCuenta;
+            movimiento.CategoryId = request.IdCategoria;
+            movimiento.ThirdPartyId = request.IdTercero;
+            // No hay saldo guardado que actualizar aparte: SaldosService lo calcula siempre a
+            // partir de los movimientos registrados.
+            movimiento.Amount = request.Monto;
+            movimiento.MovementDate = request.Fecha;
+            movimiento.PaymentMethod = request.MedioPago;
+            movimiento.Description = request.Descripcion;
 
-        return await ToResponseConRelacionesAsync(movimiento);
+            await db.SaveChangesAuditadoAsync(userId);
+
+            return await ConAdvertenciaDeSobregiroAsync(await ToResponseConRelacionesAsync(movimiento));
+        });
     }
 
     /// <summary>
     /// "Eliminar" nunca borra la fila: pasa estado_movimiento a 'anulado' para conservar la
     /// trazabilidad (regla del diccionario de datos). Si el movimiento ya tiene pagos
     /// aplicados, la primera llamada (Confirmar = false) se rechaza con el detalle para que
-    /// la persona decida; solo anula cuando Confirmar llega en true. El trigger
-    /// trg_movimiento_estado se encarga de recalcular el estado de los documentos afectados.
+    /// la persona decida; solo anula cuando Confirmar llega en true.
+    ///
+    /// Anular un movimiento que pagaba documentos les devuelve ese saldo: un pago cuyo movimiento
+    /// está anulado no cuenta. Por eso, en la misma transacción, se recalcula el estado de esos
+    /// documentos (antes lo hacía el trigger trg_movimiento_estado).
     /// </summary>
     public async Task<MovimientoResponse> AnularMovimientoAsync(
         long companyId,
@@ -208,27 +210,46 @@ public class MovimientosService(AppDbContext db)
         long idMovimiento,
         AnularMovimientoRequest request)
     {
-        var movimiento = await BuscarAsync(companyId, idMovimiento);
-
-        if (movimiento.Status == MovimientoFinanciero.Anulado)
+        return await db.EnTransaccionAsync(async () =>
         {
-            throw new MovimientoYaAnuladoException();
-        }
+            // Se bloquea siempre en el mismo orden que un pago: primero los documentos, después el
+            // movimiento. Con el orden cruzado, un pago y una anulación simultáneos sobre el mismo
+            // movimiento podían quedar esperándose mutuamente (deadlock). Un pago que entre en el
+            // medio espera a que termine la anulación, y entonces lo ve anulado y se rechaza.
+            await db.BloquearAsync("documento_financiero", "id_documento", await DocumentosPagadosAsync(idMovimiento));
+            await db.BloquearAsync("movimiento_financiero", "id_movimiento", [idMovimiento]);
+            var movimiento = await BuscarAsync(companyId, idMovimiento);
 
-        var cantidadPagos = await db.PagosDocumento.CountAsync(p => p.MovementId == idMovimiento);
-        if (cantidadPagos > 0 && !request.Confirmar)
-        {
-            throw new MovimientoConPagosAnularException(cantidadPagos);
-        }
+            if (movimiento.Status == MovimientoFinanciero.Anulado)
+            {
+                throw new MovimientoYaAnuladoException();
+            }
 
-        movimiento.Status = MovimientoFinanciero.Anulado;
-        movimiento.CanceledAtUtc = DateTime.UtcNow;
-        movimiento.CanceledByUserId = userId;
-        movimiento.CancellationReason = string.IsNullOrWhiteSpace(request.Motivo) ? null : request.Motivo.Trim();
+            // Se vuelve a leer con el movimiento ya bloqueado: un pago que haya terminado justo
+            // antes del bloqueo también cuenta (y ya soltó sus bloqueos, así que no hay espera).
+            var documentosPagados = await DocumentosPagadosAsync(idMovimiento);
 
-        await db.SaveChangesAuditadoAsync(userId);
+            if (documentosPagados.Count > 0 && !request.Confirmar)
+            {
+                throw new MovimientoConPagosAnularException(documentosPagados.Count);
+            }
 
-        return ToResponse(movimiento);
+            movimiento.Status = MovimientoFinanciero.Anulado;
+            movimiento.CanceledAtUtc = DateTime.UtcNow;
+            movimiento.CanceledByUserId = userId;
+            movimiento.CancellationReason = string.IsNullOrWhiteSpace(request.Motivo) ? null : request.Motivo.Trim();
+
+            await db.SaveChangesAuditadoAsync(userId);
+
+            if (documentosPagados.Count > 0)
+            {
+                await saldos.RecalcularEstadosAsync(documentosPagados);
+                await db.SaveChangesAuditadoAsync(userId);
+            }
+
+            // Recién anulado: no admite más acciones, tenga o no pagos.
+            return ToResponse(movimiento, tienePagosAplicados: false);
+        });
     }
 
     /// <summary>
@@ -284,7 +305,22 @@ public class MovimientosService(AppDbContext db)
         await db.Entry(movimiento).Reference(m => m.Account).LoadAsync();
         await db.Entry(movimiento).Reference(m => m.Category).LoadAsync();
 
-        return ToResponse(movimiento);
+        return ToResponse(movimiento, await TienePagosAplicadosAsync(movimiento.Id));
+    }
+
+    /// <summary>
+    /// Después de crear o editar: si la cuenta quedó en negativo, la respuesta lo avisa
+    /// (ReglasMovimiento.AdvertenciaSobregiro). El movimiento ya está guardado.
+    /// </summary>
+    private async Task<MovimientoResponse> ConAdvertenciaDeSobregiroAsync(MovimientoResponse movimiento)
+    {
+        var saldo = (await saldos.DeCuentasAsync(
+            db.CuentasFinancieras.Where(c => c.Id == movimiento.IdCuenta)))[movimiento.IdCuenta];
+
+        return movimiento with
+        {
+            Advertencia = ReglasMovimiento.AdvertenciaSobregiro(movimiento.NombreCuenta, saldo)
+        };
     }
 
     private async Task<MovimientoFinanciero> BuscarAsync(long companyId, long idMovimiento)
@@ -299,7 +335,14 @@ public class MovimientosService(AppDbContext db)
     private Task<bool> TienePagosAplicadosAsync(long idMovimiento)
         => db.PagosDocumento.AnyAsync(p => p.MovementId == idMovimiento);
 
-    private static MovimientoResponse ToResponse(MovimientoFinanciero m) => new(
+    private Task<List<long>> DocumentosPagadosAsync(long idMovimiento)
+        => db.PagosDocumento
+            .Where(p => p.MovementId == idMovimiento)
+            .Select(p => p.DocumentId)
+            .Distinct()
+            .ToListAsync();
+
+    private static MovimientoResponse ToResponse(MovimientoFinanciero m, bool tienePagosAplicados) => new(
         m.Id,
         m.Type,
         m.Amount,
@@ -311,7 +354,9 @@ public class MovimientosService(AppDbContext db)
         m.PaymentMethod,
         m.Description,
         m.Status,
+        ReglasMovimiento.EtiquetaEstado(m.Status),
         m.CanceledAtUtc,
-        m.CreatedAtUtc
+        m.CreatedAtUtc,
+        ReglasMovimiento.Acciones(m.Status, tienePagosAplicados)
     );
 }

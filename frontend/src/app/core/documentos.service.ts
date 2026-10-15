@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError } from 'rxjs';
 import { apiError } from './api-error';
+import { Tercero } from './terceros.service';
 
 /** Cuenta por cobrar o por pagar. Tabla documento_financiero en la base. */
 export const TIPO_CUENTA_POR_COBRAR = 'por_cobrar';
@@ -22,9 +23,14 @@ export interface Documento {
   fechaEmision: string;
   fechaVencimiento: string;
   estadoDocumento: string;
+  /**
+   * Texto del estado para mostrar ("Pagada", "Cerrada por nota", "Vigente"…). Lo arma el
+   * backend para que todas las pantallas digan lo mismo.
+   */
+  etiquetaEstado: string;
   descripcion: string | null;
   fechaCreacion: string;
-  /** Lo que sigue sale de vista_documento_saldo, la misma fuente que la proyección de caja. */
+  /** Lo que sigue lo calcula el backend con la misma fórmula que usa la proyección de caja. */
   montoPagado: number;
   montoNotasCredito: number;
   montoNotasDebito: number;
@@ -33,6 +39,23 @@ export interface Documento {
   diasAtraso: number;
   /** Documento que esta nota corrige; null si no es una nota. */
   idDocumentoReferencia: number | null;
+  /** Qué botones ofrece la fila: lo decide el backend con las mismas reglas con que valida. */
+  acciones: {
+    puedeAplicar: boolean;
+    puedeEmitirNota: boolean;
+    puedeEditar: boolean;
+    puedeAnular: boolean;
+  };
+}
+
+/** Documento al que se le puede emitir una nota, con lo que todavía le queda por cobrar o pagar. */
+export interface DocumentoCorregible {
+  id: number;
+  tipoDocumento: string;
+  numeroDocumento: string | null;
+  idTercero: number;
+  nombreTercero: string;
+  saldoPendiente: number;
 }
 
 /** Movimiento de caja con monto todavía sin aplicar a ningún documento. */
@@ -73,13 +96,17 @@ export interface FiltrosDocumentos {
   tamanoPagina?: number;
 }
 
+/**
+ * Una nota va sin tercero ni vencimiento: el backend le pone el tercero del documento que
+ * corrige y el vencimiento igual a la emisión.
+ */
 export interface CrearDocumentoPayload {
   tipoCuenta: string;
   tipoDocumento: string;
-  idTercero: number;
+  idTercero: number | null;
   montoTotal: number;
   fechaEmision: string;
-  fechaVencimiento: string;
+  fechaVencimiento: string | null;
   numeroDocumento?: string | null;
   idCategoria?: number | null;
   montoNeto?: number | null;
@@ -89,8 +116,17 @@ export interface CrearDocumentoPayload {
   idDocumentoReferencia?: number | null;
 }
 
-/** Igual que CrearDocumentoPayload pero sin tipoCuenta: no se puede cambiar al editar. */
-export type ActualizarDocumentoPayload = Omit<CrearDocumentoPayload, 'tipoCuenta'>;
+/**
+ * Sin tipoCuenta, que no se cambia al editar. Una nota no se edita, así que acá tercero y
+ * vencimiento siempre van.
+ */
+export type ActualizarDocumentoPayload = Omit<
+  CrearDocumentoPayload,
+  'tipoCuenta' | 'idTercero' | 'fechaVencimiento' | 'idDocumentoReferencia'
+> & {
+  idTercero: number;
+  fechaVencimiento: string;
+};
 
 @Injectable({ providedIn: 'root' })
 export class DocumentosService {
@@ -118,6 +154,23 @@ export class DocumentosService {
    */
   anular(id: number): Observable<Documento> {
     return this.http.post<Documento>(`/api/documentos/${id}/anular`, {}).pipe(catchError(apiError));
+  }
+
+  /**
+   * Clientes o proveedores con los que se puede registrar este tipo de cuenta. El backend
+   * aplica la misma regla con la que después valida al guardar.
+   */
+  listTerceros(tipoCuenta: string): Observable<Tercero[]> {
+    return this.http
+      .get<Tercero[]>('/api/documentos/terceros', { params: { tipoCuenta } })
+      .pipe(catchError(apiError));
+  }
+
+  /** Documentos de este tipo de cuenta a los que se les puede emitir una nota. */
+  listCorregibles(tipoCuenta: string): Observable<DocumentoCorregible[]> {
+    return this.http
+      .get<DocumentoCorregible[]>('/api/documentos/corregibles', { params: { tipoCuenta } })
+      .pipe(catchError(apiError));
   }
 
   /** Notas de crédito y débito emitidas sobre un documento. */

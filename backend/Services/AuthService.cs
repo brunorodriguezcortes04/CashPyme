@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Dominio;
 using Backend.Dtos;
 using Backend.Exceptions;
 using Backend.Models;
@@ -50,8 +51,29 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, Corre
             RoleId = adminRoleId
         });
 
-        // Dos registros simultáneos con el mismo correo (ux_usuario_email).
-        await db.SaveChangesTraducidoAsync(() => new EmailAlreadyRegisteredException());
+        await db.EnTransaccionAsync(async () =>
+        {
+            // Dos registros simultáneos con el mismo correo (ux_usuario_email).
+            await db.SaveChangesTraducidoAsync(() => new EmailAlreadyRegisteredException());
+
+            // Lo que toda empresa nueva trae para poder cargar movimientos desde el primer minuto.
+            // Antes lo creaban los triggers de la tabla empresa; va en la misma transacción para
+            // que no quede nunca una empresa a medio crear, sin cuenta o sin categorías.
+            db.CategoriasMovimiento.AddRange(DatosBaseEmpresa.Categorias.Select(c => new CategoriaMovimiento
+            {
+                CompanyId = company.Id,
+                Name = c.Nombre,
+                Type = c.Tipo
+            }));
+            db.CuentasFinancieras.Add(new CuentaFinanciera
+            {
+                CompanyId = company.Id,
+                Name = DatosBaseEmpresa.NombreCuentaBase,
+                Type = DatosBaseEmpresa.TipoCuentaBase,
+                InitialBalance = 0
+            });
+            await db.SaveChangesAuditadoAsync(user.Id);
+        });
 
         // Después del commit: si el correo falla, la cuenta igual existe (ver EnviarVerificacionAsync).
         await correoCuenta.EnviarVerificacionAsync(user);

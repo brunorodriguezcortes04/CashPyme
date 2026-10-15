@@ -131,12 +131,12 @@
                 </label>
                 <select
                   [attr.id]="'rol-' + usuario.idUsuario"
-                  [value]="idRolDe(usuario)"
+                  [value]="usuario.idRol"
                   [disabled]="actualizandoId() === usuario.idUsuario"
                   (change)="cambiarRol(usuario, $event)"
                 >
                   @for (rol of roles(); track rol.id) {
-                    <option [value]="rol.id" [selected]="rol.nombreRol === usuario.rol">
+                    <option [value]="rol.id" [selected]="rol.id === usuario.idRol">
                       {{ rol.nombreRol }}
                     </option>
                   }

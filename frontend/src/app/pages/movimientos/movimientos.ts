@@ -20,19 +20,6 @@ function hoy(): string {
   return `${ahora.getFullYear()}-${mes}-${dia}`;
 }
 
-function primerDiaMes(): string {
-  const ahora = new Date();
-  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-01`;
-}
-
-function ultimoDiaMes(): string {
-  const ahora = new Date();
-  const ultimo = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
-  const mes = String(ultimo.getMonth() + 1).padStart(2, '0');
-  const dia = String(ultimo.getDate()).padStart(2, '0');
-  return `${ultimo.getFullYear()}-${mes}-${dia}`;
-}
-
 @Component({
   selector: 'app-movimientos',
   imports: [ReactiveFormsModule, DecimalPipe, RouterLink],
@@ -74,8 +61,11 @@ export class Movimientos {
   protected readonly confirmandoAnulacion = signal<{ id: number; mensaje: string } | null>(null);
   protected readonly anulandoId = signal<number | null>(null);
 
-  /** El rango "Desde" > "Hasta" no se manda al backend: devolvería vacío sin explicar por qué. */
-  protected readonly rangoInvalido = signal(false);
+  /** Error al traer el listado (por ejemplo un rango de fechas al revés): se muestra junto a los filtros. */
+  protected readonly errorListado = signal<string | null>(null);
+
+  /** Si el rango que aplicó el backend es el mes en curso de la empresa (el que usa sin filtros). */
+  private readonly periodoPorDefecto = signal(true);
 
   private readonly tamanoPagina = 20;
   protected readonly pagina = signal(1);
@@ -93,10 +83,13 @@ export class Movimientos {
     descripcion: ['', [Validators.maxLength(250)]]
   });
 
-  /** Por defecto se filtra el mes actual, igual que hace el backend cuando no se envía rango. */
+  /**
+   * Las fechas parten vacías: sin rango, el backend aplica el mes en curso de la empresa y
+   * devuelve cuál fue, y con eso se llenan los campos.
+   */
   protected readonly filtrosForm = this.formBuilder.nonNullable.group({
-    fechaDesde: [primerDiaMes()],
-    fechaHasta: [ultimoDiaMes()],
+    fechaDesde: [''],
+    fechaHasta: [''],
     idCategoria: [''],
     idCuenta: ['']
   });
@@ -122,31 +115,10 @@ export class Movimientos {
         this.tipo.set(params.get('tipo') ?? '');
         this.cancelarEdicion();
         this.pagina.set(1);
-        this.rangoInvalido.set(false);
         // Al cambiar de ingresos a egresos las categorías ya no aplican: se parte limpio.
-        this.filtrosForm.reset({
-          fechaDesde: primerDiaMes(),
-          fechaHasta: ultimoDiaMes(),
-          idCategoria: '',
-          idCuenta: ''
-        });
+        this.filtrosForm.reset({ fechaDesde: '', fechaHasta: '', idCategoria: '', idCuenta: '' });
         this.cargarDatos();
       });
-  }
-
-  /**
-   * El MVP no bloquea el sobregiro: el movimiento ya se guardó. Esto solo avisa, después
-   * de recalcular el saldo, que la cuenta quedó en negativo, para que la persona se entere
-   * en el momento y no al revisar la caja más tarde.
-   */
-  private avisarSiQuedaSobregirada(idCuenta: number): void {
-    const cuenta = this.cuentas().find((c) => c.id === idCuenta);
-
-    this.warningMessage.set(
-      cuenta && cuenta.saldoActual < 0
-        ? `La cuenta "${cuenta.nombreCuenta}" quedó con saldo negativo. El movimiento se guardó igual.`
-        : null
-    );
   }
 
   protected submit(): void {
@@ -182,10 +154,10 @@ export class Movimientos {
             ? (this.tipoActual()?.mensajeExito ?? 'Movimiento registrado.')
             : 'Movimiento actualizado.'
         );
-        this.cuentasService.listCuentas().subscribe((cuentas) => {
-          this.cuentas.set(cuentas);
-          this.avisarSiQuedaSobregirada(movimiento.idCuenta);
-        });
+        // El aviso de sobregiro (si lo hay) lo arma el backend; se recargan las cuentas para
+        // que el panel de saldos muestre el saldo nuevo.
+        this.warningMessage.set(movimiento.advertencia ?? null);
+        this.cuentasService.listCuentas().subscribe((cuentas) => this.cuentas.set(cuentas));
         this.editandoId.set(null);
         this.reiniciarFormulario(idEditando === null ? movimiento.idCuenta : null);
         this.isSubmitting.set(false);
@@ -205,7 +177,7 @@ export class Movimientos {
     });
   }
 
-  /** Solo movimientos registrados (sin pagos aplicados) se pueden editar; el backend igual lo valida. */
+  /** Solo se ofrece cuando el backend lo permite (movimiento.acciones.puedeEditar). */
   protected editar(movimiento: Movimiento): void {
     this.editandoId.set(movimiento.id);
     this.errorMessage.set(null);
@@ -273,29 +245,17 @@ export class Movimientos {
     this.confirmandoAnulacion.set(null);
   }
 
+  /** Un rango al revés lo rechaza el backend con su mensaje, que se muestra junto a los filtros. */
   protected aplicarFiltros(): void {
-    const { fechaDesde, fechaHasta } = this.filtrosForm.getRawValue();
-
-    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
-      this.rangoInvalido.set(true);
-      return;
-    }
-
-    this.rangoInvalido.set(false);
     // Filtro nuevo, resultados nuevos: quedarse en la página 3 del filtro anterior no
     // significa nada para este.
     this.pagina.set(1);
     this.cargarMovimientos();
   }
 
+  /** Sin fechas, el backend vuelve al mes en curso. */
   protected limpiarFiltros(): void {
-    this.filtrosForm.reset({
-      fechaDesde: primerDiaMes(),
-      fechaHasta: ultimoDiaMes(),
-      idCategoria: '',
-      idCuenta: ''
-    });
-    this.rangoInvalido.set(false);
+    this.filtrosForm.reset({ fechaDesde: '', fechaHasta: '', idCategoria: '', idCuenta: '' });
     this.pagina.set(1);
     this.cargarMovimientos();
   }
@@ -303,12 +263,7 @@ export class Movimientos {
   /** Método normal, no computed(): el formulario de filtros no es una señal. */
   protected hayFiltrosActivos(): boolean {
     const f = this.filtrosForm.getRawValue();
-    return Boolean(
-      f.idCategoria ||
-      f.idCuenta ||
-      f.fechaDesde !== primerDiaMes() ||
-      f.fechaHasta !== ultimoDiaMes()
-    );
+    return Boolean(f.idCategoria || f.idCuenta) || !this.periodoPorDefecto();
   }
 
   protected paginaAnterior(): void {
@@ -361,6 +316,7 @@ export class Movimientos {
    */
   private cargarMovimientos(): void {
     this.isLoading.set(true);
+    this.errorListado.set(null);
     const f = this.filtrosForm.getRawValue();
 
     this.movimientosService
@@ -388,11 +344,18 @@ export class Movimientos {
             return;
           }
 
+          // Los campos muestran el rango que de verdad se aplicó (el mes en curso si no se pidió otro).
+          this.filtrosForm.patchValue(
+            { fechaDesde: resultado.fechaDesde ?? '', fechaHasta: resultado.fechaHasta ?? '' },
+            { emitEvent: false }
+          );
+          this.periodoPorDefecto.set(resultado.periodoPorDefecto);
           this.movimientos.set(resultado.items);
           this.isLoading.set(false);
         },
         error: (error: unknown) => {
-          this.errorMessage.set(mensajeDeError(error));
+          this.errorListado.set(mensajeDeError(error));
+          this.movimientos.set([]);
           this.isLoading.set(false);
         }
       });

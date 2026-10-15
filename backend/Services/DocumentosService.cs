@@ -9,14 +9,14 @@ namespace Backend.Services;
 
 /// <summary>
 /// Cuentas por cobrar y por pagar (documento_financiero), incluidas las notas de crédito y
-/// débito que las corrigen. Un documento nace 'pendiente' y la API no vuelve a escribir su
-/// estado: lo mueve el trigger de la base cuando se le aplican pagos.
+/// débito que las corrigen. Toda la regla vive acá: antes la repetían los triggers de la base
+/// (fn_validar_documento, fn_validar_nota y los de recálculo), que ya no existen.
 ///
-/// El saldo que se devuelve sale siempre de vista_documento_saldo, nunca de un cálculo en C#:
-/// es la misma fuente que lee fn_proyeccion_caja, así que la pantalla no puede mostrar un
-/// número distinto del que la proyección está contando.
+/// El saldo que se devuelve sale de SaldosService, con la misma fórmula que usan la proyección,
+/// las alertas y el saldo neto: la pantalla no puede mostrar un número distinto del que ellos
+/// cuentan.
 /// </summary>
-public class DocumentosService(AppDbContext db)
+public class DocumentosService(AppDbContext db, SaldosService saldos)
 {
     /// <summary>
     /// Listado paginado. Se filtra primero por empresa y fecha_vencimiento para que Postgres
@@ -59,67 +59,127 @@ public class DocumentosService(AppDbContext db)
             .Take(tamanoPagina)
             .ToListAsync();
 
-        var saldos = await SaldosDeAsync(documentos.Select(d => d.Id).ToList());
+        var saldosDoc = await saldos.DeDocumentosAsync(documentos.Select(d => d.Id).ToList());
 
         return new DocumentosPaginadosResponse(
-            documentos.Select(d => ToResponse(d, saldos.GetValueOrDefault(d.Id))).ToList(),
+            documentos.Select(d => ToResponse(d, saldosDoc[d.Id])).ToList(),
             total, pagina, tamanoPagina);
     }
 
     /// <summary>
-    /// Registra un documento, sea una cuenta por cobrar/pagar o una nota que corrige a otra.
-    /// Todo lo que la base impide con un CHECK, una FK o un trigger se valida antes para
-    /// responder 400/404/409 con un mensaje que la persona entienda, en vez del 500 genérico
-    /// que dejaría escapar la violación.
+    /// Terceros con los que se puede registrar este tipo de cuenta: activos y del tipo que sirve
+    /// (cliente o 'ambos' para cobrar, proveedor o 'ambos' para pagar). Es la misma regla que se
+    /// valida al guardar, así que el formulario nunca ofrece a alguien que después se rechaza.
     /// </summary>
-    public async Task<DocumentoResponse> CrearAsync(
-        long companyId,
-        long userId,
-        CreateDocumentoRequest request)
+    public async Task<IReadOnlyList<TerceroResponse>> ListarTercerosAsync(long companyId, string tipoCuenta)
     {
-        ValidarFechasYMontos(
-            request.FechaEmision, request.FechaVencimiento,
-            request.MontoNeto, request.MontoIva, request.MontoTotal);
+        var tipos = TiposCuentaDocumento.TiposTerceroQueSirven(tipoCuenta);
 
-        var tercero = await ValidarTerceroAsync(companyId, request.IdTercero, request.TipoCuenta);
-        var categoria = await ValidarCategoriaAsync(companyId, request.IdCategoria, request.TipoCuenta);
-
-        var referencia = await ValidarReferenciaAsync(
-            companyId, request.TipoDocumento, request.TipoCuenta,
-            request.IdTercero, request.MontoTotal, request.IdDocumentoReferencia);
-
-        var documento = new DocumentoFinanciero
-        {
-            CompanyId = companyId,
-            ThirdPartyId = tercero.Id,
-            CategoryId = categoria?.Id,
-            ReferenceDocumentId = referencia?.Id,
-            AccountType = request.TipoCuenta,
-            DocumentType = request.TipoDocumento,
-            DocumentNumber = Limpiar(request.NumeroDocumento),
-            NetAmount = request.MontoNeto,
-            VatAmount = request.MontoIva,
-            TotalAmount = request.MontoTotal,
-            IssueDate = request.FechaEmision,
-            DueDate = request.FechaVencimiento,
-            Description = Limpiar(request.Descripcion),
-            CreatedByUserId = userId
-        };
-
-        db.DocumentosFinancieros.Add(documento);
-        await db.SaveChangesAuditadoAsync(userId, () => new DocumentoDuplicadoException());
-
-        // Las relaciones se asignan a mano en vez de releer la fila: ya se cargaron al validar.
-        documento.ThirdParty = tercero;
-        documento.Category = categoria;
-
-        return ToResponse(documento, await SaldoDeAsync(documento.Id));
+        return await db.Terceros
+            .Where(t => t.CompanyId == companyId && t.IsActive && tipos.Contains(t.Type))
+            .OrderBy(t => t.Name)
+            .Select(t => new TerceroResponse(
+                t.Id, t.Type, t.Name, t.Rut, t.BusinessActivity, t.Email, t.Phone, t.Address, t.IsActive))
+            .ToListAsync();
     }
 
     /// <summary>
-    /// Edita un documento. Bajar MontoTotal es el mecanismo para reflejar una rebaja parcial
-    /// cuando no se quiere emitir una nota: vista_documento_saldo calcula
-    /// saldo_pendiente = monto_total - pagado - notas_credito + notas_debito.
+    /// Documentos a los que se les puede emitir una nota: del mismo tipo de cuenta, no anulados y
+    /// que no sean notas. Con idTercero se limita a los de ese cliente o proveedor. Antes el front
+    /// lo filtraba solo entre los documentos de la página que estaba mostrando.
+    /// </summary>
+    public async Task<IReadOnlyList<DocumentoCorregibleResponse>> ListarCorregiblesAsync(
+        long companyId, string tipoCuenta, long? idTercero)
+    {
+        var consulta = db.DocumentosFinancieros.Where(d =>
+            d.CompanyId == companyId
+            && d.AccountType == tipoCuenta
+            && d.Status != DocumentoFinanciero.Anulado
+            && d.DocumentType != TiposDocumento.NotaCredito
+            && d.DocumentType != TiposDocumento.NotaDebito
+            && (idTercero == null || d.ThirdPartyId == idTercero));
+
+        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
+        var documentos = await consulta
+            .OrderBy(d => d.DueDate).ThenByDescending(d => d.Id)
+            .Select(d => new { d.Id, d.DocumentType, d.DocumentNumber, d.ThirdPartyId, Tercero = d.ThirdParty.Name })
+            .ToListAsync();
+
+        return documentos
+            .Select(d => new DocumentoCorregibleResponse(
+                d.Id, d.DocumentType, d.DocumentNumber, d.ThirdPartyId, d.Tercero,
+                saldosDoc[d.Id].OutstandingAmount))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Registra un documento, sea una cuenta por cobrar/pagar o una nota que corrige a otra.
+    /// Todo lo que la base impide con un CHECK o una FK se valida antes para responder 400/404/409
+    /// con un mensaje que la persona entienda, en vez del 500 genérico que dejaría escapar la
+    /// violación.
+    /// </summary>
+    public async Task<DocumentoResponse> CrearAsync(long companyId, long userId, CreateDocumentoRequest request)
+    {
+        return await db.EnTransaccionAsync(async () =>
+        {
+            var esNota = TiposDocumento.EsNota(request.TipoDocumento);
+
+            var referencia = await ValidarReferenciaAsync(
+                companyId, request.TipoDocumento, request.TipoCuenta, request.IdTercero,
+                request.MontoTotal, request.IdDocumentoReferencia);
+
+            // Una nota es del mismo tercero que el documento que corrige y no vence por su cuenta:
+            // se le toma el tercero al padre y la fecha de vencimiento es la de emisión (la
+            // columna es obligatoria y tiene que ser >= emisión).
+            var idTercero = esNota ? referencia!.ThirdPartyId : request.IdTercero ?? throw new TerceroRequeridoException();
+            var vencimiento = esNota
+                ? request.FechaEmision
+                : request.FechaVencimiento ?? throw new FechaVencimientoRequeridaException();
+
+            ValidarFechasYMontos(
+                request.FechaEmision, vencimiento, request.MontoNeto, request.MontoIva, request.MontoTotal);
+
+            var tercero = await ValidarTerceroAsync(companyId, idTercero, request.TipoCuenta);
+            var categoria = await ValidarCategoriaAsync(companyId, request.IdCategoria, request.TipoCuenta);
+
+            var documento = new DocumentoFinanciero
+            {
+                CompanyId = companyId,
+                ThirdPartyId = tercero.Id,
+                CategoryId = categoria?.Id,
+                ReferenceDocumentId = referencia?.Id,
+                AccountType = request.TipoCuenta,
+                DocumentType = request.TipoDocumento,
+                DocumentNumber = Limpiar(request.NumeroDocumento),
+                NetAmount = request.MontoNeto,
+                VatAmount = request.MontoIva,
+                TotalAmount = request.MontoTotal,
+                IssueDate = request.FechaEmision,
+                DueDate = vencimiento,
+                Description = Limpiar(request.Descripcion),
+                CreatedByUserId = userId
+            };
+
+            db.DocumentosFinancieros.Add(documento);
+            await db.SaveChangesAuditadoAsync(userId, () => new DocumentoDuplicadoException());
+
+            // Una nota cambia el neto del documento que corrige: se pone al día su estado (puede
+            // pasar a 'pagado' si la nota lo deja cubierto). Antes era trg_nota_recalcula_padre.
+            if (referencia is not null)
+            {
+                await saldos.RecalcularEstadosAsync([referencia.Id]);
+                await db.SaveChangesAuditadoAsync(userId);
+            }
+
+            documento.ThirdParty = tercero;
+            documento.Category = categoria;
+            return await ConSaldoAsync(documento);
+        });
+    }
+
+    /// <summary>
+    /// Edita un documento. Bajar MontoTotal es el mecanismo para reflejar una rebaja parcial sin
+    /// emitir nota: el saldo es monto menos lo pagado y lo neteado por notas, así que baja solo.
     ///
     /// Una nota no se edita: cambiarle el monto movería el saldo del documento que corrige sin
     /// dejar rastro de que la nota original decía otra cosa, y una nota es un documento
@@ -131,98 +191,104 @@ public class DocumentosService(AppDbContext db)
         long idDocumento,
         UpdateDocumentoRequest request)
     {
-        var documento = await BuscarAsync(companyId, idDocumento);
-
-        if (documento.Status == DocumentoFinanciero.Anulado)
+        return await db.EnTransaccionAsync(async () =>
         {
-            throw new DocumentoYaAnuladoException();
-        }
+            // Bloqueado: un pago o una nota sobre este documento esperan a que termine, y el
+            // control de "no bajar de lo comprometido" ve los montos definitivos.
+            await db.BloquearAsync("documento_financiero", "id_documento", [idDocumento]);
+            var documento = await BuscarAsync(companyId, idDocumento);
 
-        if (TiposDocumento.EsNota(documento.DocumentType))
-        {
-            throw new NotaNoEditableException();
-        }
+            if (documento.Status == DocumentoFinanciero.Anulado)
+            {
+                throw new DocumentoYaAnuladoException();
+            }
 
-        if (TiposDocumento.EsNota(request.TipoDocumento))
-        {
-            // Convertir un documento normal en nota lo dejaría sin referencia y rompería
-            // ck_doc_nota_referencia. Una nota se emite, no se transforma.
-            throw new NotaNoEditableException();
-        }
+            if (TiposDocumento.EsNota(documento.DocumentType) || TiposDocumento.EsNota(request.TipoDocumento))
+            {
+                // Tampoco se convierte un documento en nota: quedaría sin referencia y rompería
+                // ck_doc_nota_referencia. Una nota se emite, no se transforma.
+                throw new NotaNoEditableException();
+            }
 
-        ValidarFechasYMontos(
-            request.FechaEmision, request.FechaVencimiento,
-            request.MontoNeto, request.MontoIva, request.MontoTotal);
+            ValidarFechasYMontos(
+                request.FechaEmision, request.FechaVencimiento,
+                request.MontoNeto, request.MontoIva, request.MontoTotal);
 
-        // El documento no puede valer menos de lo que ya tiene comprometido. Lo pagado lo
-        // rechaza también trg_documento_validar; lo acreditado en notas solo se controla acá.
-        var saldoActual = await SaldoDeAsync(idDocumento);
-        var pagado = saldoActual?.PaidAmount ?? 0m;
-        var notasCredito = saldoActual?.CreditNotesAmount ?? 0m;
-        if (request.MontoTotal < pagado + notasCredito)
-        {
-            throw new MontoMenorAComprometidoException(pagado, notasCredito);
-        }
+            // El documento no puede valer menos de lo que ya tiene comprometido: lo cobrado más lo
+            // acreditado en notas.
+            var actual = (await saldos.DeDocumentosAsync([idDocumento]))[idDocumento];
+            if (request.MontoTotal < actual.PaidAmount + actual.CreditNotesAmount)
+            {
+                throw new MontoMenorAComprometidoException(actual.PaidAmount, actual.CreditNotesAmount);
+            }
 
-        // El tipo de cuenta no cambia al editar, así que el tercero y la categoría se validan
-        // contra el que el documento ya tiene.
-        var tercero = await ValidarTerceroAsync(companyId, request.IdTercero, documento.AccountType);
-        var categoria = await ValidarCategoriaAsync(companyId, request.IdCategoria, documento.AccountType);
+            // El tipo de cuenta no cambia al editar, así que el tercero y la categoría se validan
+            // contra el que el documento ya tiene.
+            var tercero = await ValidarTerceroAsync(companyId, request.IdTercero, documento.AccountType);
+            var categoria = await ValidarCategoriaAsync(companyId, request.IdCategoria, documento.AccountType);
 
-        documento.ThirdPartyId = tercero.Id;
-        documento.CategoryId = categoria?.Id;
-        documento.DocumentType = request.TipoDocumento;
-        documento.DocumentNumber = Limpiar(request.NumeroDocumento);
-        documento.NetAmount = request.MontoNeto;
-        documento.VatAmount = request.MontoIva;
-        documento.TotalAmount = request.MontoTotal;
-        documento.IssueDate = request.FechaEmision;
-        documento.DueDate = request.FechaVencimiento;
-        documento.Description = Limpiar(request.Descripcion);
+            documento.ThirdPartyId = tercero.Id;
+            documento.CategoryId = categoria?.Id;
+            documento.DocumentType = request.TipoDocumento;
+            documento.DocumentNumber = Limpiar(request.NumeroDocumento);
+            documento.NetAmount = request.MontoNeto;
+            documento.VatAmount = request.MontoIva;
+            documento.TotalAmount = request.MontoTotal;
+            documento.IssueDate = request.FechaEmision;
+            documento.DueDate = request.FechaVencimiento;
+            documento.Description = Limpiar(request.Descripcion);
 
-        await db.SaveChangesAuditadoAsync(userId, () => new DocumentoDuplicadoException());
+            await db.SaveChangesAuditadoAsync(userId, () => new DocumentoDuplicadoException());
 
-        // Si cambió el monto, trg_documento_recalcula ya movió estado_documento en la base
-        // (puede pasar a 'pagado' si el monto nuevo iguala lo pagado). Se relee para no
-        // devolver el estado viejo que quedó en memoria.
-        await db.Entry(documento).ReloadAsync();
-        documento.ThirdParty = tercero;
-        documento.Category = categoria;
+            // Si cambió el monto, el estado puede moverse (por ejemplo a 'pagado' si el monto nuevo
+            // iguala lo pagado). Antes era trg_documento_recalcula.
+            await saldos.RecalcularEstadosAsync([idDocumento]);
+            await db.SaveChangesAuditadoAsync(userId);
 
-        return ToResponse(documento, await SaldoDeAsync(idDocumento));
+            documento.ThirdParty = tercero;
+            documento.Category = categoria;
+            return await ConSaldoAsync(documento);
+        });
     }
 
     /// <summary>
-    /// "Eliminar" un documento es anularlo: la fila se conserva y vista_documento_saldo le pone
-    /// saldo_pendiente en 0, así que sale solo de la proyección de caja y sus alertas se
-    /// resuelven. Quién lo anuló queda en la auditoría (trg_audit_documento): la tabla no tiene
-    /// columnas de anulación propias.
+    /// "Eliminar" un documento es anularlo: la fila se conserva, su saldo pasa a 0 y sale solo
+    /// de la proyección de caja; sus alertas se cierran en la próxima corrida del job.
     ///
     /// Con pagos registrados se rechaza y no hay forma de forzarlo, a diferencia de anular un
     /// movimiento: hay que anular primero esos movimientos.
     ///
-    /// Anular una nota devuelve al documento que corregía el saldo que la nota le había
-    /// quitado, porque la vista solo suma notas que no estén anuladas.
+    /// Anular una nota le devuelve al documento que corregía el saldo que la nota le quitaba.
     /// </summary>
     public async Task<DocumentoResponse> AnularAsync(long companyId, long userId, long idDocumento)
     {
-        var documento = await BuscarAsync(companyId, idDocumento);
-
-        if (documento.Status == DocumentoFinanciero.Anulado)
+        return await db.EnTransaccionAsync(async () =>
         {
-            throw new DocumentoYaAnuladoException();
-        }
+            await db.BloquearAsync("documento_financiero", "id_documento", [idDocumento]);
+            var documento = await BuscarAsync(companyId, idDocumento);
 
-        var (cantidadPagos, _) = await PagosVigentesAsync(idDocumento);
-        if (cantidadPagos > 0)
-        {
-            throw new DocumentoConPagosAnularException(cantidadPagos);
-        }
+            if (documento.Status == DocumentoFinanciero.Anulado)
+            {
+                throw new DocumentoYaAnuladoException();
+            }
 
-        documento.Status = DocumentoFinanciero.Anulado;
-        await db.SaveChangesAuditadoAsync(userId);
+            var cantidadPagos = await PagosVigentesAsync(idDocumento);
+            if (cantidadPagos > 0)
+            {
+                throw new DocumentoConPagosAnularException(cantidadPagos);
+            }
 
-        return ToResponse(documento, await SaldoDeAsync(idDocumento));
+            documento.Status = DocumentoFinanciero.Anulado;
+            await db.SaveChangesAuditadoAsync(userId);
+
+            if (documento.ReferenceDocumentId is { } padre)
+            {
+                await saldos.RecalcularEstadosAsync([padre]);
+                await db.SaveChangesAuditadoAsync(userId);
+            }
+
+            return await ConSaldoAsync(documento);
+        });
     }
 
     /// <summary>Notas emitidas sobre un documento, para mostrar de dónde sale su saldo.</summary>
@@ -235,24 +301,25 @@ public class DocumentosService(AppDbContext db)
             .OrderBy(d => d.Id)
             .ToListAsync();
 
-        var saldos = await SaldosDeAsync(notas.Select(d => d.Id).ToList());
-        return notas.Select(d => ToResponse(d, saldos.GetValueOrDefault(d.Id))).ToList();
+        var saldosDoc = await saldos.DeDocumentosAsync(notas.Select(d => d.Id).ToList());
+        return notas.Select(d => ToResponse(d, saldosDoc[d.Id])).ToList();
     }
 
     /// <summary>
     /// Una nota necesita un documento que corregir y el resto no puede tenerlo
-    /// (ck_doc_nota_referencia). El documento padre se busca filtrando también por tipo de
-    /// cuenta: una nota de una cuenta por cobrar no puede colgarse de una por pagar, y así
-    /// simplemente "no existe" en vez de necesitar un error aparte.
+    /// (ck_doc_nota_referencia). El documento padre se busca filtrando también por tipo de cuenta:
+    /// una nota de una cuenta por cobrar no puede colgarse de una por pagar, y así simplemente "no
+    /// existe" en vez de necesitar un error aparte.
     ///
-    /// Todo esto lo vuelve a comprobar fn_validar_nota en la base, con FOR UPDATE sobre el
-    /// padre; acá se adelanta para dar el mensaje bueno.
+    /// El padre queda bloqueado hasta el fin de la transacción: dos notas de crédito simultáneas
+    /// sobre el mismo documento se ordenan, y la segunda ve lo que ya acreditó la primera. Sin el
+    /// bloqueo, las dos podrían pasar el tope y dejar el documento sobreacreditado.
     /// </summary>
     private async Task<DocumentoFinanciero?> ValidarReferenciaAsync(
         long companyId,
         string tipoDocumento,
         string tipoCuenta,
-        long idTercero,
+        long? idTercero,
         decimal montoTotal,
         long? idReferencia)
     {
@@ -271,6 +338,8 @@ public class DocumentosService(AppDbContext db)
             throw new NotaSinReferenciaException();
         }
 
+        await db.BloquearAsync("documento_financiero", "id_documento", [idReferencia.Value]);
+
         var padre = await db.DocumentosFinancieros
             .SingleOrDefaultAsync(d =>
                 d.Id == idReferencia.Value
@@ -288,7 +357,9 @@ public class DocumentosService(AppDbContext db)
             throw new NotaSobreDocumentoAnuladoException();
         }
 
-        if (padre.ThirdPartyId != idTercero)
+        // La nota hereda el tercero del padre; si el request trae uno distinto es un error, no se
+        // corrige en silencio.
+        if (idTercero is not null && padre.ThirdPartyId != idTercero)
         {
             throw new NotaDeOtroTerceroException();
         }
@@ -322,36 +393,19 @@ public class DocumentosService(AppDbContext db)
             ?? throw new DocumentoNoEncontradoException();
     }
 
-    private async Task<SaldoDocumento?> SaldoDeAsync(long idDocumento)
-        => await db.SaldosDocumento.SingleOrDefaultAsync(s => s.DocumentId == idDocumento);
-
-    private async Task<Dictionary<long, SaldoDocumento>> SaldosDeAsync(List<long> ids)
-    {
-        if (ids.Count == 0)
-        {
-            return [];
-        }
-
-        return await db.SaldosDocumento
-            .Where(s => ids.Contains(s.DocumentId))
-            .ToDictionaryAsync(s => s.DocumentId);
-    }
+    private async Task<DocumentoResponse> ConSaldoAsync(DocumentoFinanciero documento)
+        => ToResponse(documento, (await saldos.DeDocumentosAsync([documento.Id]))[documento.Id]);
 
     /// <summary>
     /// Pagos que de verdad cuentan: los de movimientos registrados. Un pago cuyo movimiento se
-    /// anuló no cuenta, y así lo mira también la base (fn_validar_documento y
-    /// vista_documento_saldo filtran por estado_movimiento = 'registrado'). Si acá se contara
-    /// distinto, se rechazarían anulaciones que la base sí permite.
+    /// anuló no cuenta, igual que en el saldo. Si acá se contara distinto, se rechazarían
+    /// anulaciones válidas.
     /// </summary>
-    private async Task<(int Cantidad, decimal Total)> PagosVigentesAsync(long idDocumento)
-    {
-        var pagos = from p in db.PagosDocumento
-                    join m in db.MovimientosFinancieros on p.MovementId equals m.Id
-                    where p.DocumentId == idDocumento && m.Status == MovimientoFinanciero.Registrado
-                    select p.AppliedAmount;
-
-        return (await pagos.CountAsync(), await pagos.SumAsync(monto => (decimal?)monto) ?? 0m);
-    }
+    private Task<int> PagosVigentesAsync(long idDocumento)
+        => (from p in db.PagosDocumento
+            join m in db.MovimientosFinancieros on p.MovementId equals m.Id
+            where p.DocumentId == idDocumento && m.Status == MovimientoFinanciero.Registrado
+            select p).CountAsync();
 
     /// <summary>Replica ck_doc_fechas y ck_doc_iva para no devolver un 500 desde un CHECK.</summary>
     private static void ValidarFechasYMontos(
@@ -377,8 +431,8 @@ public class DocumentosService(AppDbContext db)
 
     /// <summary>
     /// El tercero tiene que existir en esta empresa, estar activo y servir para el tipo de
-    /// cuenta: 'cliente' o 'ambos' para una por cobrar, 'proveedor' o 'ambos' para una por
-    /// pagar. La FK compuesta solo garantiza la empresa, no el tipo.
+    /// cuenta (TiposCuentaDocumento.TiposTerceroQueSirven). La FK compuesta solo garantiza la
+    /// empresa, no el tipo.
     /// </summary>
     private async Task<Tercero> ValidarTerceroAsync(long companyId, long idTercero, string tipoCuenta)
     {
@@ -386,11 +440,7 @@ public class DocumentosService(AppDbContext db)
             .SingleOrDefaultAsync(t => t.Id == idTercero && t.CompanyId == companyId && t.IsActive)
             ?? throw new TerceroNoEncontradoException();
 
-        var sirve = tipoCuenta == TiposCuentaDocumento.PorCobrar
-            ? tercero.Type is "cliente" or "ambos"
-            : tercero.Type is "proveedor" or "ambos";
-
-        if (!sirve)
+        if (!TiposCuentaDocumento.TiposTerceroQueSirven(tipoCuenta).Contains(tercero.Type))
         {
             throw tipoCuenta == TiposCuentaDocumento.PorCobrar
                 ? new TerceroNoEsClienteException()
@@ -401,8 +451,8 @@ public class DocumentosService(AppDbContext db)
     }
 
     /// <summary>
-    /// La categoría es opcional. Si viene, tiene que ser de esta empresa y de un tipo que
-    /// calce con el tipo_flujo que la base va a generar (ver fk_documento_categoria).
+    /// La categoría es opcional. Si viene, tiene que ser de esta empresa y de un tipo que calce
+    /// con el flujo del documento (ver fk_documento_categoria).
     /// </summary>
     private async Task<CategoriaMovimiento?> ValidarCategoriaAsync(
         long companyId,
@@ -425,11 +475,7 @@ public class DocumentosService(AppDbContext db)
             ?? throw new CategoriaInvalidaException();
     }
 
-    /// <summary>
-    /// El saldo sale de la vista. El respaldo (saldo null) solo aplica si la vista no trajo la
-    /// fila, que no debería pasar: se arma el peor caso honesto en vez de inventar un saldo.
-    /// </summary>
-    private static DocumentoResponse ToResponse(DocumentoFinanciero d, SaldoDocumento? saldo) => new(
+    private static DocumentoResponse ToResponse(DocumentoFinanciero d, SaldoDocumento saldo) => new(
         d.Id,
         d.AccountType,
         d.DocumentType,
@@ -444,18 +490,15 @@ public class DocumentosService(AppDbContext db)
         d.IssueDate,
         d.DueDate,
         d.Status,
+        CalculoDocumento.EtiquetaEstado(d.DocumentType, d.Status, saldo.PaidAmount),
         d.Description,
         d.CreatedAtUtc,
-        saldo?.PaidAmount ?? 0m,
-        saldo?.CreditNotesAmount ?? 0m,
-        saldo?.DebitNotesAmount ?? 0m,
-        saldo?.OutstandingAmount ?? SaldoDeRespaldo(d),
-        saldo?.IsOverdue ?? false,
-        saldo?.DaysOverdue ?? 0,
-        d.ReferenceDocumentId);
-
-    private static decimal SaldoDeRespaldo(DocumentoFinanciero d)
-        => d.Status == DocumentoFinanciero.Anulado || TiposDocumento.EsNota(d.DocumentType)
-            ? 0m
-            : d.TotalAmount;
+        saldo.PaidAmount,
+        saldo.CreditNotesAmount,
+        saldo.DebitNotesAmount,
+        saldo.OutstandingAmount,
+        saldo.IsOverdue,
+        saldo.DaysOverdue,
+        d.ReferenceDocumentId,
+        CalculoDocumento.Acciones(d.DocumentType, d.Status, saldo.OutstandingAmount));
 }

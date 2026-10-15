@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { mensajeDeError } from '../../core/api-error';
 import { CatalogosService, OpcionCatalogo } from '../../core/catalogos.service';
-import { normalizarRut, validadorRut } from '../../core/rut.validator';
 import { Tercero, TercerosService } from '../../core/terceros.service';
 
 @Component({
@@ -31,7 +30,7 @@ export class Terceros {
   protected readonly form = this.formBuilder.nonNullable.group({
     tipoTercero: ['', [Validators.required]],
     nombreRazonSocial: ['', [Validators.required, Validators.maxLength(150)]],
-    rut: ['', [validadorRut()]],
+    rut: ['', [Validators.maxLength(12)]],
     giro: ['', [Validators.maxLength(150)]],
     email: ['', [Validators.email, Validators.maxLength(150)]],
     telefono: ['', [Validators.maxLength(20)]],
@@ -52,14 +51,6 @@ export class Terceros {
 
   protected etiquetaTipo(valor: string): string {
     return this.tiposTercero().find((tipo) => tipo.valor === valor)?.etiqueta ?? valor;
-  }
-
-  /** Deja el RUT formateado apenas la persona sale del campo, antes de guardar. */
-  protected formatearRut(): void {
-    const valor = this.form.controls.rut.value.trim();
-    if (valor) {
-      this.form.controls.rut.setValue(normalizarRut(valor));
-    }
   }
 
   protected editar(tercero: Tercero): void {
@@ -100,7 +91,6 @@ export class Terceros {
       return;
     }
 
-    this.formatearRut();
     const { tipoTercero, nombreRazonSocial, rut, giro, email, telefono, direccion } = this.form.getRawValue();
     const payload = {
       tipoTercero,

@@ -29,4 +29,12 @@ public class OpcionesController : ControllerBase
     [HttpGet("tipos-documento")]
     public ActionResult<IReadOnlyList<TipoDocumentoResponse>> TiposDocumento()
         => Ok(Dominio.TiposDocumento.Todos);
+
+    /// <summary>
+    /// Por cobrar y por pagar con los textos de su pantalla: el front tiene UNA sola pantalla de
+    /// documentos y todo lo que cambia entre las dos viene de acá.
+    /// </summary>
+    [HttpGet("tipos-cuenta-documento")]
+    public ActionResult<IReadOnlyList<TipoCuentaDocumentoResponse>> TiposCuentaDocumento()
+        => Ok(Dominio.TiposCuentaDocumento.Todos);
 }

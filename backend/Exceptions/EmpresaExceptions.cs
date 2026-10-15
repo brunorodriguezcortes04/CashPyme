@@ -28,3 +28,6 @@ public class UltimoAdministradorException()
     : ApiException(
         StatusCodes.Status409Conflict,
         "Esta persona es el único Administrador activo de la empresa. Asigna el rol Administrador a alguien más antes de cambiar este.");
+
+public class EscenarioNoEncontradoException()
+    : ApiException(StatusCodes.Status404NotFound, "El escenario no existe o no pertenece a tu empresa.");

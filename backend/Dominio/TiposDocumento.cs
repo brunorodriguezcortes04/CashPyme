@@ -3,21 +3,21 @@ using System.ComponentModel.DataAnnotations;
 namespace Backend.Dominio;
 
 /// <summary>
-/// Tipos de documento tributario que acepta documento_financiero.
-/// Debe coincidir con ck_doc_tipo_documento en la base (ver migración 011).
-///
-/// Las notas no son documentos que se cobren: corrigen a uno ya emitido y apuntan a él con
-/// id_documento_referencia. Guardan monto positivo, igual que el resto; el signo lo aplica
-/// vista_documento_saldo al netearlas contra el documento padre, y el saldo propio de una nota
-/// es 0 para que la proyección de caja no la cuente aparte.
-/// </summary>
-/// <summary>
 /// EsNota y Signo viajan al front para que no tenga que saber que 'nota_credito' resta: el
 /// vocabulario del dominio vive en el backend, igual que con TipoMovimientoResponse.
 /// Signo es +1 para un documento normal o una nota de débito y -1 para una de crédito.
 /// </summary>
 public record TipoDocumentoResponse(string Valor, string Etiqueta, bool EsNota, int Signo);
 
+/// <summary>
+/// Tipos de documento tributario que acepta documento_financiero.
+/// Debe coincidir con ck_doc_tipo_documento en la base (ver migración 011).
+///
+/// Las notas no son documentos que se cobren: corrigen a uno ya emitido y apuntan a él con
+/// id_documento_referencia. Guardan monto positivo, igual que el resto; el signo lo aplica
+/// CalculoDocumento al netearlas contra el documento padre, y el saldo propio de una nota
+/// es 0 para que la proyección de caja no la cuente aparte.
+/// </summary>
 public static class TiposDocumento
 {
     public const string NotaCredito = "nota_credito";

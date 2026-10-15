@@ -5,9 +5,9 @@ namespace Backend.Dominio;
 
 /// <summary>
 /// RUT chileno normalizado: sin puntos, con guion y dígito verificador en mayúscula
-/// (ej. 12345678-5). Es la misma regla que fn_rut_valido y ck_empresa_rut en la base,
-/// repetida acá a propósito: así un RUT con dígito verificador inválido se rechaza con
-/// un mensaje claro antes de llegar a Postgres, en vez del error genérico del CHECK.
+/// (ej. 12345678-5). Es la única validación del RUT: la base ya no la repite (se eliminaron
+/// fn_rut_valido y los CHECK que la usaban, junto con el resto de la lógica en la base), así
+/// que todo RUT que se guarda tiene que pasar por acá.
 /// </summary>
 public static partial class Rut
 {

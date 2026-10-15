@@ -1,5 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormBuilder,
@@ -7,21 +8,18 @@ import {
   ValidationErrors,
   Validators
 } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { mensajeDeError } from '../../core/api-error';
-import { CatalogosService, TipoDocumento } from '../../core/catalogos.service';
+import { CatalogosService, TipoCuentaDocumento, TipoDocumento } from '../../core/catalogos.service';
 import {
   Documento,
+  DocumentoCorregible,
   DocumentosService,
   MovimientoAplicable,
-  Pago,
-  TIPO_CUENTA_POR_COBRAR
+  Pago
 } from '../../core/documentos.service';
 import { Categoria, MovimientosService } from '../../core/movimientos.service';
-import { Tercero, TercerosService } from '../../core/terceros.service';
-
-/** Plazo habitual de una factura en Chile: deja el formulario listo para el caso normal. */
-const DIAS_VENCIMIENTO_POR_DEFECTO = 30;
+import { Tercero } from '../../core/terceros.service';
 
 function aIso(fecha: Date): string {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -40,44 +38,33 @@ function enDias(dias: number): string {
 }
 
 /**
- * Replica ck_doc_fechas en el formulario: la base igual lo rechaza, pero avisar acá evita el
- * viaje al servidor y deja el mensaje al lado del campo.
+ * Cuentas por cobrar y cuentas por pagar: una sola pantalla para las dos. El tipo de cuenta
+ * viaja en la ruta (data.tipoCuenta) y todo lo que cambia entre una y otra lo entrega el
+ * backend: los textos (/api/opciones/tipos-cuenta-documento), con quién se puede registrar
+ * (/api/documentos/terceros), qué documentos admiten una nota (/api/documentos/corregibles) y
+ * cómo se llama cada estado (etiquetaEstado), qué botones ofrece cada fila (acciones) y el
+ * plazo de vencimiento que se propone. Las reglas que cruzan campos (neto + IVA = total,
+ * vencimiento no anterior a la emisión) también las valida el backend, y su mensaje se muestra
+ * tal cual. En el formulario solo quedan las restricciones de cada campo.
  */
-function vencimientoNoAnteriorAEmision(control: AbstractControl): ValidationErrors | null {
-  const emision = control.get('fechaEmision')?.value;
-  const vencimiento = control.get('fechaVencimiento')?.value;
-  return emision && vencimiento && vencimiento < emision ? { vencimientoAnterior: true } : null;
-}
-
-/**
- * Replica ck_doc_iva: si se desglosa el neto, neto + IVA tiene que dar el total. La tolerancia
- * es por los decimales de numeric(14,2): comparar flotantes con === daría falsos negativos.
- */
-function montosCuadran(control: AbstractControl): ValidationErrors | null {
-  const neto = control.get('montoNeto')?.value;
-  const total = control.get('montoTotal')?.value;
-
-  if (neto === null || neto === '' || total === null || total === '') {
-    return null;
-  }
-
-  const iva = Number(control.get('montoIva')?.value ?? 0);
-  return Math.abs(Number(neto) + iva - Number(total)) > 0.005 ? { montosNoCuadran: true } : null;
-}
-
 @Component({
-  selector: 'app-cuentas-por-cobrar',
+  selector: 'app-documentos',
   imports: [ReactiveFormsModule, DecimalPipe, RouterLink],
-  templateUrl: './cuentas-por-cobrar.html',
-  styleUrl: './cuentas-por-cobrar.scss',
+  templateUrl: './documentos.html',
+  styleUrl: './documentos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CuentasPorCobrar {
+export class Documentos {
   private readonly formBuilder = inject(FormBuilder);
   private readonly documentosService = inject(DocumentosService);
-  private readonly tercerosService = inject(TercerosService);
   private readonly movimientosService = inject(MovimientosService);
   private readonly catalogosService = inject(CatalogosService);
+
+  /** 'por_cobrar' o 'por_pagar'. Cada una tiene su ruta, así que no cambia mientras vive el componente. */
+  private readonly tipoCuenta: string = inject(ActivatedRoute).snapshot.data['tipoCuenta'];
+
+  /** Textos y datos de la pantalla según el tipo de cuenta. null hasta que responde el backend. */
+  protected readonly pantalla = signal<TipoCuentaDocumento | null>(null);
 
   protected readonly tiposDocumento = signal<TipoDocumento[]>([]);
   protected readonly categorias = signal<Categoria[]>([]);
@@ -87,34 +74,26 @@ export class CuentasPorCobrar {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
 
-  /**
-   * Solo clientes: una cuenta por cobrar es contra alguien a quien le vendes. 'ambos' sirve
-   * igual. El backend y el trigger de la base vuelven a comprobarlo.
-   */
-  private readonly terceros = signal<Tercero[]>([]);
-  protected readonly clientes = computed(() =>
-    this.terceros().filter((t) => t.tipoTercero === 'cliente' || t.tipoTercero === 'ambos')
-  );
-  protected readonly hasClientes = computed(() => this.clientes().length > 0);
+  /** Clientes o proveedores con los que se puede registrar este tipo de cuenta. */
+  protected readonly terceros = signal<Tercero[]>([]);
+  protected readonly hasTerceros = computed(() => this.terceros().length > 0);
 
-  /** Una nota solo puede corregir un documento normal que no esté anulado. */
-  protected readonly corregibles = computed(() =>
-    this.documentos().filter((d) => !this.esNota(d.tipoDocumento) && d.estadoDocumento !== 'anulado')
-  );
+  /** Documentos a los que se les puede emitir una nota. Se piden al entrar en modo nota. */
+  protected readonly corregibles = signal<DocumentoCorregible[]>([]);
 
-  /** null = creando una cuenta nueva; un id = editando esa. */
+  /** null = creando un documento nuevo; un id = editando ese. */
   protected readonly editandoId = signal<number | null>(null);
   protected readonly estaEditando = computed(() => this.editandoId() !== null);
 
   protected readonly confirmandoAnulacion = signal<Documento | null>(null);
   protected readonly anulandoId = signal<number | null>(null);
 
-  /** Documento sobre el que se está registrando un cobro, con sus datos cargados. */
-  protected readonly cobrando = signal<Documento | null>(null);
+  /** Documento al que se le está aplicando un cobro o un pago, con sus datos cargados. */
+  protected readonly aplicando = signal<Documento | null>(null);
   protected readonly movimientosAplicables = signal<MovimientoAplicable[]>([]);
   protected readonly pagosDelDocumento = signal<Pago[]>([]);
-  protected readonly cargandoCobro = signal(false);
-  protected readonly errorCobro = signal<string | null>(null);
+  protected readonly cargandoAplicacion = signal(false);
+  protected readonly errorAplicacion = signal<string | null>(null);
 
   /** Notas del documento que se está mirando, para explicar de dónde sale su saldo. */
   protected readonly notasVisibles = signal<{ documento: Documento; notas: Documento[] } | null>(null);
@@ -128,7 +107,7 @@ export class CuentasPorCobrar {
 
   protected readonly form = this.formBuilder.nonNullable.group(
     {
-      idTercero: [null as number | null, [Validators.required]],
+      idTercero: [null as number | null],
       tipoDocumento: ['', [Validators.required]],
       idDocumentoReferencia: [null as number | null],
       numeroDocumento: ['', [Validators.maxLength(50)]],
@@ -136,25 +115,40 @@ export class CuentasPorCobrar {
       montoNeto: [null as number | null, [Validators.min(0)]],
       montoIva: [0, [Validators.min(0)]],
       fechaEmision: [hoy(), [Validators.required]],
-      fechaVencimiento: [enDias(DIAS_VENCIMIENTO_POR_DEFECTO), [Validators.required]],
+      // Se completa cuando llega la pantalla, con el plazo que define el backend.
+      fechaVencimiento: ['', [Validators.required]],
       idCategoria: [null as number | null],
       descripcion: ['', [Validators.maxLength(250)]]
     },
-    {
-      validators: [
-        vencimientoNoAnteriorAEmision,
-        montosCuadran,
-        (control: AbstractControl) => this.referenciaCoherente(control)
-      ]
-    }
+    { validators: (control: AbstractControl) => this.camposSegunTipo(control) }
   );
 
-  protected readonly formCobro = this.formBuilder.nonNullable.group({
+  protected readonly formAplicar = this.formBuilder.nonNullable.group({
     idMovimiento: [null as number | null, [Validators.required]],
     montoAplicado: [null as number | null, [Validators.required, Validators.min(0.01)]]
   });
 
   constructor() {
+    this.catalogosService.listTiposCuentaDocumento().subscribe({
+      next: (tipos) => {
+        const pantalla = tipos.find((t) => t.valor === this.tipoCuenta) ?? null;
+        this.pantalla.set(pantalla);
+        if (!pantalla) {
+          this.errorMessage.set('Esta pantalla no está disponible.');
+          return;
+        }
+
+        this.form.controls.fechaVencimiento.setValue(this.vencimientoPropuesto());
+
+        // La categoría de un documento es del mismo tipo que el movimiento con que se paga.
+        this.movimientosService.listCategorias(pantalla.flujo).subscribe({
+          next: (categorias) => this.categorias.set(categorias),
+          error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
+        });
+      },
+      error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
+    });
+
     this.catalogosService.listTiposDocumento().subscribe({
       next: (tipos) => {
         this.tiposDocumento.set(tipos);
@@ -163,16 +157,17 @@ export class CuentasPorCobrar {
       error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
     });
 
-    this.tercerosService.listTerceros().subscribe({
+    this.documentosService.listTerceros(this.tipoCuenta).subscribe({
       next: (terceros) => this.terceros.set(terceros),
       error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
     });
 
-    // Una cuenta por cobrar termina siendo un ingreso de caja, así que su categoría
-    // (opcional) tiene que ser de ingreso: lo exige fk_documento_categoria.
-    this.movimientosService.listCategorias('ingreso').subscribe({
-      next: (categorias) => this.categorias.set(categorias),
-      error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
+    // Al pasar a nota (desde el botón de la fila o eligiendo el tipo a mano) se piden los
+    // documentos que admiten una, con su saldo al día.
+    this.form.controls.tipoDocumento.valueChanges.pipe(takeUntilDestroyed()).subscribe((tipo) => {
+      if (this.esNota(tipo)) {
+        this.cargarCorregibles();
+      }
     });
 
     this.cargarDocumentos();
@@ -191,50 +186,30 @@ export class CuentasPorCobrar {
     return this.tiposDocumento().find((t) => t.valor === valor)?.etiqueta ?? valor;
   }
 
-  /** Los estados los pone la base: 'pendiente' al nacer, el resto lo mueven pagos y notas. */
-  protected etiquetaEstado(documento: Documento): string {
-    if (this.esNota(documento.tipoDocumento)) {
-      // Una nota no se cobra, así que su estado de pago no dice nada: se muestra si sigue
-      // vigente o si fue anulada, que es lo único que cambia su efecto sobre el documento.
-      return documento.estadoDocumento === 'anulado' ? 'Anulada' : 'Vigente';
-    }
-
-    switch (documento.estadoDocumento) {
-      case 'pendiente':
-        return 'Pendiente';
-      case 'pagado_parcial':
-        return 'Pago parcial';
-      case 'pagado':
-        return documento.montoPagado > 0 ? 'Pagada' : 'Cerrada por nota';
-      case 'anulado':
-        return 'Anulada';
-      default:
-        return documento.estadoDocumento;
-    }
-  }
-
   protected tieneNotas(documento: Documento): boolean {
     return documento.montoNotasCredito > 0 || documento.montoNotasDebito > 0;
   }
 
   /**
-   * Una nota necesita indicar qué documento corrige y un documento normal no puede indicarlo
-   * (ck_doc_nota_referencia). Se valida acá y no con un Validators.required fijo porque
-   * depende del tipo elegido.
+   * Qué campo es obligatorio depende de qué campos muestra el formulario: una nota pide el
+   * documento que corrige (tercero y vencimiento los toma de él), el resto pide el tercero.
    */
-  private referenciaCoherente(control: AbstractControl): ValidationErrors | null {
-    const tipo = control.get('tipoDocumento')?.value;
-    const referencia = control.get('idDocumentoReferencia')?.value;
-
-    if (!this.esNota(tipo)) {
-      return null;
+  private camposSegunTipo(control: AbstractControl): ValidationErrors | null {
+    if (this.esNota(control.get('tipoDocumento')?.value)) {
+      return control.get('idDocumentoReferencia')?.value ? null : { referenciaRequerida: true };
     }
 
-    return referencia ? null : { referenciaRequerida: true };
+    return control.get('idTercero')?.value ? null : { terceroRequerido: true };
+  }
+
+  /** Fecha de vencimiento que propone el formulario: hoy más el plazo que define el backend. */
+  private vencimientoPropuesto(): string {
+    return enDias(this.pantalla()?.diasVencimientoPorDefecto ?? 0);
   }
 
   protected submit(): void {
-    if (this.form.invalid) {
+    const pantalla = this.pantalla();
+    if (!pantalla || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
@@ -242,20 +217,15 @@ export class CuentasPorCobrar {
     const valores = this.form.getRawValue();
     const esNota = this.esNota(valores.tipoDocumento);
 
-    const payload = {
+    const comunes = {
       tipoDocumento: valores.tipoDocumento,
-      idTercero: valores.idTercero!,
       montoTotal: valores.montoTotal!,
       fechaEmision: valores.fechaEmision,
-      // Una nota no tiene vencimiento propio: corrige a otro documento, no se cobra por sí
-      // sola. La columna es NOT NULL y exige >= emisión, así que va la misma fecha.
-      fechaVencimiento: esNota ? valores.fechaEmision : valores.fechaVencimiento,
       numeroDocumento: valores.numeroDocumento || null,
       idCategoria: valores.idCategoria,
       montoNeto: valores.montoNeto,
       montoIva: valores.montoIva,
-      descripcion: valores.descripcion || null,
-      idDocumentoReferencia: esNota ? valores.idDocumentoReferencia : null
+      descripcion: valores.descripcion || null
     };
 
     this.isSubmitting.set(true);
@@ -263,9 +233,22 @@ export class CuentasPorCobrar {
     this.successMessage.set(null);
 
     const idEditando = this.editandoId();
-    const peticion = idEditando === null
-      ? this.documentosService.crear({ ...payload, tipoCuenta: TIPO_CUENTA_POR_COBRAR })
-      : this.documentosService.actualizar(idEditando, payload);
+    const peticion =
+      idEditando === null
+        ? this.documentosService.crear({
+            ...comunes,
+            tipoCuenta: this.tipoCuenta,
+            // Una nota va sin tercero ni vencimiento: los pone el backend a partir del
+            // documento que corrige.
+            idTercero: esNota ? null : valores.idTercero,
+            fechaVencimiento: esNota ? null : valores.fechaVencimiento,
+            idDocumentoReferencia: esNota ? valores.idDocumentoReferencia : null
+          })
+        : this.documentosService.actualizar(idEditando, {
+            ...comunes,
+            idTercero: valores.idTercero!,
+            fechaVencimiento: valores.fechaVencimiento
+          });
 
     peticion.subscribe({
       next: () => {
@@ -274,7 +257,7 @@ export class CuentasPorCobrar {
             ? 'Cambios guardados.'
             : esNota
               ? 'Nota emitida. El saldo del documento que corrige ya quedó ajustado.'
-              : 'Cuenta por cobrar registrada.'
+              : pantalla.mensajeRegistrada
         );
         this.editandoId.set(null);
         this.reiniciarFormulario();
@@ -296,7 +279,7 @@ export class CuentasPorCobrar {
   }
 
   /**
-   * Para rebajar una cuenta sin dejar documento tributario se edita el monto total. Si hace
+   * Para rebajar un documento sin dejar respaldo tributario se edita el monto total. Si hace
    * falta respaldo, se emite una nota de crédito con "Nota" en vez de editar.
    */
   protected editar(documento: Documento): void {
@@ -306,7 +289,7 @@ export class CuentasPorCobrar {
     this.form.setValue({
       idTercero: documento.idTercero,
       tipoDocumento: documento.tipoDocumento,
-      idDocumentoReferencia: documento.idDocumentoReferencia,
+      idDocumentoReferencia: null,
       numeroDocumento: documento.numeroDocumento ?? '',
       montoTotal: documento.montoTotal,
       montoNeto: documento.montoNeto,
@@ -324,10 +307,10 @@ export class CuentasPorCobrar {
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    const notaCredito = this.tiposDocumento().find((t) => t.valor === 'nota_credito');
+    const notaCredito = this.tiposDocumento().find((t) => t.esNota && t.signo < 0);
 
     this.form.setValue({
-      idTercero: documento.idTercero,
+      idTercero: null,
       tipoDocumento: notaCredito?.valor ?? '',
       idDocumentoReferencia: documento.id,
       numeroDocumento: '',
@@ -335,7 +318,7 @@ export class CuentasPorCobrar {
       montoNeto: null,
       montoIva: 0,
       fechaEmision: hoy(),
-      fechaVencimiento: hoy(),
+      fechaVencimiento: this.vencimientoPropuesto(),
       idCategoria: null,
       descripcion: ''
     });
@@ -359,83 +342,82 @@ export class CuentasPorCobrar {
     this.notasVisibles.set(null);
   }
 
-  // ----- Cobros -------------------------------------------------------------
+  // ----- Cobros y pagos -----------------------------------------------------
 
   /**
-   * Un cobro no crea plata: enlaza un movimiento de caja que ya existe con el documento que
-   * cubre. Por eso se eligen de una lista en vez de escribir un monto suelto.
+   * Cobrar o pagar no crea plata: enlaza un movimiento de caja que ya existe con el documento
+   * que cubre. Por eso se elige de una lista en vez de escribir un monto suelto.
    */
-  protected abrirCobro(documento: Documento): void {
-    this.cobrando.set(documento);
-    this.errorCobro.set(null);
-    this.cargandoCobro.set(true);
-    this.formCobro.reset({ idMovimiento: null, montoAplicado: documento.saldoPendiente });
+  protected abrirAplicar(documento: Documento): void {
+    this.aplicando.set(documento);
+    this.errorAplicacion.set(null);
+    this.cargandoAplicacion.set(true);
+    this.formAplicar.reset({ idMovimiento: null, montoAplicado: documento.saldoPendiente });
 
-    this.documentosService.listMovimientosAplicables(TIPO_CUENTA_POR_COBRAR).subscribe({
+    this.documentosService.listMovimientosAplicables(this.tipoCuenta).subscribe({
       next: (movimientos) => {
         this.movimientosAplicables.set(movimientos);
-        this.cargandoCobro.set(false);
+        this.cargandoAplicacion.set(false);
       },
       error: (error: unknown) => {
-        this.errorCobro.set(mensajeDeError(error));
-        this.cargandoCobro.set(false);
+        this.errorAplicacion.set(mensajeDeError(error));
+        this.cargandoAplicacion.set(false);
       }
     });
 
     this.documentosService.listPagos(documento.id).subscribe({
       next: (pagos) => this.pagosDelDocumento.set(pagos),
-      error: (error: unknown) => this.errorCobro.set(mensajeDeError(error))
+      error: (error: unknown) => this.errorAplicacion.set(mensajeDeError(error))
     });
   }
 
-  protected cerrarCobro(): void {
-    this.cobrando.set(null);
+  protected cerrarAplicar(): void {
+    this.aplicando.set(null);
     this.movimientosAplicables.set([]);
     this.pagosDelDocumento.set([]);
-    this.errorCobro.set(null);
+    this.errorAplicacion.set(null);
   }
 
-  protected registrarCobro(): void {
-    const documento = this.cobrando();
-    if (!documento || this.formCobro.invalid) {
-      this.formCobro.markAllAsTouched();
+  protected registrarAplicacion(): void {
+    const documento = this.aplicando();
+    if (!documento || this.formAplicar.invalid) {
+      this.formAplicar.markAllAsTouched();
       return;
     }
 
-    const { idMovimiento, montoAplicado } = this.formCobro.getRawValue();
-    this.cargandoCobro.set(true);
-    this.errorCobro.set(null);
+    const { idMovimiento, montoAplicado } = this.formAplicar.getRawValue();
+    this.cargandoAplicacion.set(true);
+    this.errorAplicacion.set(null);
 
     this.documentosService.crearPago(documento.id, idMovimiento!, montoAplicado!).subscribe({
       next: () => {
-        this.cargandoCobro.set(false);
-        this.successMessage.set('Cobro registrado.');
-        this.cerrarCobro();
+        this.cargandoAplicacion.set(false);
+        this.successMessage.set(this.pantalla()?.mensajeAplicado ?? null);
+        this.cerrarAplicar();
         this.cargarDocumentos();
       },
       error: (error: unknown) => {
-        this.errorCobro.set(mensajeDeError(error));
-        this.cargandoCobro.set(false);
+        this.errorAplicacion.set(mensajeDeError(error));
+        this.cargandoAplicacion.set(false);
       }
     });
   }
 
   /** Quita el enlace. El movimiento de caja y el documento quedan los dos intactos. */
   protected quitarPago(pago: Pago): void {
-    this.cargandoCobro.set(true);
-    this.errorCobro.set(null);
+    this.cargandoAplicacion.set(true);
+    this.errorAplicacion.set(null);
 
     this.documentosService.eliminarPago(pago.id).subscribe({
       next: () => {
-        this.cargandoCobro.set(false);
-        this.pagosDelDocumento.update((pagos) => pagos.filter((p) => p.id !== pago.id));
-        this.successMessage.set('Cobro quitado.');
-        this.cerrarCobro();
+        this.cargandoAplicacion.set(false);
+        this.successMessage.set(this.pantalla()?.mensajeQuitado ?? null);
+        this.cerrarAplicar();
         this.cargarDocumentos();
       },
       error: (error: unknown) => {
-        this.errorCobro.set(mensajeDeError(error));
-        this.cargandoCobro.set(false);
+        this.errorAplicacion.set(mensajeDeError(error));
+        this.cargandoAplicacion.set(false);
       }
     });
   }
@@ -468,10 +450,10 @@ export class CuentasPorCobrar {
         this.successMessage.set(
           this.esNota(pendiente.tipoDocumento)
             ? 'Nota anulada. El documento que corregía recuperó ese monto.'
-            : 'Cuenta por cobrar anulada.'
+            : (this.pantalla()?.mensajeAnulada ?? null)
         );
 
-        // Si se estaba editando justo la que se anuló, el formulario apuntaría a algo que el
+        // Si se estaba editando justo el que se anuló, el formulario apuntaría a algo que el
         // backend ya no acepta: se sale de edición en vez de dejar escribir para nada.
         if (this.editandoId() === pendiente.id) {
           this.cancelarEdicion();
@@ -502,12 +484,19 @@ export class CuentasPorCobrar {
     }
   }
 
+  private cargarCorregibles(): void {
+    this.documentosService.listCorregibles(this.tipoCuenta).subscribe({
+      next: (documentos) => this.corregibles.set(documentos),
+      error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
+    });
+  }
+
   private cargarDocumentos(): void {
     this.isLoading.set(true);
 
     this.documentosService
       .listDocumentos({
-        tipoCuenta: TIPO_CUENTA_POR_COBRAR,
+        tipoCuenta: this.tipoCuenta,
         pagina: this.pagina(),
         tamanoPagina: this.tamanoPagina
       })
@@ -545,7 +534,7 @@ export class CuentasPorCobrar {
       montoNeto: null,
       montoIva: 0,
       fechaEmision: hoy(),
-      fechaVencimiento: enDias(DIAS_VENCIMIENTO_POR_DEFECTO),
+      fechaVencimiento: this.vencimientoPropuesto(),
       idCategoria: null,
       descripcion: ''
     });

@@ -21,16 +21,29 @@ export interface Movimiento {
   medioPago: string;
   descripcion: string | null;
   estadoMovimiento: string;
+  /** "Registrado" o "Anulado": lo decide el backend. */
+  etiquetaEstado: string;
   fechaAnulacion: string | null;
   fechaCreacion: string;
+  /** Qué botones ofrece la fila. */
+  acciones: { puedeEditar: boolean; puedeAnular: boolean };
+  /** Solo al crear o editar: aviso para mostrar junto al éxito (p. ej. cuenta sobregirada). */
+  advertencia?: string | null;
 }
 
-/** Una página del listado. totalResultados es el total sin paginar, para calcular las páginas. */
+/**
+ * Una página del listado. totalResultados es el total sin paginar, para calcular las páginas.
+ * fechaDesde y fechaHasta son el rango que aplicó el backend (sin rango pedido, el mes en curso
+ * de la empresa) y periodoPorDefecto dice si es ese mes.
+ */
 export interface MovimientosPaginados {
   items: Movimiento[];
   totalResultados: number;
   pagina: number;
   tamanoPagina: number;
+  fechaDesde: string | null;
+  fechaHasta: string | null;
+  periodoPorDefecto: boolean;
 }
 
 /**

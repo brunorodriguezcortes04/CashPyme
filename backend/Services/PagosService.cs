@@ -12,12 +12,12 @@ namespace Backend.Services;
 /// movimiento tiene que existir antes. Un pago es el enlace entre "entró plata" y "esta factura
 /// se cobró".
 ///
-/// Casi toda la regla vive en fn_validar_pago, que bloquea documento y movimiento con FOR UPDATE
-/// e impide sobrepagar o aplicar dos veces el mismo movimiento. Acá se valida antes para dar un
-/// mensaje entendible, no para reemplazarla: con dos pagos simultáneos el que pierde la carrera
-/// lo rechaza la base, no este código.
+/// Toda la regla vive acá (antes era el trigger fn_validar_pago): el documento y el movimiento se
+/// bloquean con FOR UPDATE durante la transacción, así que dos pagos simultáneos se ordenan solos
+/// y el segundo ya ve lo que pagó el primero. Sin ese bloqueo, los dos podrían pasar el control de
+/// saldo y sobrepagar el documento entre los dos.
 /// </summary>
-public class PagosService(AppDbContext db)
+public class PagosService(AppDbContext db, SaldosService saldos)
 {
     public async Task<IReadOnlyList<PagoResponse>> ListarDeDocumentoAsync(long companyId, long idDocumento)
     {
@@ -65,90 +65,104 @@ public class PagosService(AppDbContext db)
     }
 
     /// <summary>
-    /// Aplica un movimiento a un documento. El tipo de flujo lo completa la base desde el
-    /// documento, pero igual se comprueba acá: una cuenta por cobrar se paga con un ingreso y
-    /// una por pagar con un egreso, y si no calza la FK compuesta reventaría como 500.
+    /// Aplica un movimiento a un documento. Una cuenta por cobrar se paga con un ingreso y una
+    /// por pagar con un egreso: el flujo del pago tiene que coincidir con los dos, y las FK
+    /// compuestas de pago_documento lo exigen.
     /// </summary>
     public async Task<PagoResponse> CrearAsync(long companyId, long userId, CreatePagoRequest request)
     {
-        var documento = await BuscarDocumentoAsync(companyId, request.IdDocumento);
-
-        if (documento.Status == DocumentoFinanciero.Anulado)
+        return await db.EnTransaccionAsync(async () =>
         {
-            throw new PagoDocumentoAnuladoException();
-        }
+            // Siempre documento antes que movimiento, igual que al anular un movimiento: con el
+            // orden cruzado, dos operaciones simultáneas podrían esperarse mutuamente.
+            await db.BloquearAsync("documento_financiero", "id_documento", [request.IdDocumento]);
+            await db.BloquearAsync("movimiento_financiero", "id_movimiento", [request.IdMovimiento]);
 
-        if (TiposDocumento.EsNota(documento.DocumentType))
-        {
-            throw new PagoSobreNotaException();
-        }
+            var documento = await BuscarDocumentoAsync(companyId, request.IdDocumento);
 
-        var flujoEsperado = TiposCuentaDocumento.FlujoDe(documento.AccountType);
+            if (documento.Status == DocumentoFinanciero.Anulado)
+            {
+                throw new PagoDocumentoAnuladoException();
+            }
 
-        var movimiento = await db.MovimientosFinancieros
-            .SingleOrDefaultAsync(m =>
-                m.Id == request.IdMovimiento
-                && m.CompanyId == companyId
-                && m.Type == flujoEsperado
-                && m.Status == MovimientoFinanciero.Registrado)
-            ?? throw new MovimientoNoAplicableException();
+            if (TiposDocumento.EsNota(documento.DocumentType))
+            {
+                throw new PagoSobreNotaException();
+            }
 
-        // El saldo sale de la vista, que ya descontó los pagos y neteó las notas de crédito y
-        // débito. Usar monto_total a secas dejaría cobrar más de lo que el cliente debe cuando
-        // el documento tiene notas: es el mismo tope que aplica fn_validar_pago.
-        var saldo = await db.SaldosDocumento
-            .Where(s => s.DocumentId == documento.Id)
-            .Select(s => s.OutstandingAmount)
-            .SingleOrDefaultAsync();
+            var flujo = TiposCuentaDocumento.FlujoDe(documento.AccountType);
 
-        if (request.MontoAplicado > saldo)
-        {
-            throw new PagoExcedeSaldoException(saldo);
-        }
+            var movimiento = await db.MovimientosFinancieros
+                .SingleOrDefaultAsync(m =>
+                    m.Id == request.IdMovimiento
+                    && m.CompanyId == companyId
+                    && m.Type == flujo
+                    && m.Status == MovimientoFinanciero.Registrado)
+                ?? throw new MovimientoNoAplicableException();
 
-        // Y lo que le queda libre al movimiento: un ingreso de 100 puede cubrir dos facturas de
-        // 50, pero no tres.
-        var aplicadoMovimiento = await db.PagosDocumento
-            .Where(p => p.MovementId == request.IdMovimiento)
-            .SumAsync(p => (decimal?)p.AppliedAmount) ?? 0m;
-        var disponible = movimiento.Amount - aplicadoMovimiento;
-        if (request.MontoAplicado > disponible)
-        {
-            throw new MovimientoSinMontoDisponibleException(disponible);
-        }
+            // El saldo ya descuenta lo pagado y netea las notas: con el monto bruto se podría
+            // cobrar más de lo que el cliente debe cuando el documento tiene notas de crédito.
+            var saldo = (await saldos.DeDocumentosAsync([documento.Id]))[documento.Id].OutstandingAmount;
+            if (request.MontoAplicado > saldo)
+            {
+                throw new PagoExcedeSaldoException(saldo);
+            }
 
-        var pago = new PagoDocumento
-        {
-            CompanyId = companyId,
-            DocumentId = documento.Id,
-            MovementId = movimiento.Id,
-            AppliedAmount = request.MontoAplicado
-        };
+            // Un ingreso de 100 puede cubrir dos facturas de 50, pero no tres.
+            var aplicadoMovimiento = await db.PagosDocumento
+                .Where(p => p.MovementId == movimiento.Id)
+                .SumAsync(p => (decimal?)p.AppliedAmount) ?? 0m;
+            var disponible = movimiento.Amount - aplicadoMovimiento;
+            if (request.MontoAplicado > disponible)
+            {
+                throw new MovimientoSinMontoDisponibleException(disponible);
+            }
 
-        db.PagosDocumento.Add(pago);
-        // uq_pago (id_documento, id_movimiento): el mismo movimiento no se aplica dos veces al
-        // mismo documento. Si hace falta cambiar el monto, se anula el pago y se crea otro.
-        await db.SaveChangesAuditadoAsync(userId, () => new PagoDuplicadoException());
+            var pago = new PagoDocumento
+            {
+                CompanyId = companyId,
+                DocumentId = documento.Id,
+                MovementId = movimiento.Id,
+                FlowType = flujo,
+                AppliedAmount = request.MontoAplicado
+            };
 
-        return new PagoResponse(
-            pago.Id, pago.DocumentId, pago.MovementId, pago.AppliedAmount,
-            movimiento.MovementDate, movimiento.PaymentMethod, movimiento.Description);
+            db.PagosDocumento.Add(pago);
+            // uq_pago (id_documento, id_movimiento): el mismo movimiento no se aplica dos veces al
+            // mismo documento. Para cambiar el monto se quita el pago y se crea otro.
+            await db.SaveChangesAuditadoAsync(userId, () => new PagoDuplicadoException());
+
+            await saldos.RecalcularEstadosAsync([documento.Id]);
+            await db.SaveChangesAuditadoAsync(userId);
+
+            return new PagoResponse(
+                pago.Id, pago.DocumentId, pago.MovementId, pago.AppliedAmount,
+                movimiento.MovementDate, movimiento.PaymentMethod, movimiento.Description);
+        });
     }
 
     /// <summary>
     /// Quita un pago. Acá sí se borra la fila, a diferencia de documentos y movimientos: un pago
-    /// no es un hecho económico propio, es un enlace entre dos que sí se conservan. El rastro de
-    /// quién lo quitó queda en la auditoría (trg_audit_pago), y trg_pago_recalcula recalcula el
-    /// estado del documento, que puede volver de 'pagado' a 'pendiente'.
+    /// no es un hecho económico propio, es un enlace entre dos que sí se conservan. Queda en la
+    /// auditoría quién lo quitó, y el documento vuelve al estado que le corresponda (puede pasar
+    /// de 'pagado' a 'pendiente').
     /// </summary>
     public async Task EliminarAsync(long companyId, long userId, long idPago)
     {
-        var pago = await db.PagosDocumento
-            .SingleOrDefaultAsync(p => p.Id == idPago && p.CompanyId == companyId)
-            ?? throw new PagoNoEncontradoException();
+        await db.EnTransaccionAsync(async () =>
+        {
+            var pago = await db.PagosDocumento
+                .SingleOrDefaultAsync(p => p.Id == idPago && p.CompanyId == companyId)
+                ?? throw new PagoNoEncontradoException();
 
-        db.PagosDocumento.Remove(pago);
-        await db.SaveChangesAuditadoAsync(userId);
+            await db.BloquearAsync("documento_financiero", "id_documento", [pago.DocumentId]);
+
+            db.PagosDocumento.Remove(pago);
+            await db.SaveChangesAuditadoAsync(userId);
+
+            await saldos.RecalcularEstadosAsync([pago.DocumentId]);
+            await db.SaveChangesAuditadoAsync(userId);
+        });
     }
 
     private async Task<DocumentoFinanciero> BuscarDocumentoAsync(long companyId, long idDocumento)

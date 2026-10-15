@@ -3,8 +3,9 @@ namespace Backend.Models;
 /// <summary>
 /// Cuenta por cobrar o por pagar. Tabla: documento_financiero.
 /// Los valores de AccountType los define Dominio.TiposCuentaDocumento y los de DocumentType
-/// Dominio.TiposDocumento. El estado lo mueve el trigger trg_movimiento_estado a medida que
-/// se le aplican pagos: nace 'pendiente' y la API nunca lo escribe después de crearlo.
+/// Dominio.TiposDocumento. Nace 'pendiente' y después el estado lo pone siempre
+/// SaldosService.RecalcularEstadosAsync, según lo pagado y las notas: ningún servicio lo escribe
+/// a mano, salvo para anular.
 /// </summary>
 public class DocumentoFinanciero
 {

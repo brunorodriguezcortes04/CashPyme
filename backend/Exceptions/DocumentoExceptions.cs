@@ -1,3 +1,5 @@
+using Backend.Dominio;
+
 namespace Backend.Exceptions;
 
 /// <summary>
@@ -23,6 +25,17 @@ public class TerceroNoEsProveedorException()
         StatusCodes.Status400BadRequest,
         "El tercero seleccionado no es un proveedor: para una cuenta por pagar elige uno de tipo proveedor o cliente y proveedor.");
 
+/// <summary>
+/// Un documento normal necesita saber contra quién es. Solo las notas pueden omitirlo, porque
+/// heredan el tercero del documento que corrigen.
+/// </summary>
+public class TerceroRequeridoException()
+    : ApiException(StatusCodes.Status400BadRequest, "Selecciona a quién corresponde el documento.");
+
+/// <summary>Solo las notas pueden omitir el vencimiento: no vencen por su cuenta.</summary>
+public class FechaVencimientoRequeridaException()
+    : ApiException(StatusCodes.Status400BadRequest, "Indica la fecha de vencimiento del documento.");
+
 /// <summary>Replica ck_doc_iva para no devolver un 500 cuando el desglose no cuadra.</summary>
 public class MontosDocumentoInconsistentesException()
     : ApiException(
@@ -42,10 +55,10 @@ public class DocumentoYaAnuladoException()
     : ApiException(StatusCodes.Status409Conflict, "Este documento ya está anulado.");
 
 /// <summary>
-/// A diferencia de anular un movimiento, acá no hay "confirmar de todas formas":
-/// trg_documento_validar rechaza de plano anular un documento con pagos registrados, porque
-/// esos pagos quedarían aplicados a algo que ya no existe. El orden correcto es al revés:
-/// primero se anulan los movimientos, lo que libera el documento.
+/// A diferencia de anular un movimiento, acá no hay "confirmar de todas formas": no se puede
+/// anular un documento con pagos registrados, porque esos pagos quedarían aplicados a algo que
+/// ya no existe. El orden correcto es al revés: primero se anulan los movimientos, lo que libera
+/// el documento.
 /// </summary>
 public class DocumentoConPagosAnularException(int cantidadPagos) : ApiException(
     StatusCodes.Status409Conflict,
@@ -94,7 +107,7 @@ public class NotasCreditoExcedenDocumentoException(decimal disponible) : ApiExce
     StatusCodes.Status409Conflict,
     disponible <= 0
         ? "Este documento ya está completamente cubierto por notas de crédito."
-        : $"La nota de crédito no puede pasar de {disponible:N0}, que es lo que queda del documento sin acreditar.")
+        : $"La nota de crédito no puede pasar de {Clp.Formatear(disponible)}, que es lo que queda del documento sin acreditar.")
 {
     public decimal Disponible { get; } = disponible;
 }
@@ -112,7 +125,7 @@ public class PagoDocumentoAnuladoException()
 
 /// <summary>
 /// El saldo propio de una nota es 0: su efecto ya está en el documento que corrige. Cobrarla
-/// aparte sería cobrar dos veces lo mismo. La base lo rechaza también (fn_validar_pago).
+/// aparte sería cobrar dos veces lo mismo.
 /// </summary>
 public class PagoSobreNotaException()
     : ApiException(
@@ -128,13 +141,13 @@ public class PagoExcedeSaldoException(decimal saldo) : ApiException(
     StatusCodes.Status409Conflict,
     saldo <= 0
         ? "Este documento ya no tiene saldo pendiente."
-        : $"El pago no puede pasar de {saldo:N0}, que es el saldo que queda del documento.");
+        : $"El pago no puede pasar de {Clp.Formatear(saldo)}, que es el saldo que queda del documento.");
 
 public class MovimientoSinMontoDisponibleException(decimal disponible) : ApiException(
     StatusCodes.Status409Conflict,
     disponible <= 0
         ? "Este movimiento ya está completamente aplicado a otros documentos."
-        : $"De este movimiento quedan {disponible:N0} por aplicar.");
+        : $"De este movimiento quedan {Clp.Formatear(disponible)} por aplicar.");
 
 public class PagoDuplicadoException()
     : ApiException(
@@ -146,15 +159,13 @@ public class PagoNoEncontradoException()
 
 /// <summary>
 /// Un documento no puede valer menos de lo que ya tiene comprometido: lo cobrado más lo
-/// acreditado en notas. Lo primero lo rechaza también trg_documento_validar con un RAISE; lo
-/// segundo solo se controla acá, porque fn_validar_nota mira la nota que entra, no al padre
-/// cuando lo editan.
+/// acreditado en notas: si no, quedaría plata cobrada o acreditada por encima de lo que vale.
 /// </summary>
 public class MontoMenorAComprometidoException(decimal pagado, decimal notasCredito) : ApiException(
     StatusCodes.Status409Conflict,
     notasCredito > 0
-        ? $"El monto total no puede quedar por debajo de {pagado + notasCredito:N0}: {pagado:N0} ya pagados y {notasCredito:N0} en notas de crédito."
-        : $"El monto total no puede quedar por debajo de lo ya pagado ({pagado:N0}). Anula primero los pagos que correspondan.")
+        ? $"El monto total no puede quedar por debajo de {Clp.Formatear(pagado + notasCredito)}: {Clp.Formatear(pagado)} ya pagados y {Clp.Formatear(notasCredito)} en notas de crédito."
+        : $"El monto total no puede quedar por debajo de lo ya pagado ({Clp.Formatear(pagado)}). Anula primero los pagos que correspondan.")
 {
     public decimal Pagado { get; } = pagado;
     public decimal NotasCredito { get; } = notasCredito;

@@ -16,7 +16,7 @@ public record CuentaResponse(
 
 /// <summary>
 /// El saldo inicial admite negativos: una cuenta puede arrancar sobregirada y el MVP no
-/// bloquea sobregiro. El saldo actual nunca se guarda, lo calcula vista_saldo_cuenta.
+/// bloquea sobregiro. El saldo actual nunca se guarda, lo calcula SaldosService.
 /// </summary>
 public record CreateCuentaRequest(
     [Required, MaxLength(100)] string NombreCuenta,

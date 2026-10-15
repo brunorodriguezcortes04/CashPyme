@@ -31,6 +31,7 @@ export interface UsuarioEmpresa {
   idUsuario: number;
   nombre: string;
   email: string;
+  idRol: number;
   rol: string;
   activo: boolean;
 }

@@ -35,15 +35,7 @@
           type="text"
           formControlName="rut"
           placeholder="Ej: 12345678-9"
-          (blur)="formatearRut()"
-          [attr.aria-invalid]="form.controls.rut.invalid && form.controls.rut.touched"
-          aria-describedby="rut-error"
         />
-        @if (form.controls.rut.invalid && form.controls.rut.touched) {
-          <small id="rut-error" class="field-error" role="alert">
-            El RUT no es válido. Verifica el número y el dígito verificador (ej: 12345678-9).
-          </small>
-        }
       </div>
 
       <div class="field">

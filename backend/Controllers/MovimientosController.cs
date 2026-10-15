@@ -35,7 +35,7 @@ public class MovimientosController(MovimientosService movimientosService) : Cont
 
     /// <summary>
     /// Un solo endpoint para ingresos y egresos: el tipo viaja en el cuerpo y lo valida
-    /// TipoMovimientoValido. El signo sobre el saldo lo decide vista_saldo_cuenta.
+    /// TipoMovimientoValido. El signo sobre el saldo lo decide el tipo (ver CalculoCuenta).
     /// </summary>
     [HttpPost]
     [RequierePermiso(Permiso.MovimientosRegistrar)]

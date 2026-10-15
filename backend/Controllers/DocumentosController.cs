@@ -41,6 +41,41 @@ public class DocumentosController(DocumentosService documentosService) : Control
     }
 
     /// <summary>
+    /// Terceros con los que se puede registrar este tipo de cuenta (clientes para cobrar,
+    /// proveedores para pagar, y los 'ambos' en las dos). La regla es la misma que se valida al
+    /// guardar: el formulario no tiene que conocerla.
+    /// </summary>
+    [HttpGet("terceros")]
+    [RequierePermiso(Permiso.DocumentosVer)]
+    public async Task<ActionResult<IReadOnlyList<TerceroResponse>>> Terceros([FromQuery] string tipoCuenta)
+    {
+        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
+        {
+            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
+        }
+
+        return Ok(await documentosService.ListarTercerosAsync(User.GetCompanyId(), tipoCuenta));
+    }
+
+    /// <summary>
+    /// Documentos a los que se les puede emitir una nota de crédito o débito. Con idTercero, solo
+    /// los de ese cliente o proveedor.
+    /// </summary>
+    [HttpGet("corregibles")]
+    [RequierePermiso(Permiso.DocumentosVer)]
+    public async Task<ActionResult<IReadOnlyList<DocumentoCorregibleResponse>>> Corregibles(
+        [FromQuery] string tipoCuenta,
+        [FromQuery] long? idTercero)
+    {
+        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
+        {
+            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
+        }
+
+        return Ok(await documentosService.ListarCorregiblesAsync(User.GetCompanyId(), tipoCuenta, idTercero));
+    }
+
+    /// <summary>
     /// Registra una cuenta por cobrar o por pagar. Nace en estado 'pendiente'; de ahí en
     /// adelante el estado lo mueven los pagos que se le apliquen, no este endpoint.
     /// </summary>
