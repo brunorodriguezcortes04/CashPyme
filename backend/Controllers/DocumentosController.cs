@@ -17,9 +17,9 @@ namespace Backend.Controllers;
 public class DocumentosController(DocumentosService documentosService) : ControllerBase
 {
     /// <summary>
-    /// Listado paginado de un tipo de cuenta, ordenado por vencimiento más próximo. El estado
-    /// y el tercero son filtros opcionales. Sin coincidencias responde 200 con una página
-    /// vacía, nunca un error.
+    /// Listado paginado de un tipo de cuenta, ordenado por vencimiento más próximo. El estado,
+    /// la situación (pendiente, vencida, pagada) y el tercero son filtros opcionales. Sin
+    /// coincidencias responde 200 con una página vacía, nunca un error.
     /// </summary>
     [HttpGet]
     [RequierePermiso(Permiso.DocumentosVer)]
@@ -27,6 +27,7 @@ public class DocumentosController(DocumentosService documentosService) : Control
         [FromQuery] string tipoCuenta,
         [FromQuery] string? estado,
         [FromQuery] long? idTercero,
+        [FromQuery] string? situacion,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanoPagina = 20)
     {
@@ -35,9 +36,27 @@ public class DocumentosController(DocumentosService documentosService) : Control
             return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
         }
 
+        if (situacion is not null && !SituacionesDocumento.EsValida(situacion))
+        {
+            return BadRequest(new { message = "La situación debe ser pendiente, vencida o pagada." });
+        }
+
         var result = await documentosService.ListarAsync(
-            User.GetCompanyId(), tipoCuenta, estado, idTercero, pagina, tamanoPagina);
+            User.GetCompanyId(), tipoCuenta, estado, idTercero, pagina, tamanoPagina, situacion);
         return Ok(result);
+    }
+
+    /// <summary>Cantidad y saldo de vencidas, pendientes y pagadas, para las pestañas del listado.</summary>
+    [HttpGet("resumen")]
+    [RequierePermiso(Permiso.DocumentosVer)]
+    public async Task<ActionResult<IReadOnlyList<ResumenSituacionResponse>>> Resumen([FromQuery] string tipoCuenta)
+    {
+        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
+        {
+            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
+        }
+
+        return Ok(await documentosService.ResumenAsync(User.GetCompanyId(), tipoCuenta));
     }
 
     /// <summary>

@@ -20,7 +20,9 @@ public class DashboardService(AppDbContext db, SaldosService saldos)
         // entra sigue siendo la de SaldoNeto.Calcular, que vuelve a filtrar.
         var pendientes = db.DocumentosFinancieros.Where(d =>
             d.CompanyId == companyId
-            && (d.Status == DocumentoFinanciero.Pendiente || d.Status == DocumentoFinanciero.PagadoParcial));
+            && (d.Status == DocumentoFinanciero.Pendiente
+                || d.Status == DocumentoFinanciero.PagadoParcial
+                || d.Status == DocumentoFinanciero.Vencido));
 
         var saldosDoc = await saldos.DeDocumentosAsync(pendientes);
         var documentos = await pendientes

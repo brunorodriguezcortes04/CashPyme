@@ -16,7 +16,8 @@ import {
   DocumentoCorregible,
   DocumentosService,
   MovimientoAplicable,
-  Pago
+  Pago,
+  ResumenSituacion
 } from '../../core/documentos.service';
 import { Categoria, MovimientosService } from '../../core/movimientos.service';
 import { Tercero } from '../../core/terceros.service';
@@ -100,6 +101,9 @@ export class Documentos {
 
   private readonly tamanoPagina = 20;
   protected readonly pagina = signal(1);
+  /** '' = todas. Los valores y las etiquetas de cada grupo los manda el backend en el resumen. */
+  protected readonly situacion = signal('');
+  protected readonly resumen = signal<ResumenSituacion[]>([]);
   protected readonly totalResultados = signal(0);
   protected readonly totalPaginas = computed(() =>
     Math.max(1, Math.ceil(this.totalResultados() / this.tamanoPagina))
@@ -491,12 +495,26 @@ export class Documentos {
     });
   }
 
+  protected filtrarPor(situacion: string): void {
+    this.situacion.set(situacion);
+    this.pagina.set(1);
+    this.cargarDocumentos();
+  }
+
   private cargarDocumentos(): void {
     this.isLoading.set(true);
+
+    // Se recarga junto con el listado: así los contadores siguen al día tras un pago, una nota o
+    // una anulación, que terminan todos acá.
+    this.documentosService.resumen(this.tipoCuenta).subscribe({
+      next: (resumen) => this.resumen.set(resumen),
+      error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
+    });
 
     this.documentosService
       .listDocumentos({
         tipoCuenta: this.tipoCuenta,
+        situacion: this.situacion(),
         pagina: this.pagina(),
         tamanoPagina: this.tamanoPagina
       })

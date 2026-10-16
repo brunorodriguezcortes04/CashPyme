@@ -4,15 +4,21 @@ namespace Backend.Models;
 /// Cuenta por cobrar o por pagar. Tabla: documento_financiero.
 /// Los valores de AccountType los define Dominio.TiposCuentaDocumento y los de DocumentType
 /// Dominio.TiposDocumento. Nace 'pendiente' y después el estado lo pone siempre
-/// SaldosService.RecalcularEstadosAsync, según lo pagado y las notas: ningún servicio lo escribe
-/// a mano, salvo para anular.
+/// SaldosService.RecalcularEstadosAsync, según lo pagado, las notas y la fecha de vencimiento
+/// (también VencimientosService, para los que vencen sin que nada los toque): ningún servicio lo
+/// escribe a mano, salvo para anular.
 /// </summary>
 public class DocumentoFinanciero
 {
     public const string Pendiente = "pendiente";
     public const string PagadoParcial = "pagado_parcial";
+    /// <summary>Sin pagos y con la fecha de vencimiento ya pasada (ver CalculoDocumento.Estado).</summary>
+    public const string Vencido = "vencido";
     public const string Pagado = "pagado";
     public const string Anulado = "anulado";
+
+    /// <summary>Estados de un documento al que todavía le queda algo por cobrar o pagar.</summary>
+    public static bool EstaAbierto(string estado) => estado is Pendiente or PagadoParcial or Vencido;
 
     public long Id { get; set; }
     public long CompanyId { get; set; }

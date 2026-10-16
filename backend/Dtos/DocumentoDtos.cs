@@ -96,7 +96,9 @@ public record DocumentoResponse(
     /// <summary>Documento que esta nota corrige; null si no es una nota.</summary>
     long? IdDocumentoReferencia,
     /// <summary>Qué botones ofrece la fila (CalculoDocumento.Acciones).</summary>
-    AccionesDocumento Acciones
+    AccionesDocumento Acciones,
+    /// <summary>pendiente / vencida / pagada (SituacionesDocumento); null para notas y anulados.</summary>
+    string? Situacion
 );
 
 /// <summary>
@@ -156,4 +158,12 @@ public record DocumentosPaginadosResponse(
     int TotalResultados,
     int Pagina,
     int TamanoPagina
+);
+
+/// <summary>Un grupo del listado (vencidas, pendientes, pagadas) con su cantidad y saldo.</summary>
+public record ResumenSituacionResponse(
+    string Situacion,
+    string Etiqueta,
+    int Cantidad,
+    decimal SaldoPendiente
 );

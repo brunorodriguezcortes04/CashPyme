@@ -3,6 +3,7 @@ using Backend.Dtos;
 using Backend.Exceptions;
 using Backend.Models;
 using Backend.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backend.Tests.Integracion;
@@ -65,6 +66,63 @@ public class DocumentosYPagosTests(BaseDePruebas baseDePruebas)
             .AnularMovimientoAsync(e.Id, e.UsuarioId, ingreso, new AnularMovimientoRequest("prueba", Confirmar: true));
         var devuelta = await e.DocumentoActualAsync(factura);
         Assert.Equal((DocumentoFinanciero.Pendiente, 109_000m), (devuelta.EstadoDocumento, devuelta.SaldoPendiente));
+    }
+
+    [SkippableFact]
+    public async Task El_listado_agrupa_por_situacion_y_el_job_marca_los_vencidos_sin_pagos()
+    {
+        await using var sp = baseDePruebas.CrearServicios();
+        using var scope = sp.CreateScope();
+        var e = await EmpresaDePrueba.RegistrarAsync(baseDePruebas, scope.ServiceProvider, "PRUEBA situacion");
+        var cliente = await e.TerceroAsync("cliente", "Cliente");
+
+        var alDia = await e.DocumentoAsync(Cobrar, cliente, 50_000m, e.Hoy.AddDays(10));
+        // Venció hace 5 días y nunca se le registró un pago.
+        var vencida = await e.DocumentoAsync(Cobrar, cliente, 30_000m, e.Hoy.AddDays(-5), emision: e.Hoy.AddDays(-35));
+        // Atrasada pero con abono: sigue en pago parcial, y en el listado cae en vencidas.
+        var abonada = await e.DocumentoAsync(Cobrar, cliente, 40_000m, e.Hoy.AddDays(-3), emision: e.Hoy.AddDays(-33));
+        await e.PagarAsync(abonada.Id, await e.MovimientoAsync(TiposMovimiento.Ingreso, 10_000m), 10_000m);
+        var pagada = await e.DocumentoAsync(Cobrar, cliente, 20_000m, e.Hoy.AddDays(10));
+        await e.PagarAsync(pagada.Id, await e.MovimientoAsync(TiposMovimiento.Ingreso, 20_000m), 20_000m);
+
+        // Cargada con la fecha ya pasada, nace vencida sin esperar al job.
+        Assert.Equal(DocumentoFinanciero.Vencido, vencida.EstadoDocumento);
+        Assert.Equal(DocumentoFinanciero.PagadoParcial, (await e.DocumentoActualAsync(abonada)).EstadoDocumento);
+
+        e.Db.ChangeTracker.Clear();
+        var servicio = e.Servicio<DocumentosService>();
+        async Task<long[]> Ids(string situacion) =>
+            (await servicio.ListarAsync(e.Id, Cobrar, null, null, 1, 100, situacion)).Items.Select(d => d.Id).Order().ToArray();
+
+        // Criterio 1: se agrupan bien.
+        Assert.Equal([alDia.Id], await Ids(SituacionesDocumento.Pendiente));
+        Assert.Equal(new[] { vencida.Id, abonada.Id }.Order(), await Ids(SituacionesDocumento.Vencida));
+        Assert.Equal([pagada.Id], await Ids(SituacionesDocumento.Pagada));
+
+        var resumen = await servicio.ResumenAsync(e.Id, Cobrar);
+        var vencidas = resumen.Single(r => r.Situacion == SituacionesDocumento.Vencida);
+        Assert.Equal((2, 60_000m), (vencidas.Cantidad, vencidas.SaldoPendiente));
+
+        // Criterio 2: un documento que ayer estaba pendiente y hoy vence sin que nadie lo toque.
+        // Se simula dejándolo en 'pendiente' por fuera de la API.
+        await e.Db.DocumentosFinancieros.Where(d => d.Id == vencida.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.Status, DocumentoFinanciero.Pendiente));
+        e.Db.ChangeTracker.Clear();
+
+        var job = e.Servicio<VencimientosService>();
+        Assert.True(await job.MarcarVencidosAsync() >= 1);
+        var marcada = await e.DocumentoActualAsync(vencida);
+        Assert.Equal((DocumentoFinanciero.Vencido, "Vencida", SituacionesDocumento.Vencida),
+            (marcada.EstadoDocumento, marcada.EtiquetaEstado, marcada.Situacion));
+
+        // Lo al día y lo abonado no se tocan.
+        Assert.Equal(DocumentoFinanciero.Pendiente, (await e.DocumentoActualAsync(alDia)).EstadoDocumento);
+        Assert.Equal(DocumentoFinanciero.PagadoParcial, (await e.DocumentoActualAsync(abonada)).EstadoDocumento);
+
+        // Pagarlo entero lo saca de vencidas.
+        await e.PagarAsync(vencida.Id, await e.MovimientoAsync(TiposMovimiento.Ingreso, 30_000m), 30_000m);
+        e.Db.ChangeTracker.Clear();
+        Assert.Contains(vencida.Id, await Ids(SituacionesDocumento.Pagada));
     }
 
     [SkippableFact]

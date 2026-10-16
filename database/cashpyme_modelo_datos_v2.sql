@@ -204,8 +204,8 @@ CREATE TABLE tercero (
 
 -- ---------------------------------------------------------------------
 -- 10. DOCUMENTO_FINANCIERO — cuenta por cobrar o por pagar
---     "vencido" NO es un estado guardado: lo calcula la API
---     (saldo > 0 y fecha_vencimiento < hoy).
+--     'vencido' = sin pagos y con la fecha ya pasada. Lo escribe la
+--     API (al recalcular el estado y con VencimientosWorker, ver 017).
 -- ---------------------------------------------------------------------
 CREATE TABLE documento_financiero (
     id_documento        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -232,7 +232,7 @@ CREATE TABLE documento_financiero (
     CONSTRAINT ck_doc_tipo_cuenta    CHECK (tipo_cuenta IN ('por_cobrar','por_pagar')),
     CONSTRAINT ck_doc_tipo_documento CHECK (tipo_documento IN (
         'factura','factura_exenta','boleta','otro','nota_credito','nota_debito')),
-    CONSTRAINT ck_doc_estado         CHECK (estado_documento IN ('pendiente','pagado_parcial','pagado','anulado')),
+    CONSTRAINT ck_doc_estado         CHECK (estado_documento IN ('pendiente','pagado_parcial','vencido','pagado','anulado')),
     CONSTRAINT ck_doc_monto          CHECK (monto_total > 0),
     CONSTRAINT ck_doc_iva            CHECK (monto_iva >= 0 AND (monto_neto IS NULL OR monto_neto + monto_iva = monto_total)),
     CONSTRAINT ck_doc_fechas         CHECK (fecha_vencimiento >= fecha_emision),
@@ -255,7 +255,7 @@ CREATE UNIQUE INDEX ux_documento_numero
     ON documento_financiero (id_empresa, id_tercero, tipo_cuenta, tipo_documento, numero_documento)
     WHERE numero_documento IS NOT NULL AND estado_documento <> 'anulado';
 CREATE INDEX ix_documento_empresa_venc ON documento_financiero (id_empresa, fecha_vencimiento)
-    WHERE estado_documento IN ('pendiente','pagado_parcial');
+    WHERE estado_documento IN ('pendiente','pagado_parcial','vencido');
 CREATE INDEX ix_documento_tercero ON documento_financiero (id_empresa, id_tercero);
 CREATE INDEX ix_documento_referencia ON documento_financiero (id_empresa, id_documento_referencia)
     WHERE id_documento_referencia IS NOT NULL;

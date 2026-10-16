@@ -117,6 +117,7 @@ function documentoDe(sobrescribe: Partial<Documento> = {}): Documento {
     saldoPendiente: montoTotal,
     estaVencido: false,
     diasAtraso: 0,
+    situacion: 'pendiente',
     idDocumentoReferencia: null,
     acciones: { puedeAplicar: true, puedeEmitirNota: true, puedeEditar: true, puedeAnular: true },
     ...sobrescribe
@@ -126,6 +127,12 @@ function documentoDe(sobrescribe: Partial<Documento> = {}): Documento {
 function pagina(items: Documento[]) {
   return { items, totalResultados: items.length, pagina: 1, tamanoPagina: 20 };
 }
+
+const RESUMEN = [
+  { situacion: 'vencida', etiqueta: 'Vencidas', cantidad: 2, saldoPendiente: 60000 },
+  { situacion: 'pendiente', etiqueta: 'Pendientes', cantidad: 1, saldoPendiente: 50000 },
+  { situacion: 'pagada', etiqueta: 'Pagadas', cantidad: 0, saldoPendiente: 0 }
+];
 
 function crearPantalla(tipoCuenta: string, terceros: unknown[] = [TERCERO], documentos: Documento[] = []) {
   TestBed.configureTestingModule({
@@ -155,6 +162,7 @@ function crearPantalla(tipoCuenta: string, terceros: unknown[] = [TERCERO], docu
   pedidoTerceros.flush(terceros);
   const pedidoCategorias = http.expectOne((r) => r.url === '/api/categorias');
   pedidoCategorias.flush([]);
+  http.expectOne((r) => r.url === '/api/documentos/resumen').flush(RESUMEN);
   const pedidoListado = http.expectOne((r) => r.method === 'GET' && r.url === '/api/documentos');
   pedidoListado.flush(pagina(documentos));
   fixture.detectChanges();
@@ -173,7 +181,13 @@ function crearPantalla(tipoCuenta: string, terceros: unknown[] = [TERCERO], docu
   };
 }
 
-afterEach(() => TestBed.inject(HttpTestingController).verify());
+// Cada recarga del listado vuelve a pedir el resumen de los contadores; los tests que no miran
+// los contadores no tienen por qué contestarlo uno por uno.
+afterEach(() => {
+  const http = TestBed.inject(HttpTestingController);
+  http.match((r) => r.url === '/api/documentos/resumen').forEach((r) => r.flush(RESUMEN));
+  http.verify();
+});
 
 // Lo que cambia entre las dos pantallas viene del backend: se prueba igual para las dos.
 describe.each([
@@ -192,6 +206,24 @@ describe.each([
     expect(texto()).toContain(pantalla.tituloNueva);
     expect(texto()).toContain(pantalla.tercero);
     expect(texto()).toContain(pantalla.mensajeVacio);
+  });
+
+  it('muestra los grupos del resumen y filtra el listado por el elegido', () => {
+    const { fixture, http, texto } = crearPantalla(tipoCuenta);
+
+    expect(texto()).toContain('Vencidas');
+    expect(texto()).toContain('Pendientes');
+
+    const botones = Array.from(
+      fixture.nativeElement.querySelectorAll('.filtro-situacion button') as NodeListOf<HTMLButtonElement>
+    );
+    botones.find((b) => b.textContent?.includes('Vencidas'))!.click();
+
+    http.expectOne((r) => r.url === '/api/documentos/resumen').flush(RESUMEN);
+    const listado = http.expectOne((r) => r.method === 'GET' && r.url === '/api/documentos');
+    expect(listado.request.params.get('situacion')).toBe('vencida');
+    expect(listado.request.params.get('tipoCuenta')).toBe(tipoCuenta);
+    listado.flush(pagina([]));
   });
 
   it('ofrece los terceros que devuelve el backend, sin filtrarlos', () => {

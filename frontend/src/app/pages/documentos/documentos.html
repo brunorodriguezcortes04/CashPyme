@@ -206,6 +206,17 @@
     <section class="card listado">
       <h2>{{ p.tituloListado }}</h2>
 
+      <div class="filtro-situacion" role="group" aria-label="Filtrar por situación">
+        <button type="button" class="filtro" [class.activo]="situacion() === ''"
+                [attr.aria-pressed]="situacion() === ''" (click)="filtrarPor('')">Todas</button>
+        @for (grupo of resumen(); track grupo.situacion) {
+          <button type="button" class="filtro" [class.activo]="situacion() === grupo.situacion"
+                  [attr.aria-pressed]="situacion() === grupo.situacion" (click)="filtrarPor(grupo.situacion)">
+            {{ grupo.etiqueta }} <span class="contador">{{ grupo.cantidad }}</span>
+          </button>
+        }
+      </div>
+
       @if (isLoading()) {
         <p class="muted">Cargando…</p>
       } @else if (documentos().length === 0) {

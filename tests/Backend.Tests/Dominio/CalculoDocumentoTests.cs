@@ -37,11 +37,28 @@ public class CalculoDocumentoTests
     // Cubierto entero por notas de crédito: no queda nada por cobrar aunque no haya entrado plata.
     [InlineData(0, 0, DocumentoFinanciero.Pagado)]
     public void El_estado_sale_de_lo_pagado_contra_el_neto(decimal neto, decimal pagado, string esperado)
-        => Assert.Equal(esperado, CalculoDocumento.Estado(DocumentoFinanciero.Pendiente, neto, pagado));
+        => Assert.Equal(esperado, CalculoDocumento.Estado(DocumentoFinanciero.Pendiente, neto, pagado, Hoy, Hoy));
+
+    [Theory]
+    // Sin pagos y con la fecha pasada: vencido. Vence hoy todavía no está vencido.
+    [InlineData(100, 0, -1, DocumentoFinanciero.Vencido)]
+    [InlineData(100, 0, 0, DocumentoFinanciero.Pendiente)]
+    // Con abonos sigue en pago parcial aunque esté atrasado.
+    [InlineData(100, 40, -1, DocumentoFinanciero.PagadoParcial)]
+    [InlineData(100, 100, -1, DocumentoFinanciero.Pagado)]
+    public void Sin_pagos_y_con_la_fecha_pasada_queda_vencido(decimal neto, decimal pagado, int diasAlVencimiento, string esperado)
+        => Assert.Equal(esperado, CalculoDocumento.Estado(
+            DocumentoFinanciero.Pendiente, neto, pagado, Hoy.AddDays(diasAlVencimiento), Hoy));
+
+    [Fact]
+    public void Un_vencido_al_que_le_corren_la_fecha_vuelve_a_pendiente()
+        => Assert.Equal(DocumentoFinanciero.Pendiente,
+            CalculoDocumento.Estado(DocumentoFinanciero.Vencido, 100m, 0m, Hoy.AddDays(10), Hoy));
 
     [Fact]
     public void Un_anulado_no_cambia_de_estado()
-        => Assert.Equal(DocumentoFinanciero.Anulado, CalculoDocumento.Estado(DocumentoFinanciero.Anulado, 100m, 100m));
+        => Assert.Equal(DocumentoFinanciero.Anulado,
+            CalculoDocumento.Estado(DocumentoFinanciero.Anulado, 100m, 100m, Hoy.AddDays(-5), Hoy));
 
     [Fact]
     public void Vencido_es_tener_saldo_con_la_fecha_ya_pasada()
@@ -56,6 +73,7 @@ public class CalculoDocumentoTests
     [Theory]
     [InlineData("factura", DocumentoFinanciero.Pendiente, 0, "Pendiente")]
     [InlineData("factura", DocumentoFinanciero.PagadoParcial, 10, "Pago parcial")]
+    [InlineData("factura", DocumentoFinanciero.Vencido, 0, "Vencida")]
     [InlineData("factura", DocumentoFinanciero.Pagado, 10, "Pagada")]
     [InlineData("factura", DocumentoFinanciero.Pagado, 0, "Cerrada por nota")]
     [InlineData("factura", DocumentoFinanciero.Anulado, 0, "Anulada")]

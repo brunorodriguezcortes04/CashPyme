@@ -30,7 +30,8 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
         string? estado,
         long? idTercero,
         int pagina = 1,
-        int tamanoPagina = 20)
+        int tamanoPagina = 20,
+        string? situacion = null)
     {
         pagina = pagina < 1 ? 1 : pagina;
         tamanoPagina = tamanoPagina is < 1 or > 100 ? 20 : tamanoPagina;
@@ -46,6 +47,11 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
         if (idTercero is not null)
         {
             query = query.Where(d => d.ThirdPartyId == idTercero.Value);
+        }
+
+        if (SituacionesDocumento.EsValida(situacion))
+        {
+            query = await FiltrarPorSituacionAsync(query, companyId, situacion!);
         }
 
         var total = await query.CountAsync();
@@ -64,6 +70,68 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
         return new DocumentosPaginadosResponse(
             documentos.Select(d => ToResponse(d, saldosDoc[d.Id])).ToList(),
             total, pagina, tamanoPagina);
+    }
+
+    /// <summary>
+    /// Mismo criterio que SituacionesDocumento.De, escrito para que lo traduzca Postgres y la
+    /// paginación cuente bien: los estados abiertos son justo los que tienen saldo. Vencida se
+    /// decide por la fecha y no por el estado 'vencido', para que entren también los que tienen
+    /// abonos y los que el job todavía no alcanzó a marcar.
+    /// </summary>
+    private async Task<IQueryable<DocumentoFinanciero>> FiltrarPorSituacionAsync(
+        IQueryable<DocumentoFinanciero> query, long companyId, string situacion)
+    {
+        query = query.Where(d =>
+            d.DocumentType != TiposDocumento.NotaCredito && d.DocumentType != TiposDocumento.NotaDebito);
+
+        if (situacion == SituacionesDocumento.Pagada)
+        {
+            return query.Where(d => d.Status == DocumentoFinanciero.Pagado);
+        }
+
+        var hoy = await saldos.HoyDeEmpresaAsync(companyId);
+        var abiertos = query.Where(d =>
+            d.Status == DocumentoFinanciero.Pendiente
+            || d.Status == DocumentoFinanciero.PagadoParcial
+            || d.Status == DocumentoFinanciero.Vencido);
+
+        return situacion == SituacionesDocumento.Vencida
+            ? abiertos.Where(d => d.DueDate < hoy)
+            : abiertos.Where(d => d.DueDate >= hoy);
+    }
+
+    /// <summary>
+    /// Cuántos documentos hay en cada grupo del listado y cuánto suman. Siempre devuelve los tres
+    /// grupos, con 0 si alguno está vacío, para que la pantalla no tenga que completarlos.
+    /// </summary>
+    public async Task<IReadOnlyList<ResumenSituacionResponse>> ResumenAsync(long companyId, string tipoCuenta)
+    {
+        var consulta = db.DocumentosFinancieros.Where(d =>
+            d.CompanyId == companyId
+            && d.AccountType == tipoCuenta
+            && d.Status != DocumentoFinanciero.Anulado
+            && d.DocumentType != TiposDocumento.NotaCredito
+            && d.DocumentType != TiposDocumento.NotaDebito);
+
+        var documentos = await consulta.Select(d => new { d.Id, d.DocumentType, d.Status }).ToListAsync();
+        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
+
+        var grupos = documentos
+            .Select(d => new
+            {
+                Situacion = SituacionesDocumento.De(
+                    d.DocumentType, d.Status, saldosDoc[d.Id].OutstandingAmount, saldosDoc[d.Id].IsOverdue),
+                Saldo = saldosDoc[d.Id].OutstandingAmount
+            })
+            .Where(x => x.Situacion is not null)
+            .GroupBy(x => x.Situacion!)
+            .ToDictionary(g => g.Key, g => (Cantidad: g.Count(), Saldo: g.Sum(x => x.Saldo)));
+
+        return SituacionesDocumento.Todas
+            .Select(s => grupos.TryGetValue(s, out var g)
+                ? new ResumenSituacionResponse(s, SituacionesDocumento.Etiqueta(s), g.Cantidad, g.Saldo)
+                : new ResumenSituacionResponse(s, SituacionesDocumento.Etiqueta(s), 0, 0m))
+            .ToList();
     }
 
     /// <summary>
@@ -165,11 +233,9 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
 
             // Una nota cambia el neto del documento que corrige: se pone al día su estado (puede
             // pasar a 'pagado' si la nota lo deja cubierto). Antes era trg_nota_recalcula_padre.
-            if (referencia is not null)
-            {
-                await saldos.RecalcularEstadosAsync([referencia.Id]);
-                await db.SaveChangesAuditadoAsync(userId);
-            }
+            // Un documento cargado con la fecha ya pasada nace 'vencido' en vez de esperar al job.
+            await saldos.RecalcularEstadosAsync(referencia is not null ? [referencia.Id] : [documento.Id]);
+            await db.SaveChangesAuditadoAsync(userId);
 
             documento.ThirdParty = tercero;
             documento.Category = categoria;
@@ -500,5 +566,6 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
         saldo.IsOverdue,
         saldo.DaysOverdue,
         d.ReferenceDocumentId,
-        CalculoDocumento.Acciones(d.DocumentType, d.Status, saldo.OutstandingAmount));
+        CalculoDocumento.Acciones(d.DocumentType, d.Status, saldo.OutstandingAmount),
+        SituacionesDocumento.De(d.DocumentType, d.Status, saldo.OutstandingAmount, saldo.IsOverdue));
 }

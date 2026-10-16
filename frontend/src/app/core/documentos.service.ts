@@ -37,6 +37,8 @@ export interface Documento {
   saldoPendiente: number;
   estaVencido: boolean;
   diasAtraso: number;
+  /** pendiente / vencida / pagada; null para notas y anulados. Lo decide el backend. */
+  situacion: string | null;
   /** Documento que esta nota corrige; null si no es una nota. */
   idDocumentoReferencia: number | null;
   /** Qué botones ofrece la fila: lo decide el backend con las mismas reglas con que valida. */
@@ -87,10 +89,20 @@ export interface DocumentosPaginados {
   tamanoPagina: number;
 }
 
+/** Un grupo del listado (vencidas, pendientes, pagadas) con cuántos documentos tiene y cuánto suman. */
+export interface ResumenSituacion {
+  situacion: string;
+  etiqueta: string;
+  cantidad: number;
+  saldoPendiente: number;
+}
+
 /** tipoCuenta es obligatorio: el listado nunca mezcla lo por cobrar con lo por pagar. */
 export interface FiltrosDocumentos {
   tipoCuenta: string;
   estado?: string;
+  /** pendiente / vencida / pagada (los valores vienen en el resumen). */
+  situacion?: string;
   idTercero?: number;
   pagina?: number;
   tamanoPagina?: number;
@@ -136,6 +148,12 @@ export class DocumentosService {
   listDocumentos(filtros: FiltrosDocumentos): Observable<DocumentosPaginados> {
     return this.http
       .get<DocumentosPaginados>('/api/documentos', { params: this.toParams(filtros) })
+      .pipe(catchError(apiError));
+  }
+
+  resumen(tipoCuenta: string): Observable<ResumenSituacion[]> {
+    return this.http
+      .get<ResumenSituacion[]>('/api/documentos/resumen', { params: { tipoCuenta } })
       .pipe(catchError(apiError));
   }
 
@@ -210,6 +228,7 @@ export class DocumentosService {
   private toParams(filtros: FiltrosDocumentos): HttpParams {
     let params = new HttpParams().set('tipoCuenta', filtros.tipoCuenta);
     if (filtros.estado) params = params.set('estado', filtros.estado);
+    if (filtros.situacion) params = params.set('situacion', filtros.situacion);
     if (filtros.idTercero) params = params.set('idTercero', filtros.idTercero);
     if (filtros.pagina) params = params.set('pagina', filtros.pagina);
     if (filtros.tamanoPagina) params = params.set('tamanoPagina', filtros.tamanoPagina);

@@ -48,8 +48,12 @@ public static class CalculoDocumento
     /// Estado según lo pagado contra el neto. Un anulado no se mueve. Un documento cubierto entero
     /// por notas de crédito queda 'pagado' aunque no haya entrado plata: no queda nada por cobrar,
     /// y no existe un estado "cerrado por nota" (la pantalla lo distingue con EtiquetaEstado).
+    ///
+    /// Sin ningún pago y con la fecha ya pasada queda 'vencido'. Con abonos sigue 'pago parcial'
+    /// aunque esté atrasado: el atraso lo dice EstaVencido, no el estado. Si se corre la fecha
+    /// hacia adelante, vuelve a 'pendiente'.
     /// </summary>
-    public static string Estado(string estadoActual, decimal neto, decimal pagado)
+    public static string Estado(string estadoActual, decimal neto, decimal pagado, DateOnly fechaVencimiento, DateOnly hoy)
     {
         if (estadoActual == DocumentoFinanciero.Anulado)
         {
@@ -61,10 +65,18 @@ public static class CalculoDocumento
             return DocumentoFinanciero.Pagado;
         }
 
-        return pagado > 0 ? DocumentoFinanciero.PagadoParcial : DocumentoFinanciero.Pendiente;
+        if (pagado > 0)
+        {
+            return DocumentoFinanciero.PagadoParcial;
+        }
+
+        return fechaVencimiento < hoy ? DocumentoFinanciero.Vencido : DocumentoFinanciero.Pendiente;
     }
 
-    /// <summary>"Vencido" no es un estado guardado: es tener saldo con la fecha ya pasada.</summary>
+    /// <summary>
+    /// Atrasado: tener saldo con la fecha ya pasada. Vale también para los que tienen abonos, que
+    /// no pasan a estado 'vencido' (ver Estado).
+    /// </summary>
     public static bool EstaVencido(decimal saldo, DateOnly fechaVencimiento, DateOnly hoy)
         => saldo > 0 && fechaVencimiento < hoy;
 
@@ -111,6 +123,7 @@ public static class CalculoDocumento
         {
             DocumentoFinanciero.Pendiente => "Pendiente",
             DocumentoFinanciero.PagadoParcial => "Pago parcial",
+            DocumentoFinanciero.Vencido => "Vencida",
             // 'pagado' sin plata aplicada es un documento que se cerró con notas de crédito.
             DocumentoFinanciero.Pagado => pagado > 0 ? "Pagada" : "Cerrada por nota",
             DocumentoFinanciero.Anulado => "Anulada",

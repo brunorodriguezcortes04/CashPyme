@@ -27,7 +27,7 @@ public static class SaldoNeto
     public static ResultadoSaldoNeto Calcular(decimal saldoCaja, IEnumerable<DocumentoParaSaldoNeto> documentos)
     {
         var pendientes = documentos
-            .Where(d => d.Estado is DocumentoFinanciero.Pendiente or DocumentoFinanciero.PagadoParcial)
+            .Where(d => DocumentoFinanciero.EstaAbierto(d.Estado))
             .ToList();
 
         var porCobrar = pendientes.Where(d => d.TipoCuenta == TiposCuentaDocumento.PorCobrar).ToList();

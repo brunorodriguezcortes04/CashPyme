@@ -162,7 +162,8 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
     }
 
     /// <summary>
-    /// Pone al día el estado de los documentos según lo pagado y sus notas. Hace lo que antes
+    /// Pone al día el estado de los documentos según lo pagado, sus notas y la fecha de vencimiento
+    /// (CalculoDocumento.Estado). Hace lo que antes
     /// encadenaban los triggers (trg_pago_recalcula, trg_documento_recalcula,
     /// trg_nota_recalcula_padre y trg_movimiento_estado): quien cambia un pago, una nota, un monto
     /// o un movimiento llama a esto después de guardar ese cambio, dentro de la misma
@@ -180,10 +181,25 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
         var saldos = await DeDocumentosAsync(ids);
         var documentos = await db.DocumentosFinancieros.Where(d => ids.Contains(d.Id)).ToListAsync();
 
+        // "Hoy" de cada empresa: decide si un documento sin pagos ya quedó vencido.
+        var idsEmpresa = documentos.Select(d => d.CompanyId).Distinct().ToList();
+        var hoyPorEmpresa = (await db.Companies
+                .Where(c => idsEmpresa.Contains(c.Id))
+                .Select(c => new { c.Id, c.TimeZone })
+                .ToListAsync())
+            .ToDictionary(c => c.Id, c => HoyDe(c.TimeZone));
+
         foreach (var documento in documentos)
         {
+            // Una nota no se cobra ni vence: su estado solo cambia al anularla.
+            if (TiposDocumento.EsNota(documento.DocumentType))
+            {
+                continue;
+            }
+
             var saldo = saldos[documento.Id];
-            documento.Status = CalculoDocumento.Estado(documento.Status, saldo.NetAmount, saldo.PaidAmount);
+            documento.Status = CalculoDocumento.Estado(
+                documento.Status, saldo.NetAmount, saldo.PaidAmount, documento.DueDate, hoyPorEmpresa[documento.CompanyId]);
         }
     }
 
