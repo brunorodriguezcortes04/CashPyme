@@ -1,0 +1,58 @@
+@use '../backoffice-page';
+
+.two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 560px) { .two-cols { grid-template-columns: 1fr; } }
+
+// Los estados los pone el backend: 'pendiente' al nacer, 'vencido' si pasa la fecha sin pagos y
+// el resto a medida que entran pagos.
+.estado-badge.estado-pagado { color: #7ad69e; border-color: rgba(122, 214, 158, .4); }
+.estado-badge.estado-pagado_parcial { color: var(--text-secondary); }
+.estado-badge.estado-vencido { color: var(--danger); border-color: rgba(255, 138, 138, .4); }
+
+// Pestañas de vencidas / pendientes / pagadas sobre el listado.
+.filtro-situacion {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+.filtro {
+	padding: 6px 12px;
+	border: 1px solid var(--border-strong);
+	border-radius: 999px;
+	color: var(--text-secondary);
+	background: none;
+	font: inherit;
+	cursor: pointer;
+
+	&.activo { color: var(--accent); border-color: var(--accent); }
+	.contador { margin-left: 4px; font-weight: 600; }
+}
+.estado-badge.estado-anulado { color: var(--danger); border-color: rgba(255, 138, 138, .4); }
+
+tr.anulado td { color: var(--muted); }
+
+// Las notas no se cobran: se marcan para que no se confundan con una cuenta más del listado.
+tr.fila-nota td:not(.acciones) { color: var(--text-secondary); }
+tr.fila-nota td:first-child { border-left: 2px solid var(--border-strong); }
+
+.vencido { color: var(--danger); }
+td .vencido { display: block; font-size: 13px; }
+
+// Botón que parece enlace: abre el detalle de notas sin sacar al usuario de la tabla.
+.link-boton {
+	padding: 0;
+	border: 0;
+	color: var(--accent);
+	background: none;
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.modal-ancho { max-width: 680px; }
+.subtitulo-modal { margin: 20px 0 10px; font-size: 15px; font-weight: 500; color: var(--text-secondary); }
+
+.paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.paginacion-info { color: var(--text-secondary); font-size: 14px; }
+.paginacion-actions { display: flex; gap: 10px; }

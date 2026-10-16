@@ -36,7 +36,7 @@ public record UpdateEmpresaRequest(
 
 public record EmpresaMembresiaResponse(long Id, string RazonSocial, string Rol, bool EsActiva);
 
-public record UsuarioEmpresaResponse(long IdUsuario, string Nombre, string Email, string Rol, bool Activo);
+public record UsuarioEmpresaResponse(long IdUsuario, string Nombre, string Email, short IdRol, string Rol, bool Activo);
 
 public record RolResponse(short Id, string NombreRol);
 

@@ -17,7 +17,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
-builder.Services.AddControllers();
+// Los errores de validación salen como { message }, igual que los de negocio (ver RespuestaValidacion).
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = RespuestaValidacion.Crear);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -53,7 +55,16 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<TercerosService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<SaldosService>();
+builder.Services.AddScoped<ProyeccionCajaService>();
 builder.Services.AddScoped<MovimientosService>();
+builder.Services.AddScoped<DocumentosService>();
+builder.Services.AddScoped<PagosService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<AlertasService>();
+builder.Services.AddScoped<VencimientosService>();
 builder.Services.AddScoped<EmpresaService>();
 builder.Services.AddScoped<CuentasService>();
 builder.Services.AddScoped<PantallasService>();
@@ -83,6 +94,7 @@ else
 builder.Services.AddScoped<CorreoCuentaService>();
 builder.Services.AddScoped<NotificacionesService>();
 builder.Services.AddHostedService<NotificacionesWorker>();
+builder.Services.AddHostedService<VencimientosWorker>();
 builder.Services.AddCashPymeRateLimits();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -162,6 +174,11 @@ if (app.Environment.IsDevelopment())
         var reportes = await service.ProcesarReportesSemanalesAsync(idEmpresa);
         return Results.Ok(new { alertasEnviadas = alertas, reportesEnviados = reportes });
     });
+
+    // Solo desarrollo: corre a mano el job de vencimientos sin esperar al worker.
+    //   POST http://localhost:5131/api/dev/vencimientos
+    app.MapPost("/api/dev/vencimientos", async (VencimientosService service) =>
+        Results.Ok(new { documentosVencidos = await service.MarcarVencidosAsync() }));
 }
 
 app.Run();

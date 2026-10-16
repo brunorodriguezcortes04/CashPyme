@@ -144,11 +144,11 @@
     <form class="filtros" [formGroup]="filtrosForm" (ngSubmit)="aplicarFiltros()" novalidate>
       <div class="field">
         <label for="fechaDesde">Desde</label>
-        <input id="fechaDesde" type="date" formControlName="fechaDesde" [attr.aria-invalid]="rangoInvalido()" />
+        <input id="fechaDesde" type="date" formControlName="fechaDesde" />
       </div>
       <div class="field">
         <label for="fechaHasta">Hasta</label>
-        <input id="fechaHasta" type="date" formControlName="fechaHasta" [attr.aria-invalid]="rangoInvalido()" />
+        <input id="fechaHasta" type="date" formControlName="fechaHasta" />
       </div>
       <div class="field">
         <label for="filtroCategoria">Categoría</label>
@@ -175,10 +175,8 @@
         }
       </div>
 
-      @if (rangoInvalido()) {
-        <small class="field-error" role="alert">
-          La fecha "Desde" no puede ser posterior a la fecha "Hasta".
-        </small>
+      @if (errorListado()) {
+        <small class="field-error" role="alert">{{ errorListado() }}</small>
       }
     </form>
 
@@ -213,12 +211,14 @@
               <td class="monto">{{ movimiento.monto | number: '1.0-2' }}</td>
               <td>
                 <span class="estado-badge" [class.anulado]="movimiento.estadoMovimiento === 'anulado'">
-                  {{ movimiento.estadoMovimiento === 'anulado' ? 'Anulado' : 'Registrado' }}
+                  {{ movimiento.etiquetaEstado }}
                 </span>
               </td>
               <td class="acciones">
-                @if (movimiento.estadoMovimiento !== 'anulado') {
+                @if (movimiento.acciones.puedeEditar) {
                   <button type="button" class="button button-ghost" (click)="editar(movimiento)">Editar</button>
+                }
+                @if (movimiento.acciones.puedeAnular) {
                   <button
                     type="button"
                     class="button button-ghost boton-anular"

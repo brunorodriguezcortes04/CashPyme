@@ -1,0 +1,60 @@
+@use '../backoffice-page';
+
+.tarjeta-saldo { max-width: 560px; }
+
+.tarjeta-alertas h2 { display: flex; align-items: center; gap: 10px; }
+.contador { display: inline-flex; min-width: 24px; justify-content: center; padding: 2px 8px; border-radius: 999px; background: var(--surface-strong); color: var(--text-secondary); font-size: 13px; font-weight: 500; }
+
+.lista-alertas { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.alerta {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 14px;
+	border: 1px solid var(--border);
+	border-left-width: 3px;
+	border-radius: var(--radius-sm);
+}
+.alerta .mensaje { margin: 0; font-size: 15px; line-height: 1.45; }
+.alerta .severidad { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.acciones-alerta { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.acciones-alerta .button { min-height: 34px; padding-inline: 12px; font-size: 14px; }
+.acciones-alerta a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.acciones-alerta a:hover { color: var(--accent); }
+
+// Mismo amarillo que .form-warning y mismo rojo que los errores: no se inventan colores nuevos.
+.alerta-critica { border-left-color: var(--danger); }
+.alerta-critica .severidad { color: var(--danger); }
+.alerta-advertencia { border-left-color: #f0ba6a; }
+.alerta-advertencia .severidad { color: #f0ba6a; }
+.alerta-info .severidad { color: var(--text-secondary); }
+
+@media (max-width: 640px) {
+	.alerta { grid-template-columns: 1fr; }
+}
+
+.saldo-neto {
+	margin: 0;
+	font-size: 2.5rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.1;
+}
+.saldo-neto.negativo { color: var(--danger); }
+
+.aviso-negativo { margin: 8px 0 0; color: var(--danger); font-size: 15px; }
+
+.desglose { display: grid; gap: 4px; margin: 20px 0 0; }
+.desglose-fila { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.desglose-fila dt { margin: 0; }
+.desglose-fila dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.desglose-fila.total { border-bottom: 0; font-weight: 600; }
+
+.nota-calculo { margin: 20px 0 0; color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+
+.form-alert .button { margin-top: 10px; }
+
+// Los conceptos del desglose llevan a su pantalla: subrayados para que se lean como enlace.
+.desglose a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.desglose a:hover { color: var(--accent); }

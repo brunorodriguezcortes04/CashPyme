@@ -87,3 +87,33 @@ td.monto { text-align: right; font-variant-numeric: tabular-nums; }
 	white-space: nowrap;
 	border: 0;
 }
+
+// Diálogo de confirmación para acciones destructivas (anular). Vive acá y no en cada
+// página porque los estilos de componente no se cruzan entre sí: duplicarlo era la
+// única alternativa.
+.modal-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	background: rgba(0, 0, 0, .55);
+}
+
+.modal-dialog {
+	width: 100%;
+	max-width: 440px;
+	padding: 28px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+	box-shadow: var(--shadow-card);
+}
+.modal-dialog h2 { font-size: 1.1rem; margin-bottom: 12px; }
+.modal-dialog p { margin: 0 0 10px; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
+.modal-dialog p:last-of-type { margin-bottom: 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
+.boton-anular:hover { border-color: var(--danger); color: var(--danger); background: rgba(255, 138, 138, .08); }

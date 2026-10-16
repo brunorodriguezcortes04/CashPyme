@@ -5,31 +5,9 @@
 .cuentas-list li:last-child { border-bottom: 0; }
 
 .estado-badge.anulado { color: var(--danger); border-color: rgba(255, 138, 138, .4); }
-.boton-anular:hover { border-color: var(--danger); color: var(--danger); background: rgba(255, 138, 138, .08); }
 
-.modal-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 50;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 24px;
-	background: rgba(0, 0, 0, .55);
-}
-
-.modal-dialog {
-	width: 100%;
-	max-width: 440px;
-	padding: 28px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	background: var(--surface);
-	box-shadow: var(--shadow-card);
-}
-.modal-dialog h2 { font-size: 1.1rem; margin-bottom: 12px; }
-.modal-dialog p { margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+// El modal de confirmación y .boton-anular viven en _backoffice-page.scss: los comparte
+// esta pantalla con cuentas por cobrar.
 
 .visually-hidden {
 	position: absolute;

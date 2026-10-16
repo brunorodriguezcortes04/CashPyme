@@ -68,6 +68,7 @@ public class EmpresaService(AppDbContext db)
                 m.UserId,
                 m.User.Name,
                 m.User.Email,
+                m.RoleId,
                 m.Role.Name,
                 m.IsActive))
             .ToListAsync();
@@ -122,7 +123,7 @@ public class EmpresaService(AppDbContext db)
         // Dos altas simultáneas con el mismo correo (ux_usuario_email).
         await db.SaveChangesTraducidoAsync(() => new UsuarioYaEnEmpresaException());
 
-        return new UsuarioCreadoResponse(ToResponse(usuario, rol.Name, activo: true), passwordProvisional);
+        return new UsuarioCreadoResponse(ToResponse(usuario, rol, activo: true), passwordProvisional);
     }
 
     /// <summary>
@@ -161,7 +162,7 @@ public class EmpresaService(AppDbContext db)
 
         await db.SaveChangesTraducidoAsync(() => new UsuarioYaEnEmpresaException());
 
-        return new UsuarioCreadoResponse(ToResponse(usuario, rol.Name, activo: true), null);
+        return new UsuarioCreadoResponse(ToResponse(usuario, rol, activo: true), null);
     }
 
     public async Task<UsuarioEmpresaResponse> CambiarRolAsync(long companyId, long idUsuario, short idRol)
@@ -179,7 +180,7 @@ public class EmpresaService(AppDbContext db)
         membresia.RoleId = rol.Id;
         await db.SaveChangesAsync();
 
-        return ToResponse(membresia.User, rol.Name, membresia.IsActive);
+        return ToResponse(membresia.User, rol, membresia.IsActive);
     }
 
     public async Task<UsuarioEmpresaResponse> CambiarEstadoUsuarioAsync(long companyId, long idUsuario, bool activo)
@@ -194,7 +195,7 @@ public class EmpresaService(AppDbContext db)
         membresia.IsActive = activo;
         await db.SaveChangesAsync();
 
-        return ToResponse(membresia.User, membresia.Role.Name, activo);
+        return ToResponse(membresia.User, membresia.Role, activo);
     }
 
     private async Task<CompanyMembership> BuscarMembresiaAsync(long companyId, long idUsuario)
@@ -248,8 +249,8 @@ public class EmpresaService(AppDbContext db)
         return new string(caracteres);
     }
 
-    private static UsuarioEmpresaResponse ToResponse(User usuario, string rol, bool activo)
-        => new(usuario.Id, usuario.Name, usuario.Email, rol, activo);
+    private static UsuarioEmpresaResponse ToResponse(User usuario, Role rol, bool activo)
+        => new(usuario.Id, usuario.Name, usuario.Email, rol.Id, rol.Name, activo);
 
     private static EmpresaResponse ToResponse(Models.Company c) => new(
         c.Id,

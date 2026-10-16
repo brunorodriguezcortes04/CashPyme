@@ -29,3 +29,6 @@ public class MovimientoConPagosAnularException(int cantidadPagos) : ApiException
 {
     public int CantidadPagos { get; } = cantidadPagos;
 }
+
+public class RangoFechasInvalidoException()
+    : ApiException(StatusCodes.Status400BadRequest, "La fecha \"desde\" no puede ser posterior a la fecha \"hasta\".");

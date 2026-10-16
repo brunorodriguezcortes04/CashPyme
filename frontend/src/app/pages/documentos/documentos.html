@@ -1,0 +1,506 @@
+<section class="wrap">
+  @if (pantalla(); as p) {
+    <h1>{{ p.titulo }}</h1>
+    <p class="page-subtitle">{{ p.subtitulo }}</p>
+
+    @if (!isLoading() && !hasTerceros()) {
+      <div class="form-alert" role="alert">
+        {{ p.sinTerceros }}
+        <a routerLink="/backoffice/terceros">Ir a Clientes y proveedores</a>
+      </div>
+    }
+
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <h2>
+        @if (estaEditando()) {
+          {{ p.tituloEditar }}
+        } @else if (notaEnCurso()) {
+          Emitir nota
+        } @else {
+          {{ p.tituloNueva }}
+        }
+      </h2>
+
+      @if (errorMessage()) {
+        <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+      }
+      @if (successMessage()) {
+        <div class="form-success" role="status">{{ successMessage() }}</div>
+      }
+
+      <div class="two-cols">
+        @if (!notaEnCurso()) {
+          <div class="field">
+            <label for="idTercero">{{ p.tercero }}</label>
+            <select
+              id="idTercero"
+              formControlName="idTercero"
+              [attr.aria-invalid]="form.hasError('terceroRequerido') && form.controls.idTercero.touched"
+              aria-describedby="idTercero-error"
+            >
+              <option [ngValue]="null" disabled>{{ p.seleccionarTercero }}</option>
+              @for (tercero of terceros(); track tercero.id) {
+                <option [ngValue]="tercero.id">{{ tercero.nombreRazonSocial }}</option>
+              }
+            </select>
+            @if (form.hasError('terceroRequerido') && form.controls.idTercero.touched) {
+              <small id="idTercero-error" class="field-error" role="alert">{{ p.seleccionarTercero }}.</small>
+            }
+          </div>
+        }
+
+        <div class="field">
+          <label for="tipoDocumento">Tipo de documento</label>
+          <select id="tipoDocumento" formControlName="tipoDocumento" [attr.disabled]="estaEditando() ? '' : null">
+            @for (tipo of tiposDocumento(); track tipo.valor) {
+              <option [value]="tipo.valor">{{ tipo.etiqueta }}</option>
+            }
+          </select>
+          @if (notaEnCurso()) {
+            <small class="field-hint">{{ p.ayudaNota }}</small>
+          }
+        </div>
+      </div>
+
+      @if (notaEnCurso()) {
+        <div class="field">
+          <label for="idDocumentoReferencia">Documento que corrige</label>
+          <select
+            id="idDocumentoReferencia"
+            formControlName="idDocumentoReferencia"
+            [attr.aria-invalid]="form.hasError('referenciaRequerida') && form.controls.idDocumentoReferencia.touched"
+            aria-describedby="referencia-error"
+          >
+            <option [ngValue]="null" disabled>Selecciona el documento</option>
+            @for (documento of corregibles(); track documento.id) {
+              <option [ngValue]="documento.id">
+                {{ etiquetaTipoDocumento(documento.tipoDocumento) }}
+                {{ documento.numeroDocumento ? 'N° ' + documento.numeroDocumento : '(sin número)' }}
+                · {{ documento.nombreTercero }} · saldo {{ documento.saldoPendiente | number: '1.0-2' }}
+              </option>
+            }
+          </select>
+          @if (form.hasError('referenciaRequerida') && form.controls.idDocumentoReferencia.touched) {
+            <small id="referencia-error" class="field-error" role="alert">
+              Indica qué documento corrige esta nota.
+            </small>
+          }
+          <small class="field-hint">
+            La nota queda a nombre del mismo {{ p.tercero.toLowerCase() }} del documento. Desde el
+            botón "Nota" de la tabla queda elegido solo.
+          </small>
+        </div>
+      }
+
+      <div class="two-cols">
+        <div class="field">
+          <label for="numeroDocumento">N° de documento (opcional)</label>
+          <input id="numeroDocumento" type="text" formControlName="numeroDocumento" placeholder="Ej: 1045" />
+          <small class="field-hint">Si lo cargas, evita que el mismo documento entre dos veces.</small>
+        </div>
+
+        <div class="field">
+          <label for="montoTotal">Monto total</label>
+          <input
+            id="montoTotal"
+            type="number"
+            min="0.01"
+            step="0.01"
+            inputmode="decimal"
+            formControlName="montoTotal"
+            placeholder="0"
+            [attr.aria-invalid]="form.controls.montoTotal.invalid && form.controls.montoTotal.touched"
+            aria-describedby="montoTotal-error"
+          />
+          @if (form.controls.montoTotal.invalid && form.controls.montoTotal.touched) {
+            <small id="montoTotal-error" class="field-error" role="alert">Ingresa un monto mayor a 0.</small>
+          }
+          @if (notaEnCurso()) {
+            <small class="field-hint">Monto de la nota, en positivo. El signo lo pone el tipo.</small>
+          } @else if (estaEditando()) {
+            <small class="field-hint">
+              Para reflejar una devolución o un descuento posterior, baja este monto: el saldo se
+              recalcula solo. Si necesitas respaldo tributario, emite una nota de crédito.
+            </small>
+          }
+        </div>
+      </div>
+
+      <div class="two-cols">
+        <div class="field">
+          <label for="montoNeto">Monto neto (opcional)</label>
+          <input id="montoNeto" type="number" min="0" step="0.01" inputmode="decimal" formControlName="montoNeto" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <label for="montoIva">IVA (opcional)</label>
+          <input id="montoIva" type="number" min="0" step="0.01" inputmode="decimal" formControlName="montoIva" placeholder="0" />
+        </div>
+      </div>
+
+      <small class="field-hint">Si desglosas el monto, el neto más el IVA tiene que dar el total.</small>
+
+      <div class="two-cols">
+        <div class="field">
+          <label for="fechaEmision">Fecha de emisión</label>
+          <input
+            id="fechaEmision"
+            type="date"
+            formControlName="fechaEmision"
+          />
+        </div>
+
+        @if (!notaEnCurso()) {
+          <div class="field">
+            <label for="fechaVencimiento">Fecha de vencimiento</label>
+            <input
+              id="fechaVencimiento"
+              type="date"
+              formControlName="fechaVencimiento"
+            />
+            <small class="field-hint">Por defecto, {{ p.diasVencimientoPorDefecto }} días desde hoy.</small>
+          </div>
+        }
+      </div>
+
+
+      <div class="two-cols">
+        <div class="field">
+          <label for="idCategoria">Categoría (opcional)</label>
+          <select id="idCategoria" formControlName="idCategoria">
+            <option [ngValue]="null">Sin categoría</option>
+            @for (categoria of categorias(); track categoria.id) {
+              <option [ngValue]="categoria.id">{{ categoria.nombreCategoria }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="descripcion">Descripción (opcional)</label>
+          <input id="descripcion" type="text" formControlName="descripcion" [placeholder]="p.ejemploDescripcion" />
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button
+          type="submit"
+          class="button button-primary button-large"
+          [disabled]="isSubmitting() || (!hasTerceros() && !notaEnCurso())"
+        >
+          @if (isSubmitting()) {
+            <span class="spinner" aria-hidden="true"></span> Guardando…
+          } @else if (estaEditando()) {
+            Guardar cambios
+          } @else if (notaEnCurso()) {
+            Emitir nota
+          } @else {
+            {{ p.botonRegistrar }}
+          }
+        </button>
+        @if (estaEditando() || notaEnCurso()) {
+          <button type="button" class="button button-ghost" (click)="cancelarEdicion()">Cancelar</button>
+        }
+      </div>
+    </form>
+
+    <section class="card listado">
+      <h2>{{ p.tituloListado }}</h2>
+
+      <div class="filtro-situacion" role="group" aria-label="Filtrar por situación">
+        <button type="button" class="filtro" [class.activo]="situacion() === ''"
+                [attr.aria-pressed]="situacion() === ''" (click)="filtrarPor('')">Todas</button>
+        @for (grupo of resumen(); track grupo.situacion) {
+          <button type="button" class="filtro" [class.activo]="situacion() === grupo.situacion"
+                  [attr.aria-pressed]="situacion() === grupo.situacion" (click)="filtrarPor(grupo.situacion)">
+            {{ grupo.etiqueta }} <span class="contador">{{ grupo.cantidad }}</span>
+          </button>
+        }
+      </div>
+
+      @if (isLoading()) {
+        <p class="muted">Cargando…</p>
+      } @else if (documentos().length === 0) {
+        <p class="muted">{{ p.mensajeVacio }}</p>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Vencimiento</th>
+              <th scope="col">{{ p.tercero }}</th>
+              <th scope="col">Documento</th>
+              <th scope="col">N°</th>
+              <th scope="col">Monto</th>
+              <th scope="col">{{ p.columnaAplicado }}</th>
+              <th scope="col">Notas</th>
+              <th scope="col">Saldo</th>
+              <th scope="col">Estado</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (documento of documentos(); track documento.id) {
+              <tr
+                [class.anulado]="documento.estadoDocumento === 'anulado'"
+                [class.fila-nota]="esNota(documento.tipoDocumento)"
+              >
+                <td>{{ esNota(documento.tipoDocumento) ? '—' : documento.fechaVencimiento }}</td>
+                <td>{{ documento.nombreTercero }}</td>
+                <td>
+                  {{ etiquetaTipoDocumento(documento.tipoDocumento) }}
+                  @if (documento.idDocumentoReferencia) {
+                    <small class="muted">sobre #{{ documento.idDocumentoReferencia }}</small>
+                  }
+                </td>
+                <td>{{ documento.numeroDocumento || '—' }}</td>
+                <td class="monto">{{ documento.montoTotal | number: '1.0-2' }}</td>
+                <td class="monto">{{ documento.montoPagado | number: '1.0-2' }}</td>
+                <td class="monto">
+                  @if (tieneNotas(documento)) {
+                    <button type="button" class="link-boton" (click)="verNotas(documento)">
+                      @if (documento.montoNotasCredito > 0) {
+                        −{{ documento.montoNotasCredito | number: '1.0-2' }}
+                      }
+                      @if (documento.montoNotasDebito > 0) {
+                        +{{ documento.montoNotasDebito | number: '1.0-2' }}
+                      }
+                    </button>
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="monto">
+                  @if (esNota(documento.tipoDocumento)) {
+                    —
+                  } @else {
+                    <strong [class.vencido]="documento.estaVencido">
+                      {{ documento.saldoPendiente | number: '1.0-2' }}
+                    </strong>
+                    @if (documento.estaVencido) {
+                      <small class="vencido">{{ documento.diasAtraso }} d. atraso</small>
+                    }
+                  }
+                </td>
+                <td>
+                  <span class="estado-badge" [class]="'estado-' + documento.estadoDocumento">
+                    {{ documento.etiquetaEstado }}
+                  </span>
+                </td>
+                <td class="acciones">
+                  @if (documento.acciones.puedeAplicar) {
+                    <button type="button" class="button button-ghost" (click)="abrirAplicar(documento)">
+                      {{ p.accion }}
+                    </button>
+                  }
+                  @if (documento.acciones.puedeEmitirNota) {
+                    <button type="button" class="button button-ghost" (click)="emitirNota(documento)">Nota</button>
+                  }
+                  @if (documento.acciones.puedeEditar) {
+                    <button type="button" class="button button-ghost" (click)="editar(documento)">Editar</button>
+                  }
+                  @if (documento.acciones.puedeAnular) {
+                    <button
+                      type="button"
+                      class="button button-ghost boton-anular"
+                      [disabled]="anulandoId() === documento.id"
+                      (click)="pedirAnulacion(documento)"
+                    >
+                      {{ anulandoId() === documento.id ? 'Anulando…' : 'Anular' }}
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <div class="paginacion">
+          <span class="paginacion-info">
+            {{ totalResultados() }} resultado{{ totalResultados() === 1 ? '' : 's' }} · página {{ pagina() }} de
+            {{ totalPaginas() }}
+          </span>
+          <div class="paginacion-actions">
+            <button type="button" class="button button-ghost" [disabled]="pagina() <= 1" (click)="paginaAnterior()">
+              Anterior
+            </button>
+            <button
+              type="button"
+              class="button button-ghost"
+              [disabled]="pagina() >= totalPaginas()"
+              (click)="paginaSiguiente()"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      }
+    </section>
+
+    @if (confirmandoAnulacion(); as pendiente) {
+      <div class="modal-overlay" (click)="cancelarConfirmacion()">
+        <div class="modal-dialog" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true">
+          <h2>{{ esNota(pendiente.tipoDocumento) ? '¿Anular esta nota?' : p.preguntaAnular }}</h2>
+          <p>
+            {{ pendiente.nombreTercero }} · {{ etiquetaTipoDocumento(pendiente.tipoDocumento) }}
+            @if (pendiente.numeroDocumento) {
+              N° {{ pendiente.numeroDocumento }}
+            }
+            por {{ pendiente.montoTotal | number: '1.0-2' }}.
+          </p>
+          <p>
+            @if (esNota(pendiente.tipoDocumento)) {
+              El documento que corrige va a recuperar ese monto.
+            } @else {
+              {{ p.efectoAnular }}
+            }
+            La fila se conserva, pero no se puede desanular desde acá.
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="button button-ghost" (click)="cancelarConfirmacion()">No anular</button>
+            <button type="button" class="button button-primary" (click)="confirmarAnulacion()">Anular</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (notasVisibles(); as detalle) {
+      <div class="modal-overlay" (click)="cerrarNotas()">
+        <div class="modal-dialog modal-ancho" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+          <h2>Notas sobre {{ etiquetaTipoDocumento(detalle.documento.tipoDocumento) }} {{ detalle.documento.numeroDocumento }}</h2>
+          <p>
+            Monto {{ detalle.documento.montoTotal | number: '1.0-2' }} · saldo
+            {{ detalle.documento.saldoPendiente | number: '1.0-2' }}
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Tipo</th>
+                <th scope="col">N°</th>
+                <th scope="col">Emisión</th>
+                <th scope="col">Monto</th>
+                <th scope="col">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (nota of detalle.notas; track nota.id) {
+                <tr [class.anulado]="nota.estadoDocumento === 'anulado'">
+                  <td>{{ etiquetaTipoDocumento(nota.tipoDocumento) }}</td>
+                  <td>{{ nota.numeroDocumento || '—' }}</td>
+                  <td>{{ nota.fechaEmision }}</td>
+                  <td class="monto">{{ nota.montoTotal | number: '1.0-2' }}</td>
+                  <td>{{ nota.etiquetaEstado }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="modal-actions">
+            <button type="button" class="button button-ghost" (click)="cerrarNotas()">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (aplicando(); as documento) {
+      <div class="modal-overlay" (click)="cerrarAplicar()">
+        <div class="modal-dialog modal-ancho" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+          <h2>{{ p.tituloAplicar }}</h2>
+          <p>
+            {{ etiquetaTipoDocumento(documento.tipoDocumento) }}
+            {{ documento.numeroDocumento ? 'N° ' + documento.numeroDocumento : '' }} ·
+            {{ documento.nombreTercero }} · saldo {{ documento.saldoPendiente | number: '1.0-2' }}
+          </p>
+
+          @if (errorAplicacion()) {
+            <div class="form-alert" role="alert">{{ errorAplicacion() }}</div>
+          }
+
+          @if (pagosDelDocumento().length > 0) {
+            <h3 class="subtitulo-modal">{{ p.aplicadosPrevios }}</h3>
+            <table>
+              <tbody>
+                @for (pago of pagosDelDocumento(); track pago.id) {
+                  <tr>
+                    <td>{{ pago.fechaMovimiento }}</td>
+                    <td>{{ pago.medioPago }}</td>
+                    <td>{{ pago.descripcionMovimiento || '—' }}</td>
+                    <td class="monto">{{ pago.montoAplicado | number: '1.0-2' }}</td>
+                    <td class="acciones">
+                      <button
+                        type="button"
+                        class="button button-ghost boton-anular"
+                        [disabled]="cargandoAplicacion()"
+                        (click)="quitarPago(pago)"
+                      >
+                        Quitar
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+
+          <form [formGroup]="formAplicar" (ngSubmit)="registrarAplicacion()" novalidate>
+            <h3 class="subtitulo-modal">Aplicar un movimiento de caja</h3>
+
+            @if (!cargandoAplicacion() && movimientosAplicables().length === 0) {
+              <p class="muted">
+                {{ p.sinMovimientos }}
+                <a [routerLink]="'/backoffice/' + p.rutaMovimientos">Ir a {{ p.nombrePantallaMovimientos }}</a>
+              </p>
+            } @else {
+              <div class="field">
+                <label for="idMovimiento">Movimiento de caja</label>
+                <select
+                  id="idMovimiento"
+                  formControlName="idMovimiento"
+                  [attr.aria-invalid]="formAplicar.controls.idMovimiento.invalid && formAplicar.controls.idMovimiento.touched"
+                >
+                  <option [ngValue]="null" disabled>{{ p.seleccionarMovimiento }}</option>
+                  @for (movimiento of movimientosAplicables(); track movimiento.id) {
+                    <option [ngValue]="movimiento.id">
+                      {{ movimiento.fecha }} · {{ movimiento.nombreCuenta }} · {{ movimiento.medioPago }} ·
+                      disponible {{ movimiento.montoDisponible | number: '1.0-2' }}
+                      {{ movimiento.descripcion ? '· ' + movimiento.descripcion : '' }}
+                    </option>
+                  }
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="montoAplicado">Monto a aplicar</label>
+                <input
+                  id="montoAplicado"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputmode="decimal"
+                  formControlName="montoAplicado"
+                  [attr.aria-invalid]="formAplicar.controls.montoAplicado.invalid && formAplicar.controls.montoAplicado.touched"
+                />
+                <small class="field-hint">
+                  Un movimiento grande puede cubrir varios documentos: aplica solo la parte que
+                  corresponde a este.
+                </small>
+              </div>
+
+              <div class="modal-actions">
+                <button type="button" class="button button-ghost" (click)="cerrarAplicar()">Cancelar</button>
+                <button type="submit" class="button button-primary" [disabled]="cargandoAplicacion()">
+                  @if (cargandoAplicacion()) {
+                    <span class="spinner" aria-hidden="true"></span> Guardando…
+                  } @else {
+                    {{ p.accion }}
+                  }
+                </button>
+              </div>
+            }
+          </form>
+        </div>
+      </div>
+    }
+  } @else if (errorMessage()) {
+    <div class="form-alert" role="alert">{{ errorMessage() }}</div>
+  } @else {
+    <p class="muted">Cargando…</p>
+  }
+</section>

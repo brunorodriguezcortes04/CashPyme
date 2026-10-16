@@ -92,10 +92,6 @@ export class Usuarios {
     this.credencialNueva.set(null);
   }
 
-  protected idRolDe(usuario: UsuarioEmpresa): number | null {
-    return this.roles().find((r) => r.nombreRol === usuario.rol)?.id ?? null;
-  }
-
   /**
    * Cambios de rol y de estado comparten manejo: si el backend rechaza (por ejemplo, al
    * intentar dejar la empresa sin Administrador) se recarga la lista para que la fila

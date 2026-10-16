@@ -6,22 +6,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
-public class CuentasService(AppDbContext db)
+public class CuentasService(AppDbContext db, SaldosService saldos)
 {
     /// <summary>
-    /// El saldo actual sale de vista_saldo_cuenta, no de una columna: por eso el join.
+    /// El saldo actual no es una columna: lo calcula SaldosService a partir de lo registrado.
     /// Los selectores de movimientos piden solo las activas; la pantalla de cuentas, todas.
     /// </summary>
     public async Task<IReadOnlyList<CuentaResponse>> ListarAsync(long companyId, bool incluirInactivas)
     {
-        return await (
-            from c in db.CuentasFinancieras
-            join s in db.SaldosCuenta on c.Id equals s.AccountId
-            where c.CompanyId == companyId && (incluirInactivas || c.IsActive)
-            orderby c.Name
-            select new CuentaResponse(
-                c.Id, c.Name, c.Type, c.Bank, c.Number, c.InitialBalance, s.CurrentBalance, c.IsActive)
-        ).ToListAsync();
+        var consulta = db.CuentasFinancieras
+            .Where(c => c.CompanyId == companyId && (incluirInactivas || c.IsActive));
+
+        var saldosCuenta = await saldos.DeCuentasAsync(consulta);
+        var cuentas = await consulta.OrderBy(c => c.Name).ToListAsync();
+
+        return cuentas.Select(c => ToResponse(c, saldosCuenta[c.Id])).ToList();
     }
 
     public async Task<CuentaResponse> CrearAsync(long companyId, long userId, CreateCuentaRequest request)
@@ -82,10 +81,8 @@ public class CuentasService(AppDbContext db)
 
     private async Task<decimal> SaldoActualAsync(long idCuenta)
     {
-        return await db.SaldosCuenta
-            .Where(s => s.AccountId == idCuenta)
-            .Select(s => s.CurrentBalance)
-            .SingleAsync();
+        var saldosCuenta = await saldos.DeCuentasAsync(db.CuentasFinancieras.Where(c => c.Id == idCuenta));
+        return saldosCuenta[idCuenta];
     }
 
     private static CuentaResponse ToResponse(CuentaFinanciera c, decimal saldoActual) => new(

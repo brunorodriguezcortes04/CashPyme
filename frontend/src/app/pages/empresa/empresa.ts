@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { mensajeDeError } from '../../core/api-error';
 import { Empresa, EmpresaService } from '../../core/empresa.service';
-import { normalizarRut, validadorRut } from '../../core/rut.validator';
 
 @Component({
   selector: 'app-empresa',
@@ -23,24 +22,18 @@ export class EmpresaPage {
 
   protected readonly form = this.formBuilder.nonNullable.group({
     razonSocial: ['', [Validators.required, Validators.maxLength(150)]],
-    rut: ['', [validadorRut()]],
+    rut: ['', [Validators.maxLength(12)]],
     giro: ['', [Validators.maxLength(150)]],
     direccion: ['', [Validators.maxLength(200)]],
     telefono: ['', [Validators.maxLength(20)]],
     emailContacto: ['', [Validators.email, Validators.maxLength(150)]],
-    diasAvisoVencimiento: [3, [Validators.required, Validators.min(0), Validators.max(60)]],
-    umbralSaldoBajo: [0, [Validators.required, Validators.min(0)]]
+    // Vacíos hasta que llega la empresa: los valores por defecto los pone el backend al crearla.
+    diasAvisoVencimiento: [null as number | null, [Validators.required, Validators.min(0), Validators.max(60)]],
+    umbralSaldoBajo: [null as number | null, [Validators.required, Validators.min(0)]]
   });
 
   constructor() {
     this.cargar();
-  }
-
-  protected formatearRut(): void {
-    const valor = this.form.controls.rut.value.trim();
-    if (valor) {
-      this.form.controls.rut.setValue(normalizarRut(valor));
-    }
   }
 
   protected submit(): void {
@@ -49,7 +42,6 @@ export class EmpresaPage {
       return;
     }
 
-    this.formatearRut();
     const raw = this.form.getRawValue();
 
     this.isSubmitting.set(true);
@@ -64,12 +56,14 @@ export class EmpresaPage {
         direccion: raw.direccion || null,
         telefono: raw.telefono || null,
         emailContacto: raw.emailContacto || null,
-        diasAvisoVencimiento: raw.diasAvisoVencimiento,
-        umbralSaldoBajo: raw.umbralSaldoBajo
+        diasAvisoVencimiento: raw.diasAvisoVencimiento!,
+        umbralSaldoBajo: raw.umbralSaldoBajo!
       })
       .subscribe({
         next: (empresa) => {
           this.empresa.set(empresa);
+          // El backend guarda el RUT normalizado (sin puntos, con guion): se muestra como quedó.
+          this.form.controls.rut.setValue(empresa.rut ?? '');
           this.successMessage.set('Datos de la empresa actualizados.');
           this.isSubmitting.set(false);
         },

@@ -8,5 +8,8 @@ public enum Permiso
     CuentasGestionar,
     ConfiguracionEmpresaVer,
     ConfiguracionEmpresaEditar,
-    GestionUsuarios
+    GestionUsuarios,
+    TercerosGestionar,
+    DocumentosVer,
+    DocumentosGestionar
 }

@@ -18,14 +18,23 @@ public static class MatrizPermisos
             Permiso.CuentasGestionar,
             Permiso.ConfiguracionEmpresaVer,
             Permiso.ConfiguracionEmpresaEditar,
-            Permiso.GestionUsuarios
+            Permiso.GestionUsuarios,
+            Permiso.TercerosGestionar,
+            Permiso.DocumentosVer,
+            Permiso.DocumentosGestionar
         ],
+        // Las cuentas por cobrar y por pagar son trabajo contable, así que el Contador las
+        // gestiona completas. El Operador no las ve: su descripción sembrada en la tabla rol
+        // lo limita a registrar y consultar movimientos de caja.
         [Role.Accountant] =
         [
             Permiso.MovimientosVer,
             Permiso.MovimientosRegistrar,
             Permiso.CuentasGestionar,
-            Permiso.ConfiguracionEmpresaVer
+            Permiso.ConfiguracionEmpresaVer,
+            Permiso.TercerosGestionar,
+            Permiso.DocumentosVer,
+            Permiso.DocumentosGestionar
         ],
         [Role.Operator] =
         [

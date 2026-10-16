@@ -6,6 +6,8 @@ Gestión financiera para PyMEs.
 
 - `backend/` — API en ASP.NET Core (C#, .NET 10)
 - `frontend/` — Aplicación Angular
+- `database/` — Esquema de la base y migraciones
+- `tests/Backend.Tests/` — Pruebas del backend (xUnit)
 
 ## Arranque en desarrollo
 
@@ -32,8 +34,16 @@ redirigen automáticamente al backend (ver `frontend/proxy.conf.json`).
 
 El esquema vive en `database/` y se ejecuta a mano en el **SQL Editor** de Supabase, en este orden:
 
-1. `cashpyme_modelo_datos_v2.sql` — tablas, vistas, funciones y roles base.
+1. `cashpyme_modelo_datos_v2.sql` — tablas, restricciones, índices y datos base (roles y pantallas).
 2. `cashpyme_supabase_seguridad.sql` — cierra la API pública de Supabase (RLS).
+
+La base no tiene lógica: ni funciones, ni procedimientos, ni triggers, ni vistas. Saldos, estados,
+validaciones, auditoría, alertas y proyección de caja viven en la API (`backend/Dominio` y
+`backend/Services`). Lo que sí queda en la base son las restricciones declarativas (CHECK, FK,
+UNIQUE), que protegen los datos aunque alguien escriba sin pasar por la API.
+
+Una base que ya existía se pone al día corriendo las migraciones pendientes de `database/migraciones/`
+en orden.
 
 La API .NET no crea tablas (sin `EnsureCreated` ni migraciones de EF). Cada persona configura su
 cadena de conexión (Session pooler de Supabase → **Connect**) con user secrets, nunca en el repo:
@@ -45,6 +55,18 @@ dotnet user-secrets set "Jwt:Key" "<clave aleatoria de 32+ caracteres>"
 ```
 
 En producción usar las variables de entorno `ConnectionStrings__Default` y `Jwt__Key`.
+
+## Pruebas
+
+```bash
+dotnet test                                    # backend: dominio + integración
+dotnet test --filter "Tipo!=Integracion"       # backend: solo dominio (segundos)
+cd frontend && npx ng test --watch=false       # frontend
+```
+
+Las pruebas de integración usan la misma cadena de conexión que la API (user secrets). Crean un
+esquema propio `prueba_api_…` en esa base, instalan `cashpyme_modelo_datos_v2.sql` y lo borran al
+terminar: nunca tocan `public`. Sin cadena de conexión se saltan. Contra Supabase tardan unos minutos.
 
 ## Correos electrónicos (Resend)
 

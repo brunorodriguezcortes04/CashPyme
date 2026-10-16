@@ -15,5 +15,7 @@ public class Company
     public string TimeZone { get; set; } = null!;
     public short DueDateWarningDays { get; set; }
     public decimal LowBalanceThreshold { get; set; }
+    /// <summary>Último resumen semanal enviado; evita mandarlo dos veces en la misma semana.</summary>
+    public DateTime? LastReportAtUtc { get; set; }
     public bool IsActive { get; set; } = true;
 }

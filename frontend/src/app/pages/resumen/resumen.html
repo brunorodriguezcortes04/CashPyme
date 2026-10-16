@@ -1,0 +1,110 @@
+<section class="wrap">
+  <h1>Resumen</h1>
+  <p class="page-subtitle">Cómo está tu caja hoy, sumando lo que te deben y restando lo que debes.</p>
+
+  <section class="card tarjeta-alertas" aria-labelledby="alertas-titulo">
+    <h2 id="alertas-titulo">
+      Alertas
+      @if (!cargandoAlertas() && alertas().length > 0) {
+        <span class="contador">{{ alertas().length }}</span>
+      }
+    </h2>
+
+    @if (errorAlertas()) {
+      <div class="form-alert" role="alert">{{ errorAlertas() }}</div>
+    }
+
+    @if (cargandoAlertas()) {
+      <p class="muted">Cargando…</p>
+    } @else if (alertas().length === 0 && !errorAlertas()) {
+      <p class="muted">No tienes alertas pendientes.</p>
+    } @else {
+      <ul class="lista-alertas">
+        @for (alerta of alertas(); track alerta.id) {
+          <li class="alerta" [class]="'alerta-' + alerta.nivelSeveridad">
+            <span class="severidad">
+              {{ alerta.etiquetaSeveridad }}
+            </span>
+            <p class="mensaje">{{ alerta.mensaje }}</p>
+            <div class="acciones-alerta">
+              @if (alerta.ruta) {
+                <a [routerLink]="'/backoffice/' + alerta.ruta">Ver</a>
+              }
+              <button
+                type="button"
+                class="button button-ghost"
+                [disabled]="marcandoId() === alerta.id"
+                (click)="marcarLeida(alerta)"
+              >
+                {{ marcandoId() === alerta.id ? 'Marcando…' : 'Marcar como leída' }}
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="card tarjeta-saldo" aria-labelledby="saldo-neto-titulo">
+    <h2 id="saldo-neto-titulo">Saldo neto proyectado</h2>
+
+    @if (isLoading()) {
+      <p class="muted">Calculando…</p>
+    } @else if (errorMessage()) {
+      <div class="form-alert" role="alert">
+        {{ errorMessage() }}
+        <button type="button" class="button button-ghost" (click)="cargar()">Reintentar</button>
+      </div>
+    } @else if (saldo(); as s) {
+      <p class="saldo-neto" [class.negativo]="esNegativo()">
+        ${{ s.saldoNeto | number: '1.0-2' }}
+      </p>
+
+      @if (esNegativo()) {
+        <p class="aviso-negativo" role="status">
+          Aunque cobres todo lo pendiente, no alcanza para pagar lo que debes.
+        </p>
+      }
+
+      @if (sinPendientes()) {
+        <p class="muted">
+          No tienes cuentas por cobrar ni por pagar pendientes: es tu saldo en caja.
+        </p>
+      } @else {
+        <dl class="desglose">
+          <div class="desglose-fila">
+            <dt>Saldo en caja</dt>
+            <dd>${{ s.saldoCaja | number: '1.0-2' }}</dd>
+          </div>
+          <div class="desglose-fila">
+            <dt>
+              + <a routerLink="/backoffice/cuentas-por-cobrar">Por cobrar</a>
+              <span class="muted">
+                ({{ s.documentosPorCobrar }} documento{{ s.documentosPorCobrar === 1 ? '' : 's' }})
+              </span>
+            </dt>
+            <dd>${{ s.porCobrar | number: '1.0-2' }}</dd>
+          </div>
+          <div class="desglose-fila">
+            <dt>
+              − <a routerLink="/backoffice/cuentas-por-pagar">Por pagar</a>
+              <span class="muted">
+                ({{ s.documentosPorPagar }} documento{{ s.documentosPorPagar === 1 ? '' : 's' }})
+              </span>
+            </dt>
+            <dd>${{ s.porPagar | number: '1.0-2' }}</dd>
+          </div>
+          <div class="desglose-fila total">
+            <dt>= Saldo neto proyectado</dt>
+            <dd>${{ s.saldoNeto | number: '1.0-2' }}</dd>
+          </div>
+        </dl>
+      }
+
+      <p class="nota-calculo">
+        Es lo que tendrías si hoy se cobrara todo lo pendiente y se pagara todo lo que debes. No
+        mira fechas de vencimiento: no es una proyección en el tiempo.
+      </p>
+    }
+  </section>
+</section>

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
+import { TIPO_CUENTA_POR_COBRAR, TIPO_CUENTA_POR_PAGAR } from './core/documentos.service';
 import { pantallaGuard } from './core/pantalla.guard';
 
 export const routes: Routes = [
@@ -26,6 +27,11 @@ export const routes: Routes = [
     loadComponent: () => import('./backoffice/backoffice-shell').then((m) => m.BackofficeShell),
     children: [
       { path: '', redirectTo: 'movimientos/ingreso', pathMatch: 'full' },
+      {
+        path: 'resumen',
+        canActivate: [pantallaGuard],
+        loadComponent: () => import('./pages/resumen/resumen').then((m) => m.Resumen)
+      },
       // Un solo componente para ingresos y egresos: el tipo viaja en la URL y sale de
       // pantalla.ruta (ver PantallasService), no de una lista hardcodeada en el front.
       {
@@ -55,7 +61,28 @@ export const routes: Routes = [
         path: 'cuenta',
         canActivate: [pantallaGuard],
         loadComponent: () => import('./pages/cuenta/cuenta').then((m) => m.Cuenta)
+      },
+      // Un solo componente para cuentas por cobrar y por pagar. Cada una mantiene su ruta (es
+      // la que publica la tabla `pantalla`) y le pasa el tipo de cuenta; los textos y las
+      // reglas de cada una vienen del backend.
+      {
+        path: 'cuentas-por-cobrar',
+        canActivate: [pantallaGuard],
+        data: { tipoCuenta: TIPO_CUENTA_POR_COBRAR },
+        loadComponent: () => import('./pages/documentos/documentos').then((m) => m.Documentos)
+      },
+      {
+        path: 'cuentas-por-pagar',
+        canActivate: [pantallaGuard],
+        data: { tipoCuenta: TIPO_CUENTA_POR_PAGAR },
+        loadComponent: () => import('./pages/documentos/documentos').then((m) => m.Documentos)
+      },
+      {
+        path: 'terceros',
+        canActivate: [pantallaGuard],
+         loadComponent: () => import('./pages/terceros/terceros').then((m) => m.Terceros)
       }
+      
     ]
   }
 ];
