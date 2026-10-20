@@ -1,0 +1,79 @@
+@use '../backoffice-page';
+
+// Mismo sistema que el panel de la página de inicio (home.scss: .forecast): tarjeta con sombra,
+// cifra grande en la fuente de títulos, pestañas para el período y gráfico SVG con su eje.
+
+.panel { padding: clamp(20px, 3vw, 32px); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); transition: opacity .2s ease; }
+.panel.cargando { opacity: .6; }
+.panel-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.panel-title { margin: 0; font-size: 1.125rem; letter-spacing: -.01em; }
+.panel-note { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+
+.selector-mes { display: flex; align-items: center; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); }
+.selector-mes button { min-width: 44px; min-height: 44px; border: 0; border-radius: 7px; color: var(--text-secondary); background: transparent; cursor: pointer; font-size: 20px; line-height: 1; transition: color .2s ease, background .2s ease; }
+.selector-mes button:hover:not(:disabled) { color: var(--text); background: var(--accent-soft); }
+.selector-mes button:disabled { opacity: .35; cursor: not-allowed; }
+.selector-mes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mes-actual { min-width: 136px; padding-inline: 8px; color: var(--text); font-size: 15px; font-weight: 500; text-align: center; }
+
+.figuras { margin-top: 28px; }
+.monto-principal { margin: 0; font-family: var(--font-display); font-size: clamp(2.5rem, 2rem + 2vw, 3.5rem); font-weight: 600; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.flujo-neto { margin: 10px 0 0; color: var(--accent); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.flujo-neto.cae { color: var(--danger); }
+.negativo { color: var(--danger); }
+
+// Lo que dice el día bajo el mouse. Alto fijo para que el gráfico no salte.
+.lectura { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; min-height: 24px; margin-top: 24px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.lectura span { display: inline-flex; align-items: center; gap: 8px; }
+.lectura-dia { color: var(--text-secondary); }
+
+.chart { position: relative; margin-top: 12px; }
+.chart-plot { display: block; width: 100%; height: clamp(160px, 22vw, 240px); overflow: visible; }
+.chart-base { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.franja { fill: transparent; }
+.dia.activo .franja { fill: rgba(255, 255, 255, .04); }
+.barra { transform-box: fill-box; transform-origin: bottom; }
+.barra-ingreso { fill: var(--accent); }
+.barra-egreso { fill: var(--danger); }
+.dia.activo .barra { filter: brightness(1.15); }
+.chart-vacio { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); font-size: 15px; }
+
+.chart-axis { position: relative; height: 18px; margin-top: 8px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.chart-axis span { position: absolute; top: 0; transform: translateX(-50%); }
+
+.leyenda { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--border); }
+.leyenda dt { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.leyenda dd { margin: 6px 0 0; font-size: 1.125rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.key { flex: 0 0 auto; display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.key-ingreso { background: var(--accent); }
+.key-egreso { background: var(--danger); }
+
+.cuentas { display: grid; gap: 18px; margin: 20px 0 0; padding: 0; list-style: none; }
+.cuenta-fila { display: flex; justify-content: space-between; gap: 16px; font-size: 15px; }
+.cuenta-monto { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cuenta-pista { height: 8px; margin-top: 8px; border-radius: 999px; background: var(--surface-strong); overflow: hidden; }
+.cuenta-barra { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.cuenta-barra.negativo { background: var(--danger); }
+
+.detalle summary { cursor: pointer; font-weight: 500; }
+.detalle summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.detalle[open] summary { margin-bottom: 16px; }
+th.monto { text-align: right; }
+
+.form-alert .button { margin-top: 10px; }
+
+@media (prefers-reduced-motion: no-preference) {
+	.panel { animation: rise .8s var(--ease-out) both; }
+	.panel + .panel { animation-delay: .12s; }
+	.barra { animation: crecer .9s var(--ease-out) .3s both; }
+	.cuenta-barra { animation: llenar .9s var(--ease-out) .4s both; }
+	@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+	@keyframes crecer { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+	@keyframes llenar { from { transform: scaleX(0); transform-origin: left; } to { transform: scaleX(1); transform-origin: left; } }
+}
+
+@media (max-width: 560px) {
+	.panel-top { flex-direction: column; }
+	.selector-mes { width: 100%; justify-content: space-between; }
+	.leyenda { grid-template-columns: 1fr; gap: 12px; }
+}

@@ -510,6 +510,7 @@ INSERT INTO pantalla (codigo, nombre, ruta, orden, permiso_requerido) VALUES
     ('movimientos.ingresos',   'Ingresos', 'movimientos/ingreso', 1, 'MovimientosRegistrar'),
     ('movimientos.egresos',    'Egresos',  'movimientos/egreso',  2, 'MovimientosRegistrar'),
     ('dashboard.resumen',      'Resumen',  'resumen',  0, 'DocumentosVer'),
+    ('dashboard.caja',         'Caja',     'caja',     0, 'MovimientosVer'),
     ('empresa.cuentas',        'Cuentas',  'cuentas',  3, 'CuentasGestionar'),
     ('documentos.por_cobrar',  'Cuentas por cobrar',     'cuentas-por-cobrar', 3, 'DocumentosVer'),
     ('cuentas_pagar.gestion',  'Cuentas por pagar',      'cuentas-por-pagar',  4, 'DocumentosVer'),

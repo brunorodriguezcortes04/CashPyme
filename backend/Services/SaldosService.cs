@@ -203,6 +203,25 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
         }
     }
 
+    /// <summary>
+    /// Ingresos y egresos registrados de la empresa por día, entre dos fechas (incluidas). Antes
+    /// era vista_flujo_diario: solo trae los días con movimientos, ordenados por fecha.
+    /// </summary>
+    public async Task<IReadOnlyList<FlujoDia>> FlujoDiarioAsync(long companyId, DateOnly desde, DateOnly hasta)
+    {
+        return await db.MovimientosFinancieros
+            .Where(m => m.CompanyId == companyId
+                        && m.Status == MovimientoFinanciero.Registrado
+                        && m.MovementDate >= desde && m.MovementDate <= hasta)
+            .GroupBy(m => m.MovementDate)
+            .OrderBy(g => g.Key)
+            .Select(g => new FlujoDia(
+                g.Key,
+                g.Sum(m => m.Type == TiposMovimiento.Ingreso ? m.Amount : 0m),
+                g.Sum(m => m.Type == TiposMovimiento.Egreso ? m.Amount : 0m)))
+            .ToListAsync();
+    }
+
     /// <summary>Ingresos y egresos registrados de la empresa entre dos fechas (incluidas).</summary>
     public async Task<(decimal Ingresos, decimal Egresos)> FlujoEntreAsync(long companyId, DateOnly desde, DateOnly hasta)
     {

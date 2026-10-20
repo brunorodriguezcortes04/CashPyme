@@ -1,0 +1,142 @@
+<section class="wrap">
+  <h1>Caja</h1>
+  <p class="page-subtitle">Cuánta plata tienes hoy en tus cuentas y qué entró y salió en el mes.</p>
+
+  @if (errorMessage()) {
+    <div class="form-alert" role="alert">
+      {{ errorMessage() }}
+      <button type="button" class="button button-ghost" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (caja(); as c) {
+    <section class="panel" aria-labelledby="caja-titulo" [class.cargando]="isLoading()" [attr.aria-busy]="isLoading()">
+      <div class="panel-top">
+        <div>
+          <h2 id="caja-titulo" class="panel-title">Saldo total en caja</h2>
+          <p class="panel-note">
+            Suma de tus {{ c.cuentas.length }} cuenta{{ c.cuentas.length === 1 ? '' : 's' }}
+            activa{{ c.cuentas.length === 1 ? '' : 's' }}, al día de hoy
+          </p>
+        </div>
+
+        <div class="selector-mes" role="group" aria-label="Período">
+          <button type="button" aria-label="Mes anterior" [disabled]="isLoading()" (click)="moverMes(-1)">‹</button>
+          <span class="mes-actual" aria-live="polite">{{ c.desde | date: 'MMMM y' | titlecase }}</span>
+          <button type="button" aria-label="Mes siguiente" [disabled]="isLoading() || esMesActual()" (click)="moverMes(1)">›</button>
+        </div>
+      </div>
+
+      <div class="figuras">
+        <p class="monto-principal" [class.negativo]="c.saldoTotal < 0">${{ c.saldoTotal | number: '1.0-0' }}</p>
+        <p class="flujo-neto" [class.cae]="c.flujoNeto < 0">
+          {{ c.flujoNeto < 0 ? '−' : '+' }}${{ (c.flujoNeto < 0 ? -c.flujoNeto : c.flujoNeto) | number: '1.0-0' }}
+          de flujo neto en {{ c.desde | date: 'MMMM' }}
+        </p>
+      </div>
+
+      <div class="lectura" aria-hidden="true">
+        @if (detalleActivo(); as d) {
+          <span class="lectura-dia">{{ d.fecha | date: "EEEE d 'de' MMMM" | titlecase }}</span>
+          <span><i class="key key-ingreso"></i>${{ d.ingresos | number: '1.0-0' }}</span>
+          <span><i class="key key-egreso"></i>${{ d.egresos | number: '1.0-0' }}</span>
+        } @else {
+          <span class="muted">Pasa el mouse sobre una barra para ver el día.</span>
+        }
+      </div>
+
+      <div class="chart" (mouseleave)="diaActivo.set(null)">
+        <svg
+          class="chart-plot"
+          [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
+          preserveAspectRatio="none"
+          role="img"
+          [attr.aria-label]="descripcionGrafico()"
+        >
+          <line class="chart-base" x1="0" [attr.x2]="chartWidth" [attr.y1]="chartHeight" [attr.y2]="chartHeight" />
+          @for (b of barras(); track b.fecha; let i = $index) {
+            <g class="dia" [class.activo]="diaActivo() === i" (mouseenter)="diaActivo.set(i)">
+              <rect class="franja" [attr.x]="b.franjaX" y="0" [attr.width]="b.franjaAncho" [attr.height]="chartHeight" />
+              @if (b.ingresoAlto > 0) {
+                <rect class="barra barra-ingreso" [attr.x]="b.ingresoX" [attr.y]="b.ingresoY" [attr.width]="b.ancho" [attr.height]="b.ingresoAlto" />
+              }
+              @if (b.egresoAlto > 0) {
+                <rect class="barra barra-egreso" [attr.x]="b.egresoX" [attr.y]="b.egresoY" [attr.width]="b.ancho" [attr.height]="b.egresoAlto" />
+              }
+            </g>
+          }
+        </svg>
+        @if (c.flujoDiario.length === 0) {
+          <p class="chart-vacio">No hay movimientos registrados en este período.</p>
+        }
+      </div>
+
+      <div class="chart-axis" aria-hidden="true">
+        @for (marca of eje(); track marca.dia) {
+          <span [style.left.%]="marca.left">{{ marca.dia }}</span>
+        }
+      </div>
+
+      <dl class="leyenda">
+        <div>
+          <dt><span class="key key-ingreso" aria-hidden="true"></span>Ingresos del período</dt>
+          <dd>${{ c.ingresos | number: '1.0-0' }}</dd>
+        </div>
+        <div>
+          <dt><span class="key key-egreso" aria-hidden="true"></span>Egresos del período</dt>
+          <dd>${{ c.egresos | number: '1.0-0' }}</dd>
+        </div>
+        <div>
+          <dt>Flujo neto</dt>
+          <dd [class.negativo]="c.flujoNeto < 0">${{ c.flujoNeto | number: '1.0-0' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="cuentas-titulo">
+      <h2 id="cuentas-titulo" class="panel-title">Saldo por cuenta</h2>
+      <ul class="cuentas">
+        @for (cuenta of barrasCuentas(); track cuenta.id) {
+          <li>
+            <div class="cuenta-fila">
+              <span>{{ cuenta.nombreCuenta }}</span>
+              <span class="cuenta-monto" [class.negativo]="cuenta.saldoActual < 0">${{ cuenta.saldoActual | number: '1.0-0' }}</span>
+            </div>
+            <div class="cuenta-pista" aria-hidden="true">
+              <span class="cuenta-barra" [class.negativo]="cuenta.saldoActual < 0" [style.width.%]="cuenta.porcentaje"></span>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <details class="panel detalle">
+      <summary>Ver detalle por día</summary>
+      @if (c.flujoDiario.length === 0) {
+        <p class="muted">No hay movimientos registrados en este período.</p>
+      } @else {
+        <div class="listado">
+          <table>
+            <caption class="visually-hidden">Ingresos y egresos por día</caption>
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col" class="monto">Ingresos</th>
+                <th scope="col" class="monto">Egresos</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (dia of c.flujoDiario; track dia.fecha) {
+                <tr>
+                  <td>{{ dia.fecha | date: 'dd/MM/yyyy' }}</td>
+                  <td class="monto">${{ dia.ingresos | number: '1.0-0' }}</td>
+                  <td class="monto">${{ dia.egresos | number: '1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </details>
+  } @else {
+    <p class="muted">Cargando…</p>
+  }
+</section>

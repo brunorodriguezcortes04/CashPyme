@@ -12,3 +12,21 @@ public record SaldoNetoResponse(
     decimal SaldoNeto,
     int DocumentosPorCobrar,
     int DocumentosPorPagar);
+
+/// <summary>
+/// Dashboard de caja actual. SaldoTotal es la suma de las cuentas activas (Cuentas trae el
+/// detalle); Ingresos y Egresos son del período Desde-Hasta y suman lo mismo que FlujoDiario.
+/// </summary>
+public record CajaActualResponse(
+    DateOnly Desde,
+    DateOnly Hasta,
+    decimal SaldoTotal,
+    decimal Ingresos,
+    decimal Egresos,
+    decimal FlujoNeto,
+    IReadOnlyList<SaldoCuentaResponse> Cuentas,
+    IReadOnlyList<FlujoDiaResponse> FlujoDiario);
+
+public record SaldoCuentaResponse(long Id, string NombreCuenta, string TipoCuenta, decimal SaldoActual);
+
+public record FlujoDiaResponse(DateOnly Fecha, decimal Ingresos, decimal Egresos);

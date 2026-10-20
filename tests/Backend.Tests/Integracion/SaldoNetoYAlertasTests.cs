@@ -1,5 +1,6 @@
 using Backend.Dominio;
 using Backend.Dtos;
+using Backend.Exceptions;
 using Backend.Models;
 using Backend.Services;
 using Microsoft.EntityFrameworkCore;
@@ -64,6 +65,52 @@ public class SaldoNetoYAlertasTests(BaseDePruebas baseDePruebas)
             new CreateCuentaRequest("Cuenta cerrada", "cuenta_corriente", null, null, 1_000_000m));
         await cuentas.CambiarEstadoAsync(e.Id, e.UsuarioId, cerrada.Id, activo: false);
         Assert.Equal(550_000m, (await dashboard.ObtenerSaldoNetoAsync(e.Id)).SaldoNeto);
+    }
+
+    [SkippableFact]
+    public async Task Caja_actual_criterios_y_bordes()
+    {
+        await using var sp = baseDePruebas.CrearServicios();
+        using var scope = sp.CreateScope();
+        var e = await EmpresaDePrueba.RegistrarAsync(baseDePruebas, scope.ServiceProvider, "PRUEBA caja actual");
+        var dashboard = e.Servicio<DashboardService>();
+        var cuentas = e.Servicio<CuentasService>();
+        var inicioMes = new DateOnly(e.Hoy.Year, e.Hoy.Month, 1);
+
+        await e.SaldoInicialAsync(e.CajaId, 100_000m);
+        var banco = await cuentas.CrearAsync(e.Id, e.UsuarioId,
+            new CreateCuentaRequest("Banco", "cuenta_corriente", null, null, 400_000m));
+
+        // Criterio 1: los del mes anterior mueven el saldo pero no el período; lo anulado no cuenta.
+        await e.MovimientoAsync(TiposMovimiento.Ingreso, 80_000m, fecha: inicioMes);
+        await e.MovimientoAsync(TiposMovimiento.Egreso, 30_000m, banco.Id);
+        await e.MovimientoAsync(TiposMovimiento.Ingreso, 20_000m);
+        await e.MovimientoAsync(TiposMovimiento.Egreso, 999m, fecha: inicioMes.AddDays(-1));
+        var anulado = await e.MovimientoAsync(TiposMovimiento.Ingreso, 777_777m);
+        await e.Servicio<MovimientosService>().AnularMovimientoAsync(e.Id, e.UsuarioId, anulado, new AnularMovimientoRequest(null));
+
+        var caja = await dashboard.ObtenerCajaActualAsync(e.Id, null, null);
+        Assert.Equal((inicioMes, inicioMes.AddMonths(1).AddDays(-1)), (caja.Desde, caja.Hasta));
+        Assert.Equal((100_000m, 30_000m, 70_000m), (caja.Ingresos, caja.Egresos, caja.FlujoNeto));
+        Assert.Equal(caja.Ingresos, caja.FlujoDiario.Sum(d => d.Ingresos));
+        Assert.Equal(caja.Egresos, caja.FlujoDiario.Sum(d => d.Egresos));
+
+        // Criterio 2: el saldo total suma todas las cuentas activas (caja 199.001 + banco 370.000).
+        Assert.Equal(2, caja.Cuentas.Count);
+        Assert.Equal(569_001m, caja.SaldoTotal);
+        Assert.Equal(caja.SaldoTotal, caja.Cuentas.Sum(c => c.SaldoActual));
+        Assert.Equal(await e.Servicio<SaldosService>().CajaDeEmpresaAsync(e.Id), caja.SaldoTotal);
+
+        // Una cuenta desactivada no entra.
+        await cuentas.CambiarEstadoAsync(e.Id, e.UsuarioId, banco.Id, activo: false);
+        Assert.Equal(199_001m, (await dashboard.ObtenerCajaActualAsync(e.Id, null, null)).SaldoTotal);
+
+        // El mes anterior, pedido a mano.
+        var anterior = inicioMes.AddDays(-1);
+        var mesAnterior = await dashboard.ObtenerCajaActualAsync(e.Id, anterior.Year, anterior.Month);
+        Assert.Equal((0m, 999m), (mesAnterior.Ingresos, mesAnterior.Egresos));
+
+        await Assert.ThrowsAsync<PeriodoInvalidoException>(() => dashboard.ObtenerCajaActualAsync(e.Id, 2026, 13));
     }
 
     [SkippableFact]
