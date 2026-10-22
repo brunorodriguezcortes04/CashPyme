@@ -58,3 +58,7 @@
 // Los conceptos del desglose llevan a su pantalla: subrayados para que se lean como enlace.
 .desglose a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .desglose a:hover { color: var(--accent); }
+
+.tarjeta-reporte { max-width: 560px; }
+.reporte-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 12px; }
+.reporte-form .field { margin: 0; }

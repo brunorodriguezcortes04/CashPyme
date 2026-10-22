@@ -39,4 +39,16 @@ public class DashboardController(DashboardService dashboardService) : Controller
         var result = await dashboardService.ObtenerCajaActualAsync(User.GetCompanyId(), anio, mes);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Variación de ingresos, egresos y flujo neto contra el mes anterior, y las categorías que
+    /// más movieron plata en el mes. Mismo período y mismo permiso que la caja.
+    /// </summary>
+    [HttpGet("indicadores")]
+    [RequierePermiso(Permiso.MovimientosVer)]
+    public async Task<ActionResult<IndicadoresResponse>> Indicadores([FromQuery] int? anio, [FromQuery] int? mes)
+    {
+        var result = await dashboardService.ObtenerIndicadoresAsync(User.GetCompanyId(), anio, mes);
+        return Ok(result);
+    }
 }

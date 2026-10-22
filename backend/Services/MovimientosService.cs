@@ -37,6 +37,98 @@ public class MovimientosService(AppDbContext db, SaldosService saldos)
         pagina = pagina < 1 ? 1 : pagina;
         tamanoPagina = tamanoPagina is < 1 or > 100 ? 20 : tamanoPagina;
 
+        var (query, desde, hasta, periodoPorDefecto) =
+            await FiltrarAsync(companyId, tipo, fechaDesde, fechaHasta, idCategoria, idCuenta);
+
+        var total = await query.CountAsync();
+
+        var movimientos = await query
+            .Include(m => m.Account)
+            .Include(m => m.Category)
+            .OrderByDescending(m => m.MovementDate)
+            .ThenByDescending(m => m.Id)
+            .Skip((pagina - 1) * tamanoPagina)
+            .Take(tamanoPagina)
+            .ToListAsync();
+
+        var idsMovimiento = movimientos.Select(m => m.Id).ToList();
+        var conPagos = (await db.PagosDocumento
+                .Where(p => idsMovimiento.Contains(p.MovementId))
+                .Select(p => p.MovementId)
+                .Distinct()
+                .ToListAsync())
+            .ToHashSet();
+
+        return new MovimientosPaginadosResponse(
+            movimientos.Select(m => ToResponse(m, conPagos.Contains(m.Id))).ToList(),
+            total, pagina, tamanoPagina, desde, hasta, periodoPorDefecto);
+    }
+
+    /// <summary>
+    /// El mismo listado filtrado, completo y sin paginar, como CSV o Excel. Usa exactamente el
+    /// filtro del listado (FiltrarAsync), así el archivo trae lo que la persona está viendo y
+    /// nada de otra empresa.
+    /// </summary>
+    public async Task<(byte[] Contenido, string NombreArchivo, string ContentType)> ExportarAsync(
+        long companyId,
+        string? formato,
+        string? tipo,
+        DateOnly? fechaDesde,
+        DateOnly? fechaHasta,
+        long? idCategoria,
+        long? idCuenta)
+    {
+        var formatoArchivo = ExportacionMovimientos.Formato(formato) ?? throw new FormatoExportacionInvalidoException();
+
+        var (query, desde, hasta, _) = await FiltrarAsync(companyId, tipo, fechaDesde, fechaHasta, idCategoria, idCuenta);
+
+        if (await query.CountAsync() > ExportacionMovimientos.MaximoFilas)
+        {
+            throw new ExportacionMuyGrandeException();
+        }
+
+        // Mismo orden que el listado: lo más reciente primero.
+        var filas = await query
+            .OrderByDescending(m => m.MovementDate)
+            .ThenByDescending(m => m.Id)
+            .Select(m => new
+            {
+                m.MovementDate, m.Type, Cuenta = m.Account.Name, Categoria = m.Category.Name,
+                m.PaymentMethod, m.Description, m.Amount
+            })
+            .ToListAsync();
+
+        var movimientos = filas
+            .Select(m => new MovimientoExportado(
+                m.MovementDate,
+                ExportacionMovimientos.EtiquetaTipo(m.Type),
+                m.Cuenta,
+                m.Categoria,
+                MediosPago.Todos.FirstOrDefault(o => o.Valor == m.PaymentMethod)?.Etiqueta ?? m.PaymentMethod,
+                m.Description,
+                m.Amount))
+            .ToList();
+
+        var contenido = formatoArchivo == ExportacionMovimientos.Xlsx
+            ? Exportacion.ExcelMovimientos.Generar(movimientos)
+            : ExportacionMovimientos.GenerarCsv(movimientos);
+
+        return (contenido, ExportacionMovimientos.NombreArchivo(tipo, desde, hasta, formatoArchivo), formatoArchivo.ContentType);
+    }
+
+    /// <summary>
+    /// El filtro del listado de movimientos: solo los registrados de la empresa, con el rango de
+    /// fechas (el mes en curso si no se pide ninguno), tipo, categoría y cuenta. Lo comparten el
+    /// listado y la exportación.
+    /// </summary>
+    private async Task<(IQueryable<MovimientoFinanciero> Query, DateOnly? Desde, DateOnly? Hasta, bool PeriodoPorDefecto)> FiltrarAsync(
+        long companyId,
+        string? tipo,
+        DateOnly? fechaDesde,
+        DateOnly? fechaHasta,
+        long? idCategoria,
+        long? idCuenta)
+    {
         // Un rango al revés devolvería una página vacía sin explicar por qué.
         if (fechaDesde is not null && fechaHasta is not null && fechaDesde > fechaHasta)
         {
@@ -79,30 +171,7 @@ public class MovimientosService(AppDbContext db, SaldosService saldos)
             query = query.Where(m => m.AccountId == idCuenta.Value);
         }
 
-        var total = await query.CountAsync();
-
-        var movimientos = await query
-            .Include(m => m.Account)
-            .Include(m => m.Category)
-            .OrderByDescending(m => m.MovementDate)
-            .ThenByDescending(m => m.Id)
-            .Skip((pagina - 1) * tamanoPagina)
-            .Take(tamanoPagina)
-            .ToListAsync();
-
-        var idsMovimiento = movimientos.Select(m => m.Id).ToList();
-        var conPagos = (await db.PagosDocumento
-                .Where(p => idsMovimiento.Contains(p.MovementId))
-                .Select(p => p.MovementId)
-                .Distinct()
-                .ToListAsync())
-            .ToHashSet();
-
-        return new MovimientosPaginadosResponse(
-            movimientos.Select(m => ToResponse(m, conPagos.Contains(m.Id))).ToList(),
-            total, pagina, tamanoPagina,
-            fechaDesde, fechaHasta,
-            PeriodoPorDefecto: (fechaDesde, fechaHasta) == mesEnCurso);
+        return (query, fechaDesde, fechaHasta, (fechaDesde, fechaHasta) == mesEnCurso);
     }
 
     /// <summary>

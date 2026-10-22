@@ -4,10 +4,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { mensajeDeError } from '../../core/api-error';
+import { guardarArchivo } from '../../core/descargas';
 import { CatalogosService, OpcionCatalogo, TipoMovimiento } from '../../core/catalogos.service';
 import { Cuenta, CuentasService } from '../../core/cuentas.service';
 import {
   Categoria,
+  FiltrosMovimientos,
   Movimiento,
   MovimientosService,
   RequiereConfirmacionError
@@ -63,6 +65,14 @@ export class Movimientos {
 
   /** Error al traer el listado (por ejemplo un rango de fechas al revés): se muestra junto a los filtros. */
   protected readonly errorListado = signal<string | null>(null);
+
+  /**
+   * Filtros del listado que se está viendo (con el rango que de verdad aplicó el backend). La
+   * exportación usa estos y no lo escrito en el formulario sin aplicar: baja lo que se ve.
+   */
+  private readonly filtrosAplicados = signal<FiltrosMovimientos | null>(null);
+  protected readonly exportando = signal<'csv' | 'xlsx' | null>(null);
+  protected readonly errorExportacion = signal<string | null>(null);
 
   /** Si el rango que aplicó el backend es el mes en curso de la empresa (el que usa sin filtros). */
   private readonly periodoPorDefecto = signal(true);
@@ -253,6 +263,28 @@ export class Movimientos {
     this.cargarMovimientos();
   }
 
+  /** Baja el listado que se está viendo, completo y sin paginar. */
+  protected exportar(formato: 'csv' | 'xlsx'): void {
+    const filtros = this.filtrosAplicados();
+    if (!filtros || this.exportando()) {
+      return;
+    }
+
+    this.exportando.set(formato);
+    this.errorExportacion.set(null);
+
+    this.movimientosService.exportar(filtros, formato).subscribe({
+      next: (archivo) => {
+        guardarArchivo(archivo);
+        this.exportando.set(null);
+      },
+      error: (error: unknown) => {
+        this.errorExportacion.set(mensajeDeError(error));
+        this.exportando.set(null);
+      }
+    });
+  }
+
   /** Sin fechas, el backend vuelve al mes en curso. */
   protected limpiarFiltros(): void {
     this.filtrosForm.reset({ fechaDesde: '', fechaHasta: '', idCategoria: '', idCuenta: '' });
@@ -318,17 +350,16 @@ export class Movimientos {
     this.isLoading.set(true);
     this.errorListado.set(null);
     const f = this.filtrosForm.getRawValue();
+    const filtros: FiltrosMovimientos = {
+      tipo: this.tipo(),
+      fechaDesde: f.fechaDesde || undefined,
+      fechaHasta: f.fechaHasta || undefined,
+      idCategoria: f.idCategoria ? Number(f.idCategoria) : undefined,
+      idCuenta: f.idCuenta ? Number(f.idCuenta) : undefined
+    };
 
     this.movimientosService
-      .listMovimientos({
-        tipo: this.tipo(),
-        fechaDesde: f.fechaDesde || undefined,
-        fechaHasta: f.fechaHasta || undefined,
-        idCategoria: f.idCategoria ? Number(f.idCategoria) : undefined,
-        idCuenta: f.idCuenta ? Number(f.idCuenta) : undefined,
-        pagina: this.pagina(),
-        tamanoPagina: this.tamanoPagina
-      })
+      .listMovimientos({ ...filtros, pagina: this.pagina(), tamanoPagina: this.tamanoPagina })
       .subscribe({
         next: (resultado) => {
           this.totalResultados.set(resultado.totalResultados);
@@ -350,6 +381,11 @@ export class Movimientos {
             { emitEvent: false }
           );
           this.periodoPorDefecto.set(resultado.periodoPorDefecto);
+          this.filtrosAplicados.set({
+            ...filtros,
+            fechaDesde: resultado.fechaDesde ?? undefined,
+            fechaHasta: resultado.fechaHasta ?? undefined
+          });
           this.movimientos.set(resultado.items);
           this.isLoading.set(false);
         },

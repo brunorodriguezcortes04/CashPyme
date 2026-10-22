@@ -114,6 +114,7 @@ public sealed class BaseDePruebas : IAsyncLifetime
         servicios.AddScoped<VencimientosService>();
         servicios.AddScoped<CuentasService>();
         servicios.AddScoped<EmpresaService>();
+        servicios.AddScoped<Backend.Services.Reportes.ReportesService>();
         return servicios.BuildServiceProvider();
     }
 

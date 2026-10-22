@@ -107,4 +107,36 @@
       </p>
     }
   </section>
+
+  <section class="card tarjeta-reporte" aria-labelledby="reporte-titulo">
+    <h2 id="reporte-titulo">Reporte PDF</h2>
+    <p class="muted">
+      Saldo de tus cuentas, movimientos y cuentas pendientes del período que elijas.
+    </p>
+
+    <form class="reporte-form" [formGroup]="formReporte" (ngSubmit)="exportarPdf()" novalidate>
+      <div class="field">
+        <label for="reporteDesde">Desde</label>
+        <input id="reporteDesde" type="date" formControlName="desde" />
+      </div>
+      <div class="field">
+        <label for="reporteHasta">Hasta</label>
+        <input id="reporteHasta" type="date" formControlName="hasta" />
+      </div>
+      <button type="submit" class="button button-primary" [disabled]="exportando()">
+        @if (exportando()) {
+          <span class="spinner" aria-hidden="true"></span> Generando…
+        } @else {
+          Exportar PDF
+        }
+      </button>
+    </form>
+
+    @if (formReporte.invalid && formReporte.touched) {
+      <small class="field-error" role="alert">Indica la fecha desde y la fecha hasta.</small>
+    }
+    @if (errorReporte()) {
+      <div class="form-alert" role="alert">{{ errorReporte() }}</div>
+    }
+  </section>
 </section>

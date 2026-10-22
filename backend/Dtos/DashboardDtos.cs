@@ -1,3 +1,5 @@
+using Backend.Dominio;
+
 namespace Backend.Dtos;
 
 /// <summary>
@@ -30,3 +32,18 @@ public record CajaActualResponse(
 public record SaldoCuentaResponse(long Id, string NombreCuenta, string TipoCuenta, decimal SaldoActual);
 
 public record FlujoDiaResponse(DateOnly Fecha, decimal Ingresos, decimal Egresos);
+
+/// <summary>
+/// Indicadores del mes: variación de ingresos, egresos y flujo neto contra el mes anterior, y
+/// las categorías que más movieron plata de cada tipo. Todo lo calcula Dominio/Indicadores.
+/// </summary>
+public record IndicadoresResponse(
+    DateOnly Desde,
+    DateOnly Hasta,
+    DateOnly DesdeAnterior,
+    DateOnly HastaAnterior,
+    Variacion Ingresos,
+    Variacion Egresos,
+    Variacion FlujoNeto,
+    IReadOnlyList<CategoriaRanking> TopIngresos,
+    IReadOnlyList<CategoriaRanking> TopEgresos);

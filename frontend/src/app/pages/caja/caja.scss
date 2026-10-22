@@ -77,3 +77,20 @@ th.monto { text-align: right; }
 	.selector-mes { width: 100%; justify-content: space-between; }
 	.leyenda { grid-template-columns: 1fr; gap: 12px; }
 }
+
+.variaciones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0 0; }
+.variaciones dt { color: var(--muted); font-size: 14px; }
+.variaciones dd { margin: 0; }
+.variacion-monto { margin-top: 6px !important; font-size: 1.125rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.variacion-pct { margin-top: 4px !important; color: var(--text-secondary); font-size: 14px; font-variant-numeric: tabular-nums; }
+.variacion-pct.favorable { color: var(--accent); }
+.variacion-pct.desfavorable { color: var(--danger); }
+.variacion-antes { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.rankings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.ranking-titulo { margin: 0 0 12px; font-size: 15px; font-weight: 500; }
+.ranking { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+
+@media (max-width: 560px) {
+	.variaciones, .rankings { grid-template-columns: 1fr; }
+}

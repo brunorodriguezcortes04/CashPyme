@@ -108,6 +108,61 @@
       </ul>
     </section>
 
+    @if (errorIndicadores()) {
+      <div class="form-alert" role="alert">{{ errorIndicadores() }}</div>
+    } @else if (indicadores(); as ind) {
+      <section class="panel" aria-labelledby="indicadores-titulo">
+        <h2 id="indicadores-titulo" class="panel-title">Comparado con {{ ind.desdeAnterior | date: 'MMMM' }}</h2>
+        <dl class="variaciones">
+          @for (fila of variaciones(); track fila.titulo) {
+            <div>
+              <dt>{{ fila.titulo }}</dt>
+              <dd class="variacion-monto" [class.negativo]="fila.v.actual < 0">${{ fila.v.actual | number: '1.0-0' }}</dd>
+              <dd
+                class="variacion-pct"
+                [class.favorable]="fila.v.favorable === true"
+                [class.desfavorable]="fila.v.favorable === false"
+              >
+                @if (fila.v.porcentaje === null) {
+                  Sin movimientos el mes anterior
+                } @else {
+                  {{ fila.v.porcentaje > 0 ? '+' : '' }}{{ fila.v.porcentaje | number: '1.1-1' }} %
+                }
+              </dd>
+              @if (fila.v.porcentaje !== null) {
+                <dd class="variacion-antes">antes ${{ fila.v.anterior | number: '1.0-0' }}</dd>
+              }
+            </div>
+          }
+        </dl>
+
+        <div class="rankings">
+          @for (lista of rankings(); track lista.titulo) {
+            <div>
+              <h3 class="ranking-titulo">{{ lista.titulo }}</h3>
+              @if (lista.items.length === 0) {
+                <p class="muted">Sin movimientos en el mes.</p>
+              } @else {
+                <ol class="ranking">
+                  @for (cat of lista.items; track cat.idCategoria) {
+                    <li>
+                      <div class="cuenta-fila">
+                        <span>{{ cat.nombreCategoria }}</span>
+                        <span class="cuenta-monto">${{ cat.monto | number: '1.0-0' }} · {{ cat.participacion | number: '1.0-1' }} %</span>
+                      </div>
+                      <div class="cuenta-pista" aria-hidden="true">
+                        <span class="cuenta-barra" [class.negativo]="lista.clase === 'egreso'" [style.width.%]="cat.participacion"></span>
+                      </div>
+                    </li>
+                  }
+                </ol>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
     <details class="panel detalle">
       <summary>Ver detalle por día</summary>
       @if (c.flujoDiario.length === 0) {

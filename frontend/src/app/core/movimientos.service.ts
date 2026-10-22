@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 import { apiError } from './api-error';
+import { ArchivoDescargado, descargarArchivo } from './descargas';
 
 export interface Categoria {
   id: number;
@@ -122,6 +123,20 @@ export class MovimientosService {
           return apiError(error);
         })
       );
+  }
+
+  /**
+   * El listado filtrado completo como CSV o Excel. Manda los mismos filtros que el listado (sin
+   * paginar): el backend aplica exactamente el mismo filtro.
+   */
+  exportar(filtros: FiltrosMovimientos, formato: 'csv' | 'xlsx'): Observable<ArchivoDescargado> {
+    const { tipo, fechaDesde, fechaHasta, idCategoria, idCuenta } = filtros;
+    return descargarArchivo(
+      this.http,
+      '/api/movimientos/export',
+      this.toParams({ tipo, fechaDesde, fechaHasta, idCategoria, idCuenta }).set('formato', formato),
+      `movimientos.${formato}`
+    );
   }
 
   /**

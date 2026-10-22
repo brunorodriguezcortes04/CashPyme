@@ -63,4 +63,41 @@ public class DashboardService(AppDbContext db, SaldosService saldos)
             cuentas.Select(c => new SaldoCuentaResponse(c.Id, c.Name, c.Type, saldosCuenta[c.Id])).ToList(),
             flujo.Select(d => new FlujoDiaResponse(d.Fecha, d.Ingresos, d.Egresos)).ToList());
     }
+
+    /// <summary>
+    /// Variación del mes pedido (o el en curso) contra el mes anterior, y ranking de categorías
+    /// del mes. Solo cuentan los movimientos registrados, igual que en el saldo y el flujo diario.
+    /// </summary>
+    public async Task<IndicadoresResponse> ObtenerIndicadoresAsync(long companyId, int? anio, int? mes)
+    {
+        var hoy = await saldos.HoyDeEmpresaAsync(companyId);
+        var (desde, hasta) = CajaActual.Periodo(anio, mes, hoy) ?? throw new PeriodoInvalidoException();
+        var (desdeAnterior, hastaAnterior) = Indicadores.MesAnterior(desde);
+
+        var actual = await saldos.FlujoEntreAsync(companyId, desde, hasta);
+        var anterior = await saldos.FlujoEntreAsync(companyId, desdeAnterior, hastaAnterior);
+
+        var porCategoria = await db.MovimientosFinancieros
+            .Where(m => m.CompanyId == companyId
+                        && m.Status == MovimientoFinanciero.Registrado
+                        && m.MovementDate >= desde && m.MovementDate <= hasta)
+            .GroupBy(m => new { m.Type, m.CategoryId, m.Category.Name })
+            .Select(g => new
+            {
+                g.Key.Type,
+                Categoria = new MontoCategoria(g.Key.CategoryId, g.Key.Name, g.Sum(m => m.Amount), g.Count())
+            })
+            .ToListAsync();
+
+        IReadOnlyList<CategoriaRanking> Ranking(string tipo)
+            => Indicadores.Ranking(porCategoria.Where(c => c.Type == tipo).Select(c => c.Categoria));
+
+        return new IndicadoresResponse(
+            desde, hasta, desdeAnterior, hastaAnterior,
+            Indicadores.Calcular(actual.Ingresos, anterior.Ingresos, masEsMejor: true),
+            Indicadores.Calcular(actual.Egresos, anterior.Egresos, masEsMejor: false),
+            Indicadores.Calcular(actual.Ingresos - actual.Egresos, anterior.Ingresos - anterior.Egresos, masEsMejor: true),
+            Ranking(TiposMovimiento.Ingreso),
+            Ranking(TiposMovimiento.Egreso));
+    }
 }

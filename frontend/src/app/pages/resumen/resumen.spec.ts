@@ -63,7 +63,10 @@ describe('Resumen', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    vi.restoreAllMocks();
+  });
 
   /** Las dos llamadas que hace la pantalla al abrir: la tarjeta de saldo y las alertas. */
   function responder(saldo: SaldoNeto, alertas: Alerta[] = []): void {
@@ -203,5 +206,63 @@ describe('Resumen', () => {
     const contenido = texto();
     expect(contenido).toContain('La alerta no existe');
     expect(contenido).toContain('Distribuidora Los Andes');
+  });
+  // ----- Reporte PDF ------------------------------------------------------
+
+  it('exporta el PDF del rango y lo guarda con el nombre que manda el backend', () => {
+    responder(saldoDe(), []);
+    texto();
+    const crearUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:reporte');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    const interno = fixture.componentInstance as unknown as {
+      formReporte: { setValue(v: { desde: string; hasta: string }): void };
+      exportarPdf(): void;
+    };
+    interno.formReporte.setValue({ desde: '2026-10-01', hasta: '2026-10-31' });
+    interno.exportarPdf();
+
+    const peticion = http.expectOne((r) => r.url === '/api/reportes/pdf');
+    expect(peticion.request.params.get('desde')).toBe('2026-10-01');
+    expect(peticion.request.params.get('hasta')).toBe('2026-10-31');
+    peticion.flush(new Blob(['%PDF'], { type: 'application/pdf' }), {
+      headers: { 'Content-Disposition': 'attachment; filename=reporte-caja-2026-10-01-a-2026-10-31.pdf' }
+    });
+
+    expect(crearUrl).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    const enlace = click.mock.instances[0] as unknown as HTMLAnchorElement;
+    expect(enlace.download).toBe('reporte-caja-2026-10-01-a-2026-10-31.pdf');
+  });
+
+  it('sin rango no pide el PDF', () => {
+    responder(saldoDe(), []);
+    texto();
+
+    (fixture.nativeElement.querySelector('.reporte-form button') as HTMLButtonElement).click();
+
+    http.expectNone((r) => r.url === '/api/reportes/pdf');
+    expect(texto()).toContain('Indica la fecha desde y la fecha hasta.');
+  });
+
+  it('muestra el mensaje del backend aunque el error llegue como archivo', async () => {
+    responder(saldoDe(), []);
+    texto();
+    const interno = fixture.componentInstance as unknown as {
+      formReporte: { setValue(v: { desde: string; hasta: string }): void };
+      exportarPdf(): void;
+    };
+    interno.formReporte.setValue({ desde: '2026-10-31', hasta: '2026-10-01' });
+    interno.exportarPdf();
+
+    http.expectOne((r) => r.url === '/api/reportes/pdf').flush(
+      new Blob([JSON.stringify({ message: 'La fecha "desde" no puede ser posterior a la fecha "hasta".' })]),
+      { status: 400, statusText: 'Bad Request' }
+    );
+    await fixture.whenStable();
+    await new Promise((resolver) => setTimeout(resolver));
+
+    expect(texto()).toContain('La fecha "desde" no puede ser posterior');
   });
 });

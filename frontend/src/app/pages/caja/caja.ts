@@ -1,7 +1,7 @@
 import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { mensajeDeError } from '../../core/api-error';
-import { CajaActual, DashboardService } from '../../core/dashboard.service';
+import { CajaActual, DashboardService, Indicadores, Variacion } from '../../core/dashboard.service';
 
 // Geometría del gráfico (unidades del viewBox; el SVG se estira al ancho de la tarjeta).
 const CHART_WIDTH = 640;
@@ -43,6 +43,9 @@ export class Caja {
   private readonly dashboardService = inject(DashboardService);
 
   protected readonly caja = signal<CajaActual | null>(null);
+  /** Variación contra el mes anterior y ranking de categorías del mismo mes que la caja. */
+  protected readonly indicadores = signal<Indicadores | null>(null);
+  protected readonly errorIndicadores = signal<string | null>(null);
   protected readonly isLoading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
   /** Mes mostrado ("2026-10"). Vacío al entrar: el backend usa el mes en curso de la empresa. */
@@ -135,6 +138,29 @@ export class Caja {
       : '';
   });
 
+  /** Las tres comparaciones, con su título: los números y si son favorables vienen del backend. */
+  protected readonly variaciones = computed<{ titulo: string; v: Variacion }[]>(() => {
+    const i = this.indicadores();
+    return i
+      ? [
+          { titulo: 'Ingresos', v: i.ingresos },
+          { titulo: 'Egresos', v: i.egresos },
+          { titulo: 'Flujo neto', v: i.flujoNeto }
+        ]
+      : [];
+  });
+
+  /** Las dos listas del ranking, en el orden en que se muestran. */
+  protected readonly rankings = computed(() => {
+    const i = this.indicadores();
+    return i
+      ? [
+          { titulo: 'En qué se fue la plata', items: i.topEgresos, clase: 'egreso' },
+          { titulo: 'De dónde entró', items: i.topIngresos, clase: 'ingreso' }
+        ]
+      : [];
+  });
+
   constructor() {
     this.cargar();
   }
@@ -153,6 +179,15 @@ export class Caja {
     this.diaActivo.set(null);
 
     const [anio, mes] = this.mes() ? this.mes().split('-').map(Number) : [undefined, undefined];
+
+    this.errorIndicadores.set(null);
+    this.dashboardService.getIndicadores(anio, mes).subscribe({
+      next: (indicadores) => this.indicadores.set(indicadores),
+      error: (error: unknown) => {
+        this.indicadores.set(null);
+        this.errorIndicadores.set(mensajeDeError(error));
+      }
+    });
 
     this.dashboardService.getCajaActual(anio, mes).subscribe({
       next: (caja) => {

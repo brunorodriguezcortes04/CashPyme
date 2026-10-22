@@ -97,9 +97,10 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
 
     /// <summary>
     /// Saldo actual de cada cuenta de la consulta: saldo inicial más ingresos menos egresos
-    /// registrados, más lo que le transfirieron y menos lo que transfirió.
+    /// registrados, más lo que le transfirieron y menos lo que transfirió. Con hasta, el saldo al
+    /// cierre de ese día: solo cuenta lo fechado hasta entonces (lo usa el reporte del período).
     /// </summary>
-    public async Task<Dictionary<long, decimal>> DeCuentasAsync(IQueryable<CuentaFinanciera> cuentas)
+    public async Task<Dictionary<long, decimal>> DeCuentasAsync(IQueryable<CuentaFinanciera> cuentas, DateOnly? hasta = null)
     {
         var iniciales = await cuentas
             .Select(c => new { c.Id, c.InitialBalance })
@@ -114,6 +115,7 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             from m in db.MovimientosFinancieros
             join c in cuentas on m.AccountId equals c.Id
             where m.Status == MovimientoFinanciero.Registrado
+                  && (hasta == null || m.MovementDate <= hasta)
             group m by m.AccountId into g
             select new
             {
@@ -127,6 +129,7 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             from t in db.TransferenciasCuentas
             join c in cuentas on t.TargetAccountId equals c.Id
             where t.Status == TransferenciaCuentas.Registrada
+                  && (hasta == null || t.TransferDate <= hasta)
             group t by t.TargetAccountId into g
             select new { Id = g.Key, Total = g.Sum(x => x.Amount) }
         ).ToDictionaryAsync(x => x.Id, x => x.Total);
@@ -135,6 +138,7 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             from t in db.TransferenciasCuentas
             join c in cuentas on t.SourceAccountId equals c.Id
             where t.Status == TransferenciaCuentas.Registrada
+                  && (hasta == null || t.TransferDate <= hasta)
             group t by t.SourceAccountId into g
             select new { Id = g.Key, Total = g.Sum(x => x.Amount) }
         ).ToDictionaryAsync(x => x.Id, x => x.Total);
