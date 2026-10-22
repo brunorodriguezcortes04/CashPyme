@@ -154,6 +154,30 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+// Frontend Angular: en producción el Dockerfile copia el build a wwwroot y esta misma app lo
+// sirve, así el navegador habla con un solo servicio (sin el salto extra del sitio estático
+// ni el preflight de CORS). En desarrollo wwwroot no existe y Angular corre con ng serve.
+// index.html no se cachea para que cada deploy se vea al recargar; los .js/.css llevan hash
+// en el nombre (outputHashing: all), así que se pueden cachear sin límite.
+var archivosFrontend = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var nombre = ctx.File.Name;
+        if (nombre.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.CacheControl = "no-cache";
+        }
+        else if (nombre.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
+            || nombre.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        }
+    }
+};
+app.UseDefaultFiles();
+app.UseStaticFiles(archivosFrontend);
+
 app.UseCors(FrontendCorsPolicy);
 app.UseRateLimiter();
 
@@ -164,6 +188,11 @@ app.MapControllers();
 
 // Health check simple para el servicio web de Render.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+// Fallback del router de Angular: cualquier ruta que no sea de la API ni un archivo
+// (/login, /caja, ...) devuelve index.html. Las rutas /api/* quedan fuera para que una
+// URL de API equivocada siga respondiendo 404/405 en vez de la página de la app.
+app.MapFallbackToFile("{*ruta:nonfile:regex(^(?!api/).*$)}", "index.html", archivosFrontend);
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,12 +1,12 @@
 services:
-  # API .NET (backend/)
+  # Un solo servicio: la API .NET sirve también el frontend Angular (ver Dockerfile en la raíz).
   - type: web
     name: cashpyme-backend
     runtime: docker
     plan: free
     region: oregon
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -22,10 +22,14 @@ services:
       # Clave de firma JWT: Render genera un valor aleatorio seguro al crear el servicio.
       - key: Jwt__Key
         generateValue: true
+      # El navegador ya no necesita CORS (front y API comparten origen). Se deja el origen
+      # propio en el primer lugar; los otros dos de appsettings.json (https://localhost y
+      # capacitor://localhost) son los de la app móvil en Android e iOS (mobile/).
       - key: Cors__AllowedOrigins__0
-        value: https://cashpyme-frontend.onrender.com
+        value: https://cashpyme-backend.onrender.com
+      # Base de los enlaces de los correos (verificar email, restablecer contraseña).
       - key: App__FrontendUrl
-        value: https://cashpyme-frontend.onrender.com
+        value: https://cashpyme-backend.onrender.com
       - key: Email__From
         value: "CashPyme <onboarding@resend.dev>"
       # Opcional: sin esta key los correos solo se escriben en el log (ver README).
@@ -33,20 +37,3 @@ services:
         sync: false
       - key: Notificaciones__Habilitado
         value: "false"
-
-  # Angular (frontend/), servido como sitio estático
-  - type: web
-    name: cashpyme-frontend
-    runtime: static
-    buildCommand: cd frontend && npm ci && npm run build -- --configuration production
-    staticPublishPath: frontend/dist/frontend/browser
-    routes:
-      # Reenvía las llamadas /api/* al backend para que el navegador vea todo bajo
-      # un solo origen (así funcionan las rutas relativas /api/... del frontend).
-      - type: rewrite
-        source: /api/*
-        destination: https://cashpyme-backend.onrender.com/api/*
-      # Fallback de Angular (routing por historial del navegador).
-      - type: rewrite
-        source: /*
-        destination: /index.html
