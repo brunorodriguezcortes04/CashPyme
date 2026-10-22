@@ -6,6 +6,7 @@ Gestión financiera para PyMEs.
 
 - `backend/` — API en ASP.NET Core (C#, .NET 10)
 - `frontend/` — Aplicación Angular
+- `mobile/` — App móvil (Ionic + Capacitor, Android e iOS). Ver `mobile/README.md`
 - `database/` — Esquema de la base y migraciones
 - `tests/Backend.Tests/` — Pruebas del backend (xUnit)
 

@@ -1,0 +1,41 @@
+<ion-content class="ion-padding">
+  <main class="login">
+    <p class="marca">Cash<span>Pyme</span></p>
+    <h1>Inicia sesión</h1>
+    <p class="bajada">Con la misma cuenta que usas en la web.</p>
+
+    <form [formGroup]="form" (ngSubmit)="entrar()" novalidate>
+      <ion-input
+        label="Correo electrónico"
+        labelPlacement="stacked"
+        fill="outline"
+        type="email"
+        inputmode="email"
+        autocomplete="email"
+        formControlName="email"
+        errorText="Ingresa un correo válido."
+      />
+      <ion-input
+        label="Contraseña"
+        labelPlacement="stacked"
+        fill="outline"
+        type="password"
+        autocomplete="current-password"
+        formControlName="password"
+        errorText="Ingresa tu contraseña."
+      />
+
+      @if (error()) {
+        <ion-text color="danger"><p class="error" role="alert">{{ error() }}</p></ion-text>
+      }
+
+      <ion-button type="submit" expand="block" [disabled]="enviando()">
+        @if (enviando()) {
+          <ion-spinner name="crescent" />
+        } @else {
+          Entrar
+        }
+      </ion-button>
+    </form>
+  </main>
+</ion-content>

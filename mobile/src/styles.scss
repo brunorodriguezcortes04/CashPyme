@@ -1,0 +1,43 @@
+/* Ionic: estilos base que necesitan sus componentes. */
+@import '@ionic/angular/css/core.css';
+@import '@ionic/angular/css/normalize.css';
+@import '@ionic/angular/css/structure.css';
+@import '@ionic/angular/css/typography.css';
+@import '@ionic/angular/css/padding.css';
+@import '@ionic/angular/css/text-alignment.css';
+@import '@ionic/angular/css/palettes/dark.always.css';
+
+/* Los mismos colores y fuentes que la versión web (frontend/src/styles.scss). La paleta oscura
+   de Ionic define el fondo en :root.md y :root.ios, así que se pisa con la misma especificidad. */
+:root,
+:root.md,
+:root.ios {
+  --ion-font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ion-background-color: #0e1116;
+  --ion-background-color-rgb: 14, 17, 22;
+  --ion-text-color: #f3f6fa;
+  --ion-text-color-rgb: 243, 246, 250;
+  --ion-toolbar-background: #0e1116;
+  --ion-item-background: #151a21;
+  --ion-card-background: #151a21;
+  --ion-border-color: rgba(255, 255, 255, .09);
+
+  --ion-color-primary: #5b9bff;
+  --ion-color-primary-rgb: 91, 155, 255;
+  --ion-color-primary-contrast: #0e1116;
+  --ion-color-primary-contrast-rgb: 14, 17, 22;
+  --ion-color-primary-shade: #2b6be0;
+  --ion-color-primary-tint: #6ba5ff;
+
+  --ion-color-danger: #ff8a8a;
+  --ion-color-danger-rgb: 255, 138, 138;
+  --ion-color-danger-contrast: #0e1116;
+  --ion-color-danger-contrast-rgb: 14, 17, 22;
+  --ion-color-danger-shade: #e07979;
+  --ion-color-danger-tint: #ff9696;
+
+  --ion-color-medium: #8b96a5;
+  --ion-color-medium-rgb: 139, 150, 165;
+
+  --cp-font-display: 'Outfit', 'Figtree', system-ui, sans-serif;
+}
