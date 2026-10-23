@@ -17,8 +17,11 @@ public class NotificacionesOptions
     /// </summary>
     public bool Habilitado { get; set; }
 
-    /// <summary>Cada cuántos minutos se generan y envían alertas.</summary>
-    public int IntervaloMinutos { get; set; } = 60;
+    /// <summary>
+    /// Cada cuántos minutos se generan y envían alertas. 1: una alerta nueva llega al correo en
+    /// menos de un minuto (el ciclo es barato y solo manda las que aún no salieron).
+    /// </summary>
+    public int IntervaloMinutos { get; set; } = 1;
 
     /// <summary>Día del reporte semanal en formato ISO: 1 = lunes … 7 = domingo.</summary>
     public int DiaReporteSemanal { get; set; } = 1;
@@ -54,42 +57,49 @@ public class NotificacionesService(
 
     /// <summary>
     /// Genera las alertas (el job es idempotente) y envía por correo las que aún no se enviaron,
-    /// agrupadas en un correo por empresa. Devuelve cuántas alertas se enviaron.
+    /// un correo por alerta. Devuelve cuántas alertas se enviaron.
     /// </summary>
     public async Task<int> ProcesarAlertasAsync(CancellationToken ct = default)
     {
         var creadas = await alertasService.GenerarAsync();
-        logger.LogInformation("El job de alertas creó {Cantidad} alerta(s).", creadas);
+        if (creadas > 0) logger.LogInformation("El job de alertas creó {Cantidad} alerta(s).", creadas);
 
         var pendientes = await (
             from a in db.Alertas
             join e in db.Companies on a.CompanyId equals e.Id
+            join d in db.DocumentosFinancieros on a.DocumentId equals d.Id into documentos
+            from d in documentos.DefaultIfEmpty()
             where a.Status == Alerta.Pendiente && a.EmailSentAtUtc == null && e.IsActive
             orderby a.CompanyId,
                     a.Severity == SeveridadesAlerta.Critica ? 0 : a.Severity == SeveridadesAlerta.Advertencia ? 1 : 2,
                     a.GeneratedAtUtc
-            select new { a.Id, a.CompanyId, e.LegalName, a.Severity, a.Message }
+            select new { a.Id, a.CompanyId, e.LegalName, a.Type, a.Severity, a.Message, TipoCuenta = d == null ? null : d.AccountType }
         ).ToListAsync(ct);
 
         var enviadas = 0;
-        foreach (var grupo in pendientes.GroupBy(a => (a.CompanyId, a.LegalName)))
+        foreach (var grupo in pendientes.GroupBy(a => a.CompanyId))
         {
-            var alertas = grupo.Select(a => (a.Severity, a.Message)).ToList();
-            var destinatarios = await DestinatariosAsync(grupo.Key.CompanyId, ct);
+            var destinatarios = await DestinatariosAsync(grupo.Key, ct);
 
-            var algunoEnviado = await EnviarATodosAsync(destinatarios,
-                d => PlantillasCorreo.Alertas(d, grupo.Key.LegalName, alertas, $"{FrontendUrl}/backoffice"), ct);
-
-            // Sin destinatarios también se marcan: si no, se reintentarían para siempre.
-            // Si todos los envíos fallaron NO se marcan, así el próximo ciclo los reintenta.
-            if (algunoEnviado || destinatarios.Count == 0)
+            foreach (var alerta in grupo)
             {
-                var ids = grupo.Select(a => a.Id).ToList();
-                var ahora = reloj.GetUtcNow().UtcDateTime;
-                await db.Alertas
-                    .Where(a => ids.Contains(a.Id))
-                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.EmailSentAtUtc, ahora), ct);
-                enviadas += ids.Count;
+                // El botón lleva a la pantalla donde se resuelve, la misma que el "Ver" de la web.
+                var ruta = ReglasAlertas.RutaDondeSeResuelve(alerta.Type, alerta.TipoCuenta);
+                var enlace = ruta is null ? $"{FrontendUrl}/backoffice" : $"{FrontendUrl}/backoffice/{ruta}";
+
+                var (_, reintentar) = await EnviarATodosAsync(destinatarios,
+                    para => PlantillasCorreo.Alerta(para, alerta.LegalName, alerta.Severity, alerta.Message, enlace), ct);
+
+                // Se marca salvo que convenga reintentar (ninguno salió por una falla temporal):
+                // sin destinatarios o con rechazos permanentes se reintentaría para siempre.
+                if (!reintentar)
+                {
+                    var ahora = reloj.GetUtcNow().UtcDateTime;
+                    await db.Alertas
+                        .Where(a => a.Id == alerta.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(a => a.EmailSentAtUtc, ahora), ct);
+                    enviadas++;
+                }
             }
         }
 
@@ -125,10 +135,10 @@ public class NotificacionesService(
             var resumen = await ObtenerResumenAsync(empresa.Id, ct);
             var destinatarios = await DestinatariosAsync(empresa.Id, ct);
 
-            var algunoEnviado = await EnviarATodosAsync(destinatarios,
+            var (algunoEnviado, reintentar) = await EnviarATodosAsync(destinatarios,
                 d => PlantillasCorreo.ReporteSemanal(d, empresa.LegalName, resumen, $"{FrontendUrl}/backoffice"), ct);
 
-            if (algunoEnviado || destinatarios.Count == 0)
+            if (!reintentar)
             {
                 await db.Companies
                     .Where(c => c.Id == empresa.Id)
@@ -201,12 +211,14 @@ public class NotificacionesService(
 
     /// <summary>
     /// Un correo por persona (no todos en "Para"), para no exponer las direcciones entre sí.
-    /// Devuelve true si al menos uno salió.
+    /// AlgunoEnviado: al menos uno salió. Reintentar: ninguno salió y alguna falla fue temporal;
+    /// si todas fueron permanentes (o no hay destinatarios) reintentar solo repetiría el rechazo.
     /// </summary>
-    private async Task<bool> EnviarATodosAsync(
+    private async Task<(bool AlgunoEnviado, bool Reintentar)> EnviarATodosAsync(
         IReadOnlyList<string> destinatarios, Func<string, CorreoSaliente> armar, CancellationToken ct)
     {
         var algunoEnviado = false;
+        var fallaTemporal = false;
         foreach (var destinatario in destinatarios)
         {
             try
@@ -216,10 +228,11 @@ public class NotificacionesService(
             }
             catch (EmailNoEnviadoException ex)
             {
+                fallaTemporal |= !ex.Permanente;
                 logger.LogError(ex, "No se pudo enviar una notificación a {Destinatario}.", destinatario);
             }
             await Task.Delay(PausaEntreEnvios, ct);
         }
-        return algunoEnviado;
+        return (algunoEnviado, !algunoEnviado && fallaTemporal);
     }
 }

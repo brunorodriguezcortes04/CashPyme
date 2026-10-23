@@ -43,7 +43,8 @@ public class NotificacionesWorker(
         {
             var alertas = await service.ProcesarAlertasAsync(ct);
             var reportes = await service.ProcesarReportesSemanalesAsync(ct: ct);
-            logger.LogInformation("Notificaciones: {Alertas} alerta(s) y {Reportes} reporte(s) enviados.", alertas, reportes);
+            // Con un ciclo por minuto, solo se registra cuando hubo envíos.
+            if (alertas + reportes > 0) logger.LogInformation("Notificaciones: {Alertas} alerta(s) y {Reportes} reporte(s) enviados.", alertas, reportes);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

@@ -9,7 +9,7 @@ using Npgsql;
 namespace Backend.Services;
 
 /// <summary>
-/// Alertas: las genera el job (NotificacionesWorker → GenerarAsync) y las lee la pantalla de
+/// Alertas: las genera el job (NotificacionesWorker → GenerarAsync), también al pedir GET /alertas, y las lee la pantalla de
 /// Resumen. Antes la generación era fn_generar_alertas en la base; ahora las decisiones (cuándo
 /// se crea, cuándo se cierra y qué dice cada una) viven en ReglasAlertas y esto las aplica.
 /// </summary>

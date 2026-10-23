@@ -74,14 +74,20 @@ builder.Services.AddScoped<RolEmpresaService>();
 // Scoped porque resuelve el rol contra AppDbContext en cada request.
 builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
-// Correo (Resend). Sin Email:ResendApiKey los correos se escriben en la consola en vez de
+// Correo (SMTP o Resend). Sin Email:Smtp ni Email:ResendApiKey se escriben en la consola en vez de
 // enviarse, para que se pueda desarrollar sin cuenta de Resend (ver README).
 //   dev:  dotnet user-secrets set "Email:ResendApiKey" "re_..."
 //   prod: variable de entorno Email__ResendApiKey
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection("App"));
 builder.Services.Configure<NotificacionesOptions>(builder.Configuration.GetSection("Notificaciones"));
-if (string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
+// SMTP (Gmail, Brevo) primero: entrega a cualquier dirección sin dominio verificado. Después
+// Resend, y sin ninguno de los dos los correos solo se escriben en la consola.
+if (builder.Configuration.GetSection("Email:Smtp").Get<SmtpOptions>()?.Configurado == true)
+{
+    builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+}
+else if (string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
 {
     builder.Services.AddSingleton<IEmailSender, ConsolaEmailSender>();
 }

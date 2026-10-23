@@ -53,9 +53,12 @@ public class ResendEmailSender(HttpClient http, IOptions<EmailOptions> options, 
             {
                 // El cuerpo de Resend explica el motivo (dominio no verificado, destinatario no
                 // permitido en modo prueba, límite de envío...). Se loguea, no se muestra al usuario.
+                // Un 4xx (salvo 429, límite de envíos) es el mismo rechazo en cada reintento.
                 var detalle = await response.Content.ReadAsStringAsync(cancellationToken);
+                var codigo = (int)response.StatusCode;
                 throw new EmailNoEnviadoException(
-                    $"Resend respondió {(int)response.StatusCode}: {detalle}");
+                    $"Resend respondió {codigo}: {detalle}",
+                    permanente: codigo is >= 400 and < 500 and not 429);
             }
 
             logger.LogInformation("Correo \"{Asunto}\" enviado a {Para}.", correo.Asunto, correo.Para);

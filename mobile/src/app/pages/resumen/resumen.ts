@@ -6,6 +6,7 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
@@ -18,6 +19,8 @@ import {
   IonToolbar,
   RefresherCustomEvent
 } from '@ionic/angular';
+import { addIcons } from 'ionicons';
+import { notificationsOutline } from 'ionicons/icons';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { ApiService, CajaActual, Movimiento, mensajeDeError } from '../../core/api.service';
 import { ClpPipe } from '../../core/clp.pipe';
@@ -31,7 +34,7 @@ import { SesionService } from '../../core/sesion.service';
   selector: 'app-resumen',
   imports: [
     DatePipe, ClpPipe, RouterLink,
-    IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonContent, IonRefresher, IonRefresherContent,
+    IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonIcon, IonContent, IonRefresher, IonRefresherContent,
     IonList, IonListHeader, IonItem, IonLabel, IonNote, IonSkeletonText
   ],
   templateUrl: './resumen.html',
@@ -49,6 +52,8 @@ export class Resumen {
   protected readonly error = signal<string | null>(null);
 
   constructor() {
+    // Se registra el ícono para que viaje en el build: la app no descarga íconos de internet.
+    addIcons({ notificationsOutline });
     void this.cargar();
   }
 

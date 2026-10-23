@@ -20,6 +20,29 @@ public class EmailOptions
 
     /// <summary>Dirección a la que llegan las respuestas (opcional).</summary>
     public string? ReplyTo { get; set; }
+
+    /// <summary>
+    /// Envío por SMTP (Gmail, Brevo...). Si está configurado tiene prioridad sobre Resend: sirve
+    /// para entregar a cualquier dirección sin verificar un dominio. Ver SmtpEmailSender.
+    /// </summary>
+    public SmtpOptions Smtp { get; set; } = new();
+}
+
+/// <summary>
+/// Sección "Email:Smtp". La contraseña NO va en el repo:
+///   dev:  dotnet user-secrets set "Email:Smtp:Password" "..."
+///   prod: variable de entorno Email__Smtp__Password
+/// Gmail: Host smtp.gmail.com, Port 587, Usuario la dirección de Gmail y Password una
+/// "contraseña de aplicación" (requiere verificación en 2 pasos), no la contraseña de la cuenta.
+/// </summary>
+public class SmtpOptions
+{
+    public string? Host { get; set; }
+    public int Port { get; set; } = 587;
+    public string? Usuario { get; set; }
+    public string? Password { get; set; }
+
+    public bool Configurado => !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(Password);
 }
 
 /// <summary>Sección "App": datos de la aplicación que los correos necesitan para armar enlaces.</summary>

@@ -99,9 +99,25 @@ Sirve para desarrollar sin cuenta de Resend.
 Para enviar a cualquier persona hay que verificar un dominio propio en Resend (registros DNS) y cambiar
 `Email:From` en `appsettings.json` (por ejemplo `CashPyme <notificaciones@tudominio.cl>`).
 
+**Sin dominio: enviar por Gmail (SMTP).** Para que les lleguen los correos a todos (contadores
+incluidos) sin verificar un dominio, se puede enviar desde una cuenta de Gmail. En esa cuenta hay que
+activar la verificación en 2 pasos y crear una **contraseña de aplicación** (Cuenta de Google →
+Seguridad → Contraseñas de aplicaciones). Con `Email:Smtp` configurado se usa SMTP en vez de Resend:
+
+```bash
+cd backend
+dotnet user-secrets set "Email:Smtp:Host" "smtp.gmail.com"
+dotnet user-secrets set "Email:Smtp:Usuario" "tucuenta@gmail.com"
+dotnet user-secrets set "Email:Smtp:Password" "<contraseña de aplicación de 16 letras>"
+```
+
+El remitente pasa a ser esa cuenta de Gmail (límite de Gmail: unos 500 correos al día). Brevo
+funciona igual (`smtp-relay.brevo.com`, con su usuario y clave SMTP y un remitente verificado en
+`Email:From`). En producción: `Email__Smtp__Host`, `Email__Smtp__Usuario` y `Email__Smtp__Password`.
+
 ### Alertas y resumen semanal
 
-Los envía una tarea de fondo dentro de la API (`NotificacionesWorker`), cada `Notificaciones:IntervaloMinutos`.
+Los envía una tarea de fondo dentro de la API (`NotificacionesWorker`), cada `Notificaciones:IntervaloMinutos` (1 minuto: una alerta nueva llega al correo en menos de un minuto, un correo por alerta).
 Viene **apagada** (`Notificaciones:Habilitado = false`) porque el equipo comparte la misma base: si cada
 integrante la enciende, cada uno enviaría las alertas. Se enciende en un solo lugar:
 
