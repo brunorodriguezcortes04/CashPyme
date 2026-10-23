@@ -1,0 +1,4 @@
+# Para comparar_modelos.py y el notebook 02. Incluye lo del notebook 01.
+-r requirements-notebook.txt
+numpy>=2.3
+statsmodels>=0.14.5

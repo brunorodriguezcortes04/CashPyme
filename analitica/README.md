@@ -1,22 +1,31 @@
-# Componente Python: dataset de flujo diario
+# Componente Python: dataset y modelos de proyección de caja
 
-Prepara el dataset de flujo de caja diario con el que trabaja el componente Python (proyección).
-La ficha del dataset, con su origen y cómo se generó, está en [DATASET.md](DATASET.md).
+Prepara el dataset de flujo de caja diario y compara modelos para proyectarlo.
+- La ficha del dataset, con su origen y cómo se generó: [DATASET.md](DATASET.md).
+- La comparación de modelos y la justificación de la elección: [MODELO.md](MODELO.md).
 
 ```
 analitica/
 ├── generar_sintetico.py        genera datos/flujo_diario_sintetico.csv y su .meta.json
 ├── exportar_desde_base.py      exporta el flujo diario de una empresa desde la base (solo lectura)
 ├── validar_dataset.py          revisa un dataset contra el criterio de aceptación
+├── comparar_modelos.py         backtesting de la línea base y los candidatos, y elección
 ├── notebooks/
-│   └── 01_comprension_y_preparacion.ipynb   CRISP-DM: comprensión y preparación de los datos
+│   ├── 01_comprension_y_preparacion.ipynb   CRISP-DM: comprensión y preparación de los datos
+│   └── 02_modelado_y_evaluacion.ipynb       CRISP-DM: modelado y evaluación
+├── cashpyme_modelos/
+│   ├── caracteristicas.py      variables de calendario (se calculan para fechas futuras)
+│   ├── modelos.py              promedio móvil (línea base), regresión con calendario, ARIMA semanal
+│   ├── evaluacion.py           backtesting, métricas y reglas de elección (desempeño mínimo)
+│   └── piso_ruido.py           error de un modelo perfecto (solo con datos sintéticos)
+├── resultados/                 la última comparación (json y csv)
 ├── cashpyme_dataset/
 │   ├── calendario.py           feriados de Chile y motivo de cada día sin movimientos
 │   ├── flujo.py                agregación por día (= vista_flujo_diario), calendario completo, CSV + ficha
 │   ├── limpieza.py             outliers, duplicados y el proceso completo (preparar)
 │   ├── sintetico.py            la pyme ficticia: supuestos y generación con semilla
 │   └── validacion.py           reglas del criterio de aceptación
-├── tests/test_dataset.py       pruebas (unittest)
+├── tests/                      pruebas (unittest); las de modelos se saltan sin sus librerías
 └── datos/                      el dataset y su ficha
 ```
 
@@ -44,6 +53,17 @@ python -m venv .venv
 ```
 
 En VS Code basta con abrir el `.ipynb` y elegir como kernel el Python de `.venv`.
+
+## Comparar modelos
+
+```bash
+.venv\Scripts\pip install -r requirements-modelos.txt
+.venv\Scripts\python comparar_modelos.py
+```
+
+Valida el dataset, corre el backtesting (10 orígenes, 90 días cada uno), escribe `resultados/` e
+imprime la tabla y la decisión. Las reglas de elección están en `cashpyme_modelos/evaluacion.py`
+y la justificación en [MODELO.md](MODELO.md).
 
 ## Exportar desde la base
 
