@@ -1,0 +1,3 @@
+# Solo para exportar_desde_base.py. Generar y validar el dataset usan únicamente la biblioteca
+# estándar de Python (3.11 o superior).
+psycopg[binary]>=3.2

@@ -8,6 +8,7 @@ Gestión financiera para PyMEs.
 - `frontend/` — Aplicación Angular
 - `mobile/` — App móvil (Ionic + Capacitor, Android e iOS). Ver `mobile/README.md`
 - `database/` — Esquema de la base y migraciones
+- `analitica/` — Componente Python: dataset de flujo diario (sintético, documentado en `analitica/DATASET.md`)
 - `tests/Backend.Tests/` — Pruebas del backend (xUnit)
 
 ## Arranque en desarrollo

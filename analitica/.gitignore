@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+# Datos de una pyme real: nunca al repositorio.
+datos/flujo_diario_real*
