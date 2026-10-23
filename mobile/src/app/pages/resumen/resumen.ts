@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   IonButton,
   IonButtons,
@@ -30,7 +30,7 @@ import { SesionService } from '../../core/sesion.service';
 @Component({
   selector: 'app-resumen',
   imports: [
-    DatePipe, ClpPipe,
+    DatePipe, ClpPipe, RouterLink,
     IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonContent, IonRefresher, IonRefresherContent,
     IonList, IonListHeader, IonItem, IonLabel, IonNote, IonSkeletonText
   ],

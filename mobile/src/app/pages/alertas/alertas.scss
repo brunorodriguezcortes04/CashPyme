@@ -1,0 +1,14 @@
+.lista { border-radius: 16px; overflow: hidden; }
+.alerta { --border-color: var(--ion-border-color); }
+.alerta h3 { font-size: 15px; line-height: 1.45; }
+.severidad { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+
+.alerta-critica { border-left: 3px solid var(--ion-color-danger); }
+.alerta-critica .severidad { color: var(--ion-color-danger); }
+.alerta-advertencia { border-left: 3px solid #f0ba6a; }
+.alerta-advertencia .severidad { color: #f0ba6a; }
+.alerta-info .severidad { color: var(--ion-color-medium); }
+
+.vacio { color: var(--ion-color-medium); }
+.aviso { margin-bottom: 16px; padding: 14px 16px; border: 1px solid rgba(255, 138, 138, .35); border-radius: 12px; color: var(--ion-color-danger); }
+.aviso p { margin: 0 0 8px; }

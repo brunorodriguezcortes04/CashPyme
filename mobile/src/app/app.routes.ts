@@ -13,5 +13,10 @@ export const routes: Routes = [
     canActivate: [conSesion],
     loadComponent: () => import('./pages/resumen/resumen').then((m) => m.Resumen)
   },
+  {
+    path: 'alertas',
+    canActivate: [conSesion],
+    loadComponent: () => import('./pages/alertas/alertas').then((m) => m.Alertas)
+  },
   { path: '**', redirectTo: 'resumen' }
 ];

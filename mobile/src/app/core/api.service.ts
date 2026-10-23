@@ -30,6 +30,21 @@ export interface MovimientosPaginados {
   totalResultados: number;
 }
 
+/** GET /alertas: las mismas que la tarjeta "Alertas" de la web. Las urgentes primero. */
+export interface Alerta {
+  id: number;
+  tipoAlerta: string;
+  nivelSeveridad: string;
+  etiquetaSeveridad: string;
+  mensaje: string;
+  fechaReferencia: string | null;
+  idDocumento: number | null;
+  tipoCuenta: string | null;
+  estadoAlerta: string;
+  fechaGeneracion: string;
+  ruta: string | null;
+}
+
 /**
  * Los mismos endpoints REST que la web. La app no calcula nada: muestra lo que devuelve el
  * backend, así el saldo y los movimientos son los mismos en las dos.
@@ -47,6 +62,10 @@ export class ApiService {
     return this.http.get<MovimientosPaginados>(`${environment.apiUrl}/movimientos`, {
       params: { pagina: 1, tamanoPagina: cantidad }
     });
+  }
+
+  alertas(): Observable<Alerta[]> {
+    return this.http.get<Alerta[]>(`${environment.apiUrl}/alertas`);
   }
 }
 
