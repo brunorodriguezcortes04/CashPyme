@@ -11,8 +11,8 @@ try:
     import numpy as np
     import pandas as pd
 
-    from cashpyme_modelos.evaluacion import Resultado, elegir, evaluar, metricas, origenes_mensuales
-    from cashpyme_modelos.modelos import ArimaSemanal, PromedioMovil, RegresionCalendario
+    from cashpyme_modelos.evaluacion import Resultado, confirmar, elegir, evaluar, metricas, origenes_mensuales
+    from cashpyme_modelos.modelos import ArimaSemanal, PromedioMovil, RegresionAlfaInterno, RegresionCalendario
     LIBRERIAS = True
 except ImportError:  # pragma: no cover
     LIBRERIAS = False
@@ -41,6 +41,26 @@ class Modelos(unittest.TestCase):
         self.assertEqual(p.loc["2025-05-01", "ingresos"], 0)  # feriado
         self.assertGreater(p.loc["2025-05-03", "ingresos"], 1.5 * p.loc["2025-04-29", "ingresos"])  # sábado
         self.assertTrue((p >= 0).all().all())
+
+    def test_la_regresion_con_alfa_interno_elige_con_su_propia_historia(self):
+        # Ventas que crecen: una penalización enorme borra la tendencia y se queda corta.
+        fechas = pd.date_range("2024-01-01", periods=500, freq="D")
+        abierto = (fechas.dayofweek != 6).astype(float)
+        crecimiento = 1 + np.arange(500) / 250
+        serie = pd.DataFrame({"ingresos": abierto * 100_000 * crecimiento, "egresos": abierto * 50_000}, index=fechas)
+
+        modelo = RegresionAlfaInterno(grilla=(0.01, 1e9))
+        modelo.ajustar(serie)
+        self.assertEqual(modelo.alfa, 0.01)
+        self.assertEqual(modelo.alfas_elegidos, [0.01])
+
+    def test_con_alfa_interno_se_elige_uno_por_entrenamiento_dentro_de_la_grilla(self):
+        serie = _serie(500)
+        modelo = RegresionAlfaInterno()
+        origenes = origenes_mensuales(serie, "2024-11-01")
+        evaluar(modelo, serie, origenes)
+        self.assertEqual(len(modelo.alfas_elegidos), len(origenes))
+        self.assertTrue(set(modelo.alfas_elegidos) <= set(RegresionAlfaInterno.GRILLA))
 
     def test_arima_proyecta_sin_negativos_y_en_cero_los_dias_cerrados(self):
         futuro = pd.date_range("2024-05-01", periods=14)
@@ -95,6 +115,21 @@ class Eleccion(unittest.TestCase):
     def test_no_basta_con_cumplir_el_umbral_si_casi_no_mejora_a_la_base(self):
         e = elegir([self._resultado("base", 0.095), self._resultado("A", 0.090)])
         self.assertIsNone(e["elegido"])  # mejora 5 % < 10 %
+
+    def test_solo_se_elige_lo_que_cumple_en_ambos_datasets(self):
+        principal = elegir([self._resultado("base", 0.15), self._resultado("A", 0.08), self._resultado("B", 0.09)])
+        confirmacion = elegir([self._resultado("base", 0.15), self._resultado("A", 0.12), self._resultado("B", 0.095)])
+        final = confirmar(principal, confirmacion)
+        self.assertEqual(final["elegido"], "B")  # A gana en el principal pero no confirma
+        self.assertEqual(final["aprobados_principal"], ["A", "B"])
+        self.assertEqual(final["aprobados_confirmacion"], ["B"])
+
+    def test_si_nadie_confirma_no_se_elige_ninguno(self):
+        principal = elegir([self._resultado("base", 0.15), self._resultado("A", 0.08)])
+        confirmacion = elegir([self._resultado("base", 0.15), self._resultado("A", 0.11)])
+        final = confirmar(principal, confirmacion)
+        self.assertIsNone(final["elegido"])
+        self.assertIn("Ningún candidato", final["conclusion"])
 
 
 if __name__ == "__main__":

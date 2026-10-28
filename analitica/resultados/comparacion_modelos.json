@@ -1,9 +1,4 @@
 {
-  "dataset": {
-    "archivo": "flujo_diario_sintetico.csv",
-    "origen": "sintetico",
-    "sha256": "87ac55183a7f781e7a4e5e72d18b4c6017ef9ab11cb4f9a8be71c4971d1f7cfa"
-  },
   "backtesting": {
     "origenes": [
       "2025-01-01",
@@ -20,73 +15,235 @@
     "horizonte_dias": 90,
     "entrenamiento": "todo lo anterior a cada origen (ventana creciente)"
   },
-  "resumen": {
-    "Promedio móvil 28 días (línea base)": {
-      "error_acumulado_30": 2293878.5429,
-      "error_relativo_30": 0.1511,
-      "error_acumulado_60": 4385009.1571,
-      "error_relativo_60": 0.1483,
-      "error_acumulado_90": 6348647.1429,
-      "error_relativo_90": 0.1383,
-      "error_minimo_30": 749572.5179,
-      "mae_diario_neto": 473534.4729,
-      "mae_diario_ingresos": 253838.6067,
-      "mae_diario_egresos": 531875.195
+  "principal": {
+    "dataset": {
+      "archivo": "flujo_diario_sintetico.csv",
+      "origen": "sintetico",
+      "semilla": 42,
+      "sha256": "87ac55183a7f781e7a4e5e72d18b4c6017ef9ab11cb4f9a8be71c4971d1f7cfa"
     },
-    "Regresión con calendario": {
-      "error_acumulado_30": 1597876.5121,
-      "error_relativo_30": 0.1066,
-      "error_acumulado_60": 2374466.0871,
-      "error_relativo_60": 0.0806,
-      "error_acumulado_90": 2309019.9049,
-      "error_relativo_90": 0.0497,
-      "error_minimo_30": 346945.7397,
-      "mae_diario_neto": 191395.9197,
-      "mae_diario_ingresos": 174847.6998,
-      "mae_diario_egresos": 135508.1731
+    "resumen": {
+      "Promedio móvil 28 días (línea base)": {
+        "error_acumulado_30": 2293878.5429,
+        "error_relativo_30": 0.1511,
+        "error_acumulado_60": 4385009.1571,
+        "error_relativo_60": 0.1483,
+        "error_acumulado_90": 6348647.1429,
+        "error_relativo_90": 0.1383,
+        "error_minimo_30": 749572.5179,
+        "mae_diario_neto": 473534.4729,
+        "mae_diario_ingresos": 253838.6067,
+        "mae_diario_egresos": 531875.195
+      },
+      "Regresión con calendario": {
+        "error_acumulado_30": 1597876.5121,
+        "error_relativo_30": 0.1066,
+        "error_acumulado_60": 2374466.0871,
+        "error_relativo_60": 0.0806,
+        "error_acumulado_90": 2309019.9049,
+        "error_relativo_90": 0.0497,
+        "error_minimo_30": 346945.7397,
+        "mae_diario_neto": 191395.9197,
+        "mae_diario_ingresos": 174847.6998,
+        "mae_diario_egresos": 135508.1731
+      },
+      "Regresión con calendario (alfa por validación interna)": {
+        "error_acumulado_30": 1362715.2876,
+        "error_relativo_30": 0.0907,
+        "error_acumulado_60": 1685790.6885,
+        "error_relativo_60": 0.0566,
+        "error_acumulado_90": 1892122.7189,
+        "error_relativo_90": 0.0393,
+        "error_minimo_30": 317757.3784,
+        "mae_diario_neto": 233703.4215,
+        "mae_diario_ingresos": 169216.9511,
+        "mae_diario_egresos": 205674.7703
+      },
+      "ARIMA semanal (SARIMA)": {
+        "error_acumulado_30": 2050962.0701,
+        "error_relativo_30": 0.1346,
+        "error_acumulado_60": 3194258.2246,
+        "error_relativo_60": 0.1054,
+        "error_acumulado_90": 4438601.5834,
+        "error_relativo_90": 0.0929,
+        "error_minimo_30": 438923.0264,
+        "mae_diario_neto": 459075.9517,
+        "mae_diario_ingresos": 160126.8219,
+        "mae_diario_egresos": 433067.0882
+      }
     },
-    "ARIMA semanal (SARIMA)": {
-      "error_acumulado_30": 2050962.0701,
-      "error_relativo_30": 0.1346,
-      "error_acumulado_60": 3194258.2246,
-      "error_relativo_60": 0.1054,
-      "error_acumulado_90": 4438601.5834,
-      "error_relativo_90": 0.0929,
-      "error_minimo_30": 438923.0264,
-      "mae_diario_neto": 459075.9517,
-      "mae_diario_ingresos": 160126.8219,
-      "mae_diario_egresos": 433067.0882
+    "alfas_elegidos_por_origen": {
+      "Regresión con calendario (alfa por validación interna)": [
+        1.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        30.0
+      ]
+    },
+    "eleccion": {
+      "reglas": {
+        "umbral_error_relativo_30": 0.1,
+        "mejora_minima_sobre_base": 0.1,
+        "desempate": "menor error relativo a 30 días"
+      },
+      "linea_base": {
+        "modelo": "Promedio móvil 28 días (línea base)",
+        "error_relativo_30": 0.1511
+      },
+      "candidatos": [
+        {
+          "modelo": "Regresión con calendario",
+          "error_relativo_30": 0.1066,
+          "mejora_sobre_base": 0.2949,
+          "cumple_umbral": false,
+          "cumple_mejora": true
+        },
+        {
+          "modelo": "Regresión con calendario (alfa por validación interna)",
+          "error_relativo_30": 0.0907,
+          "mejora_sobre_base": 0.4,
+          "cumple_umbral": true,
+          "cumple_mejora": true
+        },
+        {
+          "modelo": "ARIMA semanal (SARIMA)",
+          "error_relativo_30": 0.1346,
+          "mejora_sobre_base": 0.1097,
+          "cumple_umbral": false,
+          "cumple_mejora": true
+        }
+      ],
+      "elegido": "Regresión con calendario (alfa por validación interna)",
+      "mejor_candidato": "Regresión con calendario (alfa por validación interna)",
+      "conclusion": "Se usa Regresión con calendario (alfa por validación interna)."
     }
   },
-  "eleccion": {
-    "reglas": {
-      "umbral_error_relativo_30": 0.1,
-      "mejora_minima_sobre_base": 0.1,
-      "desempate": "menor error relativo a 30 días"
+  "confirmacion": {
+    "dataset": {
+      "archivo": "flujo_diario_confirmacion.csv",
+      "origen": "sintetico",
+      "semilla": 2026,
+      "sha256": "1f31fd68550a8d74d32deeafdd44efafd43c929c24e526d27e63c3ad8fc4ca33"
     },
-    "linea_base": {
-      "modelo": "Promedio móvil 28 días (línea base)",
-      "error_relativo_30": 0.1511
-    },
-    "candidatos": [
-      {
-        "modelo": "Regresión con calendario",
-        "error_relativo_30": 0.1066,
-        "mejora_sobre_base": 0.2949,
-        "cumple_umbral": false,
-        "cumple_mejora": true
+    "resumen": {
+      "Promedio móvil 28 días (línea base)": {
+        "error_acumulado_30": 2234826.1643,
+        "error_relativo_30": 0.1537,
+        "error_acumulado_60": 3989446.5286,
+        "error_relativo_60": 0.1405,
+        "error_acumulado_90": 5631520.8786,
+        "error_relativo_90": 0.127,
+        "error_minimo_30": 722681.2643,
+        "mae_diario_neto": 463947.5686,
+        "mae_diario_ingresos": 256716.1155,
+        "mae_diario_egresos": 510413.3193
       },
-      {
-        "modelo": "ARIMA semanal (SARIMA)",
-        "error_relativo_30": 0.1346,
-        "mejora_sobre_base": 0.1097,
-        "cumple_umbral": false,
-        "cumple_mejora": true
+      "Regresión con calendario": {
+        "error_acumulado_30": 1352019.3522,
+        "error_relativo_30": 0.0932,
+        "error_acumulado_60": 1821748.9392,
+        "error_relativo_60": 0.0626,
+        "error_acumulado_90": 1856382.6185,
+        "error_relativo_90": 0.0416,
+        "error_minimo_30": 470750.4713,
+        "mae_diario_neto": 198644.5416,
+        "mae_diario_ingresos": 180476.8099,
+        "mae_diario_egresos": 130111.6386
+      },
+      "Regresión con calendario (alfa por validación interna)": {
+        "error_acumulado_30": 1141810.9782,
+        "error_relativo_30": 0.0767,
+        "error_acumulado_60": 1340595.6529,
+        "error_relativo_60": 0.0467,
+        "error_acumulado_90": 1379248.9427,
+        "error_relativo_90": 0.0302,
+        "error_minimo_30": 347238.1928,
+        "mae_diario_neto": 227502.966,
+        "mae_diario_ingresos": 178330.2444,
+        "mae_diario_egresos": 188285.169
+      },
+      "ARIMA semanal (SARIMA)": {
+        "error_acumulado_30": 2152687.2127,
+        "error_relativo_30": 0.1438,
+        "error_acumulado_60": 3157306.5187,
+        "error_relativo_60": 0.1093,
+        "error_acumulado_90": 4522060.5227,
+        "error_relativo_90": 0.0996,
+        "error_minimo_30": 406462.7796,
+        "mae_diario_neto": 453471.0328,
+        "mae_diario_ingresos": 153807.9376,
+        "mae_diario_egresos": 420675.8489
       }
+    },
+    "alfas_elegidos_por_origen": {
+      "Regresión con calendario (alfa por validación interna)": [
+        0.3,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0
+      ]
+    },
+    "eleccion": {
+      "reglas": {
+        "umbral_error_relativo_30": 0.1,
+        "mejora_minima_sobre_base": 0.1,
+        "desempate": "menor error relativo a 30 días"
+      },
+      "linea_base": {
+        "modelo": "Promedio móvil 28 días (línea base)",
+        "error_relativo_30": 0.1537
+      },
+      "candidatos": [
+        {
+          "modelo": "Regresión con calendario",
+          "error_relativo_30": 0.0932,
+          "mejora_sobre_base": 0.3935,
+          "cumple_umbral": true,
+          "cumple_mejora": true
+        },
+        {
+          "modelo": "Regresión con calendario (alfa por validación interna)",
+          "error_relativo_30": 0.0767,
+          "mejora_sobre_base": 0.5009,
+          "cumple_umbral": true,
+          "cumple_mejora": true
+        },
+        {
+          "modelo": "ARIMA semanal (SARIMA)",
+          "error_relativo_30": 0.1438,
+          "mejora_sobre_base": 0.0642,
+          "cumple_umbral": false,
+          "cumple_mejora": false
+        }
+      ],
+      "elegido": "Regresión con calendario (alfa por validación interna)",
+      "mejor_candidato": "Regresión con calendario (alfa por validación interna)",
+      "conclusion": "Se usa Regresión con calendario (alfa por validación interna)."
+    }
+  },
+  "eleccion_final": {
+    "regla": "cumple umbral y mejora en el dataset principal y en el de confirmación; desempate: menor error a 30 días en el principal",
+    "aprobados_principal": [
+      "Regresión con calendario (alfa por validación interna)"
     ],
-    "elegido": null,
-    "mejor_candidato": "Regresión con calendario",
-    "conclusion": "Ningún candidato alcanza el desempeño mínimo (el mejor, Regresión con calendario, queda en 10.7% a 30 días contra un máximo de 10%): no se integra un modelo estadístico y el producto sigue con la proyección por documentos."
+    "aprobados_confirmacion": [
+      "Regresión con calendario",
+      "Regresión con calendario (alfa por validación interna)"
+    ],
+    "elegido": "Regresión con calendario (alfa por validación interna)",
+    "conclusion": "Se usa Regresión con calendario (alfa por validación interna): cumple el desempeño mínimo en ambos datasets."
   },
   "piso_de_ruido_30_dias": {
     "simulaciones": 200,

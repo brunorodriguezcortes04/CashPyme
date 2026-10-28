@@ -57,14 +57,25 @@ def evaluar(modelo, serie: pd.DataFrame, origenes: list[pd.Timestamp]) -> Result
     return Resultado(modelo.nombre, pd.DataFrame(filas), ultima)
 
 
+def error_acumulado(real: pd.DataFrame, proyectado: pd.DataFrame, dias: int) -> float:
+    """Error del flujo neto acumulado en los primeros `dias` días, en pesos."""
+    real_neto = (real["ingresos"] - real["egresos"]).values[:dias].sum()
+    proy_neto = (proyectado["ingresos"] - proyectado["egresos"]).values[:dias].sum()
+    return abs(proy_neto - real_neto)
+
+
+def error_relativo(real: pd.DataFrame, proyectado: pd.DataFrame, dias: int) -> float:
+    """El indicador que decide: error acumulado como fracción de los ingresos reales del período."""
+    return error_acumulado(real, proyectado, dias) / real["ingresos"].values[:dias].sum()
+
+
 def metricas(real: pd.DataFrame, proyectado: pd.DataFrame) -> dict:
     real_neto = (real["ingresos"] - real["egresos"]).values
     proy_neto = (proyectado["ingresos"] - proyectado["egresos"]).values
     m = {}
     for h in HORIZONTES:
-        error = abs(proy_neto[:h].sum() - real_neto[:h].sum())
-        m[f"error_acumulado_{h}"] = error
-        m[f"error_relativo_{h}"] = error / real["ingresos"].values[:h].sum()
+        m[f"error_acumulado_{h}"] = error_acumulado(real, proyectado, h)
+        m[f"error_relativo_{h}"] = error_relativo(real, proyectado, h)
     # Punto más bajo del flujo acumulado en 30 días: si el modelo lo erra, la alerta de caja
     # negativa llega tarde o sobra.
     m["error_minimo_30"] = abs(np.cumsum(proy_neto[:30]).min() - np.cumsum(real_neto[:30]).min())
@@ -109,4 +120,28 @@ def elegir(resultados: list[Resultado]) -> dict:
                        f"Ningún candidato alcanza el desempeño mínimo (el mejor, {mejor['modelo']}, queda en "
                        f"{mejor['error_relativo_30']:.1%} a 30 días contra un máximo de {UMBRAL_ERROR_30:.0%}): "
                        "no se integra un modelo estadístico y el producto sigue con la proyección por documentos."),
+    }
+
+
+def confirmar(principal: dict, confirmacion: dict) -> dict:
+    """Elección final, fijada antes de ver los resultados: un candidato se aprueba solo si cumple
+    las dos reglas en el dataset principal Y en el de confirmación (otra simulación de la misma
+    pyme que no se usó para nada antes). Entre los aprobados gana el de menor error a 30 días en
+    el principal. Así un resultado que solo funciona en los datos ya mirados no pasa.
+    """
+    def aprueba(eleccion: dict) -> set:
+        return {c["modelo"] for c in eleccion["candidatos"] if c["cumple_umbral"] and c["cumple_mejora"]}
+
+    en_ambos = aprueba(principal) & aprueba(confirmacion)
+    aprobados = [c for c in principal["candidatos"] if c["modelo"] in en_ambos]
+    elegido = min(aprobados, key=lambda c: c["error_relativo_30"]) if aprobados else None
+    return {
+        "regla": "cumple umbral y mejora en el dataset principal y en el de confirmación; "
+                 "desempate: menor error a 30 días en el principal",
+        "aprobados_principal": sorted(aprueba(principal)),
+        "aprobados_confirmacion": sorted(aprueba(confirmacion)),
+        "elegido": elegido["modelo"] if elegido else None,
+        "conclusion": (f"Se usa {elegido['modelo']}: cumple el desempeño mínimo en ambos datasets." if elegido else
+                       "Ningún candidato cumple el desempeño mínimo en ambos datasets: no se integra un modelo "
+                       "estadístico y el producto sigue con la proyección por documentos."),
     }

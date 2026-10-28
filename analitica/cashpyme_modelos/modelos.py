@@ -72,6 +72,55 @@ class RegresionCalendario:
         return pd.DataFrame({s: np.clip(x @ self._coef[s], 0, None) * abierto for s in SERIES}, index=fechas)
 
 
+class RegresionAlfaInterno(RegresionCalendario):
+    """La misma regresión, pero `alfa` se elige en cada entrenamiento y solo con esa historia.
+
+    Validación anidada: dentro de la historia recibida se hace un backtest chico (los últimos
+    `validaciones` meses, proyectando `horizonte` días desde el día 1 de cada uno, con todo lo
+    anterior como entrenamiento) para cada `alfa` de la grilla, y se queda el de menor error del
+    flujo acumulado, el mismo indicador que decide. Después se entrena con toda la historia. Así
+    `alfa` nunca se elige mirando los meses con que se evalúa el modelo (ver MODELO.md).
+
+    La grilla, los 6 meses y el desempate (el más regularizado) se fijaron antes de correrlo.
+    """
+
+    nombre = "Regresión con calendario (alfa por validación interna)"
+    GRILLA = (0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0)
+
+    def __init__(self, grilla=GRILLA, validaciones: int = 6, horizonte: int = 30):
+        super().__init__(alfa=1.0)
+        self.grilla = grilla
+        self.validaciones = validaciones
+        self.horizonte = horizonte
+        self.alfas_elegidos: list[float] = []  # uno por entrenamiento, para documentarlos
+
+    def ajustar(self, historia: pd.DataFrame) -> "RegresionAlfaInterno":
+        self.alfa = self.elegir_alfa(historia)
+        self.alfas_elegidos.append(self.alfa)
+        return super().ajustar(historia)
+
+    def elegir_alfa(self, historia: pd.DataFrame) -> float:
+        from .evaluacion import error_relativo
+
+        # Cada validación necesita entrenamiento antes y `horizonte` días reales después.
+        ultimo = historia.index.max() - pd.Timedelta(days=self.horizonte - 1)
+        origenes = [o for o in pd.date_range(historia.index.min(), ultimo, freq="MS")
+                    if o > historia.index.min()][-self.validaciones:]
+        if not origenes:
+            return self.alfa
+
+        def error(alfa: float) -> float:
+            errores = []
+            for o in origenes:
+                real = historia.loc[o: o + pd.Timedelta(days=self.horizonte - 1)]
+                proyectado = RegresionCalendario(alfa).ajustar(historia[historia.index < o]).proyectar(real.index)
+                errores.append(error_relativo(real, proyectado, self.horizonte))
+            return float(np.mean(errores))
+
+        # Menor error; si empatan, el más regularizado (el más simple).
+        return min(self.grilla, key=lambda a: (round(error(a), 10), -a))
+
+
 class ArimaSemanal:
     """ARIMA simple con estacionalidad semanal: SARIMA(1,0,1)(1,0,1)[7] por serie.
 
@@ -111,4 +160,4 @@ class ArimaSemanal:
 
 def candidatos() -> list:
     """La línea base primero: los demás se comparan contra ella."""
-    return [PromedioMovil(), RegresionCalendario(), ArimaSemanal()]
+    return [PromedioMovil(), RegresionCalendario(), RegresionAlfaInterno(), ArimaSemanal()]

@@ -135,3 +135,14 @@ día, que cada día vacío tenga motivo y que `flujo_neto` cuadre. Termina con c
 - La lista de feriados cubre 2024 a 2026. Un rango más largo necesita agregar los años nuevos.
 - Cuando haya datos de una pyme real, se exportan con `exportar_desde_base.py --origen real` (o
   `anonimizado`) y su ficha se genera igual, con el mismo validador.
+
+## Dataset de confirmación
+
+[`datos/flujo_diario_confirmacion.csv`](datos/flujo_diario_confirmacion.csv) (ficha en
+[`datos/flujo_diario_confirmacion.meta.json`](datos/flujo_diario_confirmacion.meta.json)) es la
+**misma pyme simulada con otra semilla** (2026, sha256 `1f31fd68550a8d74d32deeafdd44efafd43c929c24e526d27e63c3ad8fc4ca33`),
+mismo rango y misma preparación. Solo se usa para confirmar la elección del modelo con datos que no
+se miraron antes ([MODELO.md](MODELO.md)); no sirve para explorar ni para ajustar nada, porque
+dejaría de ser confirmación. Tiene las mismas limitaciones que el principal: es sintético.
+
+Reproducir: `cd analitica && python generar_sintetico.py --semilla 2026 --salida datos/flujo_diario_confirmacion.csv`

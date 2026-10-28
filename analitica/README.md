@@ -15,7 +15,8 @@ analitica/
 │   └── 02_modelado_y_evaluacion.ipynb       CRISP-DM: modelado y evaluación
 ├── cashpyme_modelos/
 │   ├── caracteristicas.py      variables de calendario (se calculan para fechas futuras)
-│   ├── modelos.py              promedio móvil (línea base), regresión con calendario, ARIMA semanal
+│   ├── modelos.py              promedio móvil (línea base), regresión con calendario (alfa fijo y por
+│   │                           validación interna, la elegida) y ARIMA semanal
 │   ├── evaluacion.py           backtesting, métricas y reglas de elección (desempeño mínimo)
 │   └── piso_ruido.py           error de un modelo perfecto (solo con datos sintéticos)
 ├── resultados/                 la última comparación (json y csv)
@@ -26,7 +27,7 @@ analitica/
 │   ├── sintetico.py            la pyme ficticia: supuestos y generación con semilla
 │   └── validacion.py           reglas del criterio de aceptación
 ├── tests/                      pruebas (unittest); las de modelos se saltan sin sus librerías
-└── datos/                      el dataset y su ficha
+└── datos/                      el dataset, el de confirmación (semilla 2026) y sus fichas
 ```
 
 Requiere Python 3.11 o superior. Generar, validar y probar usan solo la biblioteca estándar.
@@ -61,8 +62,9 @@ En VS Code basta con abrir el `.ipynb` y elegir como kernel el Python de `.venv`
 .venv\Scripts\python comparar_modelos.py
 ```
 
-Valida el dataset, corre el backtesting (10 orígenes, 90 días cada uno), escribe `resultados/` e
-imprime la tabla y la decisión. Las reglas de elección están en `cashpyme_modelos/evaluacion.py`
+Valida los dos datasets (el principal y el de confirmación), corre el backtesting en cada uno
+(10 orígenes, 90 días cada uno), escribe `resultados/` e imprime las tablas y la decisión. Un
+candidato se elige solo si cumple las reglas en ambos. Las reglas de elección están en `cashpyme_modelos/evaluacion.py`
 y la justificación en [MODELO.md](MODELO.md).
 
 ## Exportar desde la base
