@@ -68,10 +68,16 @@ describe('Resumen', () => {
     vi.restoreAllMocks();
   });
 
-  /** Las dos llamadas que hace la pantalla al abrir: la tarjeta de saldo y las alertas. */
+  /** La tarjeta de proyección (proyeccion-caja.spec.ts) pide la última al abrir: acá, sin proyección. */
+  function responderProyeccion(): void {
+    http.expectOne((r) => r.method === 'GET' && r.url === '/api/proyeccion/ultima').flush(null, { status: 204, statusText: 'No Content' });
+  }
+
+  /** Las llamadas que hace la pantalla al abrir: la tarjeta de saldo, las alertas y la proyección. */
   function responder(saldo: SaldoNeto, alertas: Alerta[] = []): void {
     http.expectOne((r) => r.method === 'GET' && r.url === '/api/dashboard/saldo-neto').flush(saldo);
     http.expectOne((r) => r.method === 'GET' && r.url === '/api/alertas').flush(alertas);
+    responderProyeccion();
   }
 
   // ----- Saldo neto proyectado ----------------------------------------------
@@ -126,6 +132,7 @@ describe('Resumen', () => {
       { status: 403, statusText: 'Forbidden' }
     );
     http.expectOne((r) => r.url === '/api/alertas').flush([]);
+    responderProyeccion();
     expect(texto()).toContain('Reintentar');
 
     (fixture.nativeElement.querySelector('.tarjeta-saldo .form-alert button') as HTMLButtonElement).click();
@@ -191,6 +198,25 @@ describe('Resumen', () => {
     expect(contenido).not.toContain('Distribuidora Los Andes');
     expect(contenido).toContain('Otra alerta');
     expect(fixture.nativeElement.querySelector('.contador')?.textContent.trim()).toBe('1');
+  });
+
+  it('al generar una proyección vuelve a pedir las alertas', () => {
+    responder(saldoDe(), []);
+    texto();
+
+    (fixture.nativeElement.querySelector('.tarjeta-proyeccion .vacio button') as HTMLButtonElement).click();
+    http.expectOne((r) => r.method === 'POST' && r.url === '/api/proyeccion').flush({
+      fechaGeneracion: '2026-10-23T15:00:00Z',
+      modeloUsado: 'documentos_recurrentes',
+      etiquetaModelo: 'Cuentas por cobrar y por pagar + flujos recurrentes',
+      horizontes: []
+    });
+
+    // La proyección puede haber creado la alerta de caja negativa.
+    http.expectOne((r) => r.method === 'GET' && r.url === '/api/alertas').flush([
+      alertaDe({ tipoAlerta: 'saldo_negativo_proyectado', mensaje: 'Tu caja podría quedar en negativo el 12-11-2026', ruta: null })
+    ]);
+    expect(texto()).toContain('Tu caja podría quedar en negativo el 12-11-2026');
   });
 
   it('si no se puede marcar como leída, la deja y muestra el error', () => {

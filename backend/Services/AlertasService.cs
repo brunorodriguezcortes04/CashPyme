@@ -10,10 +10,12 @@ namespace Backend.Services;
 
 /// <summary>
 /// Alertas: las genera el job (NotificacionesWorker → GenerarAsync), también al pedir GET /alertas, y las lee la pantalla de
-/// Resumen. Antes la generación era fn_generar_alertas en la base; ahora las decisiones (cuándo
-/// se crea, cuándo se cierra y qué dice cada una) viven en ReglasAlertas y esto las aplica.
+/// Resumen. La de caja negativa es aparte: sale de la proyección guardada, así que se evalúa cada
+/// vez que se genera una (ProyeccionFlujoCajaService → ActualizarCajaNegativaAsync). Antes la
+/// generación era fn_generar_alertas en la base; ahora las decisiones (cuándo se crea, cuándo se
+/// cierra y qué dice cada una) viven en ReglasAlertas y esto las aplica.
 /// </summary>
-public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCajaService proyeccion)
+public class AlertasService(AppDbContext db, SaldosService saldos)
 {
     /// <summary>
     /// Alertas sin leer de la empresa: primero las críticas, después por fecha de referencia (lo
@@ -72,12 +74,13 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
     /// Corre el job para una empresa o, sin id, para todas. Cierra lo que ya no aplica y crea lo
     /// que falta. Es idempotente: correrlo dos veces seguidas no crea nada la segunda vez,
     /// porque nunca hay dos alertas abiertas del mismo tipo para lo mismo. Devuelve cuántas creó.
+    /// No toca la de caja negativa: esa se actualiza al generar la proyección.
     /// </summary>
     public async Task<int> GenerarAsync(long? companyId = null)
     {
         var empresas = await db.Companies
             .Where(c => companyId == null || c.Id == companyId)
-            .Select(c => new { c.Id, c.TimeZone, c.DueDateWarningDays, c.LowBalanceThreshold, c.IsActive })
+            .Select(c => new { c.Id, c.TimeZone, c.DueDateWarningDays, c.LowBalanceThreshold })
             .ToListAsync();
 
         var creadas = 0;
@@ -86,12 +89,6 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
             var hoy = saldos.HoyDe(e.TimeZone);
             creadas += await AlertasDeDocumentosAsync(e.Id, hoy, e.DueDateWarningDays);
             creadas += await AlertasDeSaldoBajoAsync(e.Id, e.LowBalanceThreshold);
-
-            // La proyección solo se mira para empresas activas, igual que antes.
-            if (e.IsActive)
-            {
-                creadas += await AlertaDeCajaNegativaAsync(e.Id);
-            }
         }
 
         return creadas;
@@ -205,10 +202,15 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
         return await InsertarAsync(nuevas);
     }
 
-    private async Task<int> AlertaDeCajaNegativaAsync(long companyId)
+    /// <summary>
+    /// Alerta crítica si la proyección recién generada queda bajo cero algún día del horizonte.
+    /// Como las demás: una sola abierta por fecha, y se cierra cuando la proyección nueva ya no
+    /// cae a negativo o cae otro día (en ese caso se crea la de la fecha nueva). Devuelve 1 si
+    /// creó una alerta.
+    /// </summary>
+    public async Task<int> ActualizarCajaNegativaAsync(long companyId, IEnumerable<DiaProyectado> proyeccion)
     {
-        var dias = await proyeccion.CalcularAsync(companyId, ReglasAlertas.HorizonteSaldoNegativo);
-        var primerNegativo = ReglasAlertas.PrimerDiaNegativo(dias);
+        var primerNegativo = ReglasAlertas.PrimerDiaNegativo(proyeccion);
 
         var abiertas = await db.Alertas
             .Where(a => a.CompanyId == companyId

@@ -66,6 +66,7 @@ builder.Services.AddScoped<PagosService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportesService>();
 builder.Services.AddScoped<AlertasService>();
+builder.Services.AddScoped<ProyeccionFlujoCajaService>();
 builder.Services.AddScoped<VencimientosService>();
 builder.Services.AddScoped<EmpresaService>();
 builder.Services.AddScoped<CuentasService>();
@@ -103,6 +104,7 @@ builder.Services.AddScoped<CorreoCuentaService>();
 builder.Services.AddScoped<NotificacionesService>();
 builder.Services.AddHostedService<NotificacionesWorker>();
 builder.Services.AddHostedService<VencimientosWorker>();
+builder.Services.AddHostedService<ProyeccionesWorker>();
 builder.Services.AddCashPymeRateLimits();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");

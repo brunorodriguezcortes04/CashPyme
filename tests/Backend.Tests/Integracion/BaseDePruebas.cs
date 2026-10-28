@@ -111,6 +111,7 @@ public sealed class BaseDePruebas : IAsyncLifetime
         servicios.AddScoped<PagosService>();
         servicios.AddScoped<DashboardService>();
         servicios.AddScoped<AlertasService>();
+        servicios.AddScoped<ProyeccionFlujoCajaService>();
         servicios.AddScoped<VencimientosService>();
         servicios.AddScoped<CuentasService>();
         servicios.AddScoped<EmpresaService>();

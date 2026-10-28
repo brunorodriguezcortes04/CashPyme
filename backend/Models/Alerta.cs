@@ -1,9 +1,10 @@
 namespace Backend.Models;
 
 /// <summary>
-/// Aviso generado por el job de alertas (AlertasService.GenerarAsync). Tabla: alerta.
-/// La API nunca crea alertas: las crea el job. Acá solo se leen y se marcan como leídas; el
-/// paso a 'resuelta' también lo hace el job, cuando el motivo deja de aplicar.
+/// Aviso generado por el job de alertas (AlertasService.GenerarAsync) o, la de caja negativa, al
+/// generar la proyección (AlertasService.ActualizarCajaNegativaAsync). Tabla: alerta.
+/// Nadie las crea a mano: los usuarios solo las leen y las marcan como leídas; el paso a
+/// 'resuelta' lo hace el mismo proceso que las creó, cuando el motivo deja de aplicar.
 /// </summary>
 public class Alerta
 {

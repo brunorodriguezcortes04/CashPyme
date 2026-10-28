@@ -7,10 +7,11 @@ import { mensajeDeError } from '../../core/api-error';
 import { DashboardService, SaldoNeto } from '../../core/dashboard.service';
 import { ReportesService } from '../../core/reportes.service';
 import { guardarArchivo } from '../../core/descargas';
+import { ProyeccionCaja } from './proyeccion-caja/proyeccion-caja';
 
 @Component({
   selector: 'app-resumen',
-  imports: [DecimalPipe, RouterLink, ReactiveFormsModule],
+  imports: [DecimalPipe, RouterLink, ReactiveFormsModule, ProyeccionCaja],
   templateUrl: './resumen.html',
   styleUrl: './resumen.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

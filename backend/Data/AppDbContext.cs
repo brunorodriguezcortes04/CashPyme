@@ -28,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Escenario> Escenarios => Set<Escenario>();
     public DbSet<EscenarioAjuste> EscenarioAjustes => Set<EscenarioAjuste>();
     public DbSet<Auditoria> Auditorias => Set<Auditoria>();
+    public DbSet<ProyeccionFlujoCaja> ProyeccionesFlujoCaja => Set<ProyeccionFlujoCaja>();
 
     /// <summary>
     /// Tablas en las que todo cambio deja rastro en auditoria. Antes lo garantizaban los
@@ -333,6 +334,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.ReadAtUtc).HasColumnName("fecha_lectura");
             e.Property(x => x.ReadByUserId).HasColumnName("id_usuario_lectura");
             e.Property(x => x.EmailSentAtUtc).HasColumnName("fecha_envio_email");
+        });
+
+        modelBuilder.Entity<ProyeccionFlujoCaja>(e =>
+        {
+            e.ToTable("proyeccion_flujo_caja");
+            e.Property(x => x.Id).HasColumnName("id_proyeccion");
+            e.Property(x => x.CompanyId).HasColumnName("id_empresa");
+            e.Property(x => x.GeneratedAtUtc).HasColumnName("fecha_generacion");
+            e.Property(x => x.HorizonDays).HasColumnName("horizonte_dias");
+            e.Property(x => x.ProjectedDate).HasColumnName("fecha_proyectada");
+            e.Property(x => x.ProjectedIncome).HasColumnName("ingresos_proyectados").HasColumnType("numeric(14,2)");
+            e.Property(x => x.ProjectedExpense).HasColumnName("egresos_proyectados").HasColumnType("numeric(14,2)");
+            e.Property(x => x.ProjectedBalance).HasColumnName("monto_proyectado").HasColumnType("numeric(14,2)");
+            e.Property(x => x.Model).HasColumnName("modelo_usado").HasMaxLength(30);
         });
     }
 }

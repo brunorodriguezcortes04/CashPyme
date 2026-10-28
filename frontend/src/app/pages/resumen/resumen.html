@@ -45,6 +45,9 @@
     }
   </section>
 
+  <!-- Al generar puede crearse o cerrarse la alerta de caja negativa: se recargan las alertas. -->
+  <app-proyeccion-caja (generada)="cargarAlertas()" />
+
   <section class="card tarjeta-saldo" aria-labelledby="saldo-neto-titulo">
     <h2 id="saldo-neto-titulo">Saldo neto proyectado</h2>
 

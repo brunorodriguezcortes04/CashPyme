@@ -26,9 +26,6 @@ public static class SeveridadesAlerta
 /// </summary>
 public static class ReglasAlertas
 {
-    /// <summary>Días que la proyección mira hacia adelante para avisar caja negativa.</summary>
-    public const int HorizonteSaldoNegativo = 90;
-
     /// <summary>
     /// Avisa lo que vence entre hoy y hoy + días de aviso. Saldo > 0 deja fuera lo pagado, lo
     /// anulado y las notas (su saldo propio es 0); lo ya vencido tiene su propia alerta.
