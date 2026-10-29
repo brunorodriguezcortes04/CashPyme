@@ -145,3 +145,60 @@ def confirmar(principal: dict, confirmacion: dict) -> dict:
                        "Ningún candidato cumple el desempeño mínimo en ambos datasets: no se integra un modelo "
                        "estadístico y el producto sigue con la proyección por documentos."),
     }
+
+
+# --- Evaluación final en hold-out (MAE / RMSE) ---------------------------------------------------
+# Fijado antes de correrla: se entrena con todo hasta el 30-09-2025 y se valida con el último
+# trimestre, que el modelo no ve al ajustarse (ni siquiera para elegir alfa).
+INICIO_VALIDACION = "2025-10-01"
+VENTANAS_SALDO = (30, 60)  # además del período de validación completo
+
+
+def separar_holdout(serie: pd.DataFrame, inicio_validacion: str = INICIO_VALIDACION) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Entrenamiento (todo lo anterior a `inicio_validacion`) y validación (desde ahí hasta el final).
+
+    Corte temporal, no aleatorio: en una serie de tiempo, mezclar días del futuro en el
+    entrenamiento haría que el modelo "conozca" lo que después tiene que proyectar.
+    """
+    corte = pd.Timestamp(inicio_validacion)
+    entrenamiento, validacion = serie[serie.index < corte], serie[serie.index >= corte]
+    if entrenamiento.empty or validacion.empty:
+        raise ValueError(f"El corte {inicio_validacion} deja vacío el entrenamiento o la validación.")
+    return entrenamiento, validacion
+
+
+def mae(real: np.ndarray, proyectado: np.ndarray) -> float:
+    return float(np.mean(np.abs(np.asarray(proyectado, float) - np.asarray(real, float))))
+
+
+def rmse(real: np.ndarray, proyectado: np.ndarray) -> float:
+    return float(np.sqrt(np.mean((np.asarray(proyectado, float) - np.asarray(real, float)) ** 2)))
+
+
+def errores_holdout(real: pd.DataFrame, proyectado: pd.DataFrame) -> dict:
+    """MAE y RMSE en pesos de lo que proyecta el modelo y de lo que muestra el producto.
+
+    - Diarios: ingresos, egresos y flujo neto de cada día de la validación.
+    - Saldo acumulado: la caja proyectada día a día (suma del flujo neto desde el inicio), en los
+      primeros 30 y 60 días y en todo el período. Es lo que ve el usuario en la proyección.
+    Con la referencia para leerlos: el ingreso diario promedio real del período.
+    """
+    neto_real = (real["ingresos"] - real["egresos"]).values
+    neto_proy = (proyectado["ingresos"] - proyectado["egresos"]).values
+    saldo_real, saldo_proy = np.cumsum(neto_real), np.cumsum(neto_proy)
+
+    diarios = {s: {"mae": mae(real[s].values, proyectado[s].values), "rmse": rmse(real[s].values, proyectado[s].values)}
+               for s in ("ingresos", "egresos")}
+    diarios["flujo_neto"] = {"mae": mae(neto_real, neto_proy), "rmse": rmse(neto_real, neto_proy)}
+
+    saldo = {}
+    for dias in (*VENTANAS_SALDO, len(real)):
+        saldo[f"{dias}_dias"] = {"mae": mae(saldo_real[:dias], saldo_proy[:dias]),
+                                 "rmse": rmse(saldo_real[:dias], saldo_proy[:dias]),
+                                 "error_al_cierre": float(saldo_proy[dias - 1] - saldo_real[dias - 1])}
+    return {
+        "dias_validacion": len(real),
+        "ingreso_diario_promedio": float(real["ingresos"].mean()),
+        "diario": diarios,
+        "saldo_acumulado": saldo,
+    }

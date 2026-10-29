@@ -1,0 +1,200 @@
+{
+  "modelo_elegido": "Regresión con calendario (alfa por validación interna)",
+  "inicio_validacion": "2025-10-01",
+  "datasets": {
+    "principal": {
+      "dataset": {
+        "archivo": "flujo_diario_sintetico.csv",
+        "semilla": 42,
+        "sha256": "87ac55183a7f781e7a4e5e72d18b4c6017ef9ab11cb4f9a8be71c4971d1f7cfa"
+      },
+      "entrenamiento": {
+        "desde": "2024-01-01",
+        "hasta": "2025-09-30",
+        "dias": 639
+      },
+      "validacion": {
+        "desde": "2025-10-01",
+        "hasta": "2025-12-31",
+        "dias": 92
+      },
+      "modelos": {
+        "Regresión con calendario (alfa por validación interna)": {
+          "dias_validacion": 92,
+          "ingreso_diario_promedio": 592739.5109,
+          "diario": {
+            "ingresos": {
+              "mae": 195003.0034,
+              "rmse": 313901.8824
+            },
+            "egresos": {
+              "mae": 301510.3202,
+              "rmse": 431859.8755
+            },
+            "flujo_neto": {
+              "mae": 334217.1449,
+              "rmse": 498047.7967
+            }
+          },
+          "saldo_acumulado": {
+            "30_dias": {
+              "mae": 931697.1325,
+              "rmse": 1021991.8856,
+              "error_al_cierre": -174936.9353
+            },
+            "60_dias": {
+              "mae": 1063352.0249,
+              "rmse": 1186370.3456,
+              "error_al_cierre": -1371059.1926
+            },
+            "92_dias": {
+              "mae": 1825415.0813,
+              "rmse": 2298752.6612,
+              "error_al_cierre": -3904528.9796
+            }
+          },
+          "alfa_elegido": 30.0
+        },
+        "Promedio móvil 28 días (línea base)": {
+          "dias_validacion": 92,
+          "ingreso_diario_promedio": 592739.5109,
+          "diario": {
+            "ingresos": {
+              "mae": 323528.278,
+              "rmse": 428485.3879
+            },
+            "egresos": {
+              "mae": 604559.4022,
+              "rmse": 770242.404
+            },
+            "flujo_neto": {
+              "mae": 544496.0326,
+              "rmse": 780959.6627
+            }
+          },
+          "saldo_acumulado": {
+            "30_dias": {
+              "mae": 1583775.6595,
+              "rmse": 1708555.4143,
+              "error_al_cierre": 553988.5714
+            },
+            "60_dias": {
+              "mae": 1084759.4,
+              "rmse": 1320286.3651,
+              "error_al_cierre": 45763.1429
+            },
+            "92_dias": {
+              "mae": 1635567.1025,
+              "rmse": 2259323.3845,
+              "error_al_cierre": -2993482.7143
+            }
+          }
+        }
+      },
+      "banda_backtest_30_dias": {
+        "origenes": 10,
+        "mediana": 1520684.6042,
+        "p90": 2331895.0563,
+        "maximo": 2920083.355,
+        "p90_relativo": 0.1422
+      }
+    },
+    "confirmacion": {
+      "dataset": {
+        "archivo": "flujo_diario_confirmacion.csv",
+        "semilla": 2026,
+        "sha256": "1f31fd68550a8d74d32deeafdd44efafd43c929c24e526d27e63c3ad8fc4ca33"
+      },
+      "entrenamiento": {
+        "desde": "2024-01-01",
+        "hasta": "2025-09-30",
+        "dias": 639
+      },
+      "validacion": {
+        "desde": "2025-10-01",
+        "hasta": "2025-12-31",
+        "dias": 92
+      },
+      "modelos": {
+        "Regresión con calendario (alfa por validación interna)": {
+          "dias_validacion": 92,
+          "ingreso_diario_promedio": 581765.8261,
+          "diario": {
+            "ingresos": {
+              "mae": 192421.5962,
+              "rmse": 315057.2207
+            },
+            "egresos": {
+              "mae": 205143.7867,
+              "rmse": 312427.4006
+            },
+            "flujo_neto": {
+              "mae": 264844.5831,
+              "rmse": 427066.7257
+            }
+          },
+          "saldo_acumulado": {
+            "30_dias": {
+              "mae": 482227.485,
+              "rmse": 688803.2835,
+              "error_al_cierre": -770344.8544
+            },
+            "60_dias": {
+              "mae": 1071710.7009,
+              "rmse": 1340387.4802,
+              "error_al_cierre": -1161746.7364
+            },
+            "92_dias": {
+              "mae": 1369141.5334,
+              "rmse": 1667367.2836,
+              "error_al_cierre": -3529944.5939
+            }
+          },
+          "alfa_elegido": 10.0
+        },
+        "Promedio móvil 28 días (línea base)": {
+          "dias_validacion": 92,
+          "ingreso_diario_promedio": 581765.8261,
+          "diario": {
+            "ingresos": {
+              "mae": 303706.1848,
+              "rmse": 436947.6546
+            },
+            "egresos": {
+              "mae": 564719.0248,
+              "rmse": 759057.7704
+            },
+            "flujo_neto": {
+              "mae": 577605.8432,
+              "rmse": 831500.2626
+            }
+          },
+          "saldo_acumulado": {
+            "30_dias": {
+              "mae": 1230762.9881,
+              "rmse": 1518745.9199,
+              "error_al_cierre": 156598.8571
+            },
+            "60_dias": {
+              "mae": 1132770.3452,
+              "rmse": 1436259.3752,
+              "error_al_cierre": 49423.7143
+            },
+            "92_dias": {
+              "mae": 1545137.8261,
+              "rmse": 2156413.1901,
+              "error_al_cierre": -3866854.5714
+            }
+          }
+        }
+      },
+      "banda_backtest_30_dias": {
+        "origenes": 10,
+        "mediana": 773607.0263,
+        "p90": 2058977.0896,
+        "maximo": 3507858.7002,
+        "p90_relativo": 0.1518
+      }
+    }
+  }
+}

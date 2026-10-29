@@ -21,6 +21,9 @@ elegirla mirando los meses de evaluación no valía. Se agregó entonces un cand
 **solo con datos anteriores a cada fecha** y se confirmó en datos nuevos, con el protocolo fijado
 antes de correrlo.
 
+La evaluación final del modelo elegido (MAE y RMSE en un conjunto de validación separado, y qué
+tan confiable es la proyección) está en [EVALUACION.md](EVALUACION.md).
+
 Resultados completos y reproducibles: [`resultados/comparacion_modelos.json`](resultados/comparacion_modelos.json)
 y [`resultados/comparacion_por_origen.csv`](resultados/comparacion_por_origen.csv). Análisis con
 gráficos: [`notebooks/02_modelado_y_evaluacion.ipynb`](notebooks/02_modelado_y_evaluacion.ipynb).

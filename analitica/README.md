@@ -3,6 +3,7 @@
 Prepara el dataset de flujo de caja diario y compara modelos para proyectarlo.
 - La ficha del dataset, con su origen y cómo se generó: [DATASET.md](DATASET.md).
 - La comparación de modelos y la justificación de la elección: [MODELO.md](MODELO.md).
+- La evaluación final del modelo elegido (MAE/RMSE en hold-out) e interpretación: [EVALUACION.md](EVALUACION.md).
 
 ```
 analitica/
@@ -10,6 +11,7 @@ analitica/
 ├── exportar_desde_base.py      exporta el flujo diario de una empresa desde la base (solo lectura)
 ├── validar_dataset.py          revisa un dataset contra el criterio de aceptación
 ├── comparar_modelos.py         backtesting de la línea base y los candidatos, y elección
+├── evaluar_holdout.py          MAE y RMSE del modelo elegido en el último trimestre (hold-out)
 ├── notebooks/
 │   ├── 01_comprension_y_preparacion.ipynb   CRISP-DM: comprensión y preparación de los datos
 │   └── 02_modelado_y_evaluacion.ipynb       CRISP-DM: modelado y evaluación
@@ -66,6 +68,14 @@ Valida los dos datasets (el principal y el de confirmación), corre el backtesti
 (10 orígenes, 90 días cada uno), escribe `resultados/` e imprime las tablas y la decisión. Un
 candidato se elige solo si cumple las reglas en ambos. Las reglas de elección están en `cashpyme_modelos/evaluacion.py`
 y la justificación en [MODELO.md](MODELO.md).
+
+```bash
+.venv\Scripts\python evaluar_holdout.py
+```
+
+Entrena el modelo elegido hasta el 30-09-2025 y calcula MAE y RMSE en el último trimestre, que el
+modelo no ve al ajustarse. Escribe `resultados/evaluacion_holdout.json` y `holdout_diario.csv`;
+la interpretación está en [EVALUACION.md](EVALUACION.md).
 
 ## Exportar desde la base
 

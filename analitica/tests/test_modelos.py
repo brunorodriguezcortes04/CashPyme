@@ -11,7 +11,8 @@ try:
     import numpy as np
     import pandas as pd
 
-    from cashpyme_modelos.evaluacion import Resultado, confirmar, elegir, evaluar, metricas, origenes_mensuales
+    from cashpyme_modelos.evaluacion import (Resultado, confirmar, elegir, errores_holdout, evaluar, mae, metricas,
+                                             origenes_mensuales, rmse, separar_holdout)
     from cashpyme_modelos.modelos import ArimaSemanal, PromedioMovil, RegresionAlfaInterno, RegresionCalendario
     LIBRERIAS = True
 except ImportError:  # pragma: no cover
@@ -90,6 +91,33 @@ class Evaluacion(unittest.TestCase):
         serie = _serie(500)
         ultimo = origenes_mensuales(serie, "2024-06-01")[-1]
         self.assertGreaterEqual(serie.index.max() - ultimo, pd.Timedelta(days=89))
+
+    def test_el_holdout_separa_por_fecha_sin_mezclar_dias(self):
+        serie = _serie(500)
+        entrenamiento, validacion = separar_holdout(serie, "2025-03-01")
+        self.assertLess(entrenamiento.index.max(), validacion.index.min())
+        self.assertEqual(validacion.index.min(), pd.Timestamp("2025-03-01"))
+        self.assertEqual(len(entrenamiento) + len(validacion), len(serie))
+        with self.assertRaises(ValueError):
+            separar_holdout(serie, "2030-01-01")  # validación vacía
+
+    def test_mae_y_rmse(self):
+        real, proyectado = [0, 0, 0, 0], [1, -1, 3, -3]
+        self.assertEqual(mae(real, proyectado), 2.0)
+        self.assertAlmostEqual(rmse(real, proyectado), 5 ** 0.5)  # castiga más los errores grandes
+
+    def test_errores_del_holdout_diarios_y_del_saldo(self):
+        real = _serie(90)
+        self.assertEqual(errores_holdout(real, real)["saldo_acumulado"]["90_dias"]["rmse"], 0)
+
+        # Proyectar 1.000 de más en ingresos cada día: error diario 1.000, y el saldo se aleja 1.000 por día.
+        proyectado = real.assign(ingresos=real["ingresos"] + 1_000)
+        e = errores_holdout(real, proyectado)
+        self.assertEqual(e["diario"]["ingresos"]["mae"], 1_000)
+        self.assertEqual(e["diario"]["egresos"]["mae"], 0)
+        self.assertEqual(list(e["saldo_acumulado"]), ["30_dias", "60_dias", "90_dias"])
+        self.assertEqual(e["saldo_acumulado"]["30_dias"]["error_al_cierre"], 30_000)  # sobrestima la caja
+        self.assertAlmostEqual(e["saldo_acumulado"]["30_dias"]["mae"], 15_500)  # promedio de 1.000..30.000
 
     def test_una_proyeccion_perfecta_no_tiene_error(self):
         real = _serie(90)

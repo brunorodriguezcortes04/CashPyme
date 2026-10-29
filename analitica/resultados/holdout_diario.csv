@@ -1,0 +1,369 @@
+dataset,modelo,fecha,ingresos_real,ingresos_proyectado,egresos_real,egresos_proyectado
+principal,Regresión con calendario (alfa por validación interna),2025-10-01,1022602,620879.95,33474,338806.71
+principal,Regresión con calendario (alfa por validación interna),2025-10-02,435171,671623.38,995171,828201.93
+principal,Regresión con calendario (alfa por validación interna),2025-10-03,461198,530152.85,32104,270909.08
+principal,Regresión con calendario (alfa por validación interna),2025-10-04,660378,713868.31,52895,268478.61
+principal,Regresión con calendario (alfa por validación interna),2025-10-05,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-10-06,1561029,627607.28,1154623,461468.76
+principal,Regresión con calendario (alfa por validación interna),2025-10-07,825153,548938.88,1327559,839612.80
+principal,Regresión con calendario (alfa por validación interna),2025-10-08,580337,599599.46,43939,291705.10
+principal,Regresión con calendario (alfa por validación interna),2025-10-09,315765,641372.64,885137,859877.62
+principal,Regresión con calendario (alfa por validación interna),2025-10-10,690354,553329.59,718673,541262.68
+principal,Regresión con calendario (alfa por validación interna),2025-10-11,1077108,703278.29,46103,339376.32
+principal,Regresión con calendario (alfa por validación interna),2025-10-12,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-10-13,402356,563129.27,143498,417770.23
+principal,Regresión con calendario (alfa por validación interna),2025-10-14,687456,580056.67,946250,843345.84
+principal,Regresión con calendario (alfa por validación interna),2025-10-15,361354,635368.98,20752,267032.80
+principal,Regresión con calendario (alfa por validación interna),2025-10-16,487675,635895.36,962439,849441.97
+principal,Regresión con calendario (alfa por validación interna),2025-10-17,507125,542944.49,0,267157.26
+principal,Regresión con calendario (alfa por validación interna),2025-10-18,469525,684517.37,76966,285520.62
+principal,Regresión con calendario (alfa por validación interna),2025-10-19,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-10-20,376388,590205.87,1068235,690851.48
+principal,Regresión con calendario (alfa por validación interna),2025-10-21,439911,633519.07,801073,967744.94
+principal,Regresión con calendario (alfa por validación interna),2025-10-22,515171,604412.87,10208,254230.19
+principal,Regresión con calendario (alfa por validación interna),2025-10-23,456658,650253.69,779539,863238.52
+principal,Regresión con calendario (alfa por validación interna),2025-10-24,409236,554182.14,33788,280504.80
+principal,Regresión con calendario (alfa por validación interna),2025-10-25,624006,668822.71,7741,268186.63
+principal,Regresión con calendario (alfa por validación interna),2025-10-26,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-10-27,719934,632680.68,0,405146.47
+principal,Regresión con calendario (alfa por validación interna),2025-10-28,921329,587820.35,838782,956784.84
+principal,Regresión con calendario (alfa por validación interna),2025-10-29,400580,619353.69,24082,344961.34
+principal,Regresión con calendario (alfa por validación interna),2025-10-30,381586,549196.50,3949849,2279824.75
+principal,Regresión con calendario (alfa por validación interna),2025-10-31,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-11-01,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-11-02,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-11-03,717505,581555.25,43367,419043.22
+principal,Regresión con calendario (alfa por validación interna),2025-11-04,427115,638508.85,450341,836539.28
+principal,Regresión con calendario (alfa por validación interna),2025-11-05,803593,650938.94,1202956,716796.82
+principal,Regresión con calendario (alfa por validación interna),2025-11-06,516357,671026.03,461045,904540.26
+principal,Regresión con calendario (alfa por validación interna),2025-11-07,469889,537903.59,13622,268770.75
+principal,Regresión con calendario (alfa por validación interna),2025-11-08,661671,675993.10,54213,309765.73
+principal,Regresión con calendario (alfa por validación interna),2025-11-09,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-11-10,1362683,604731.98,938021,689396.81
+principal,Regresión con calendario (alfa por validación interna),2025-11-11,1044815,627918.84,1598411,907436.99
+principal,Regresión con calendario (alfa por validación interna),2025-11-12,386236,635230.95,150652,324455.20
+principal,Regresión con calendario (alfa por validación interna),2025-11-13,394374,606548.02,1046562,860841.73
+principal,Regresión con calendario (alfa por validación interna),2025-11-14,439878,569021.38,42445,272503.78
+principal,Regresión con calendario (alfa por validación interna),2025-11-15,649856,711762.62,44901,285093.44
+principal,Regresión con calendario (alfa por validación interna),2025-11-16,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-11-17,396608,594346.88,37619,415291.39
+principal,Regresión con calendario (alfa por validación interna),2025-11-18,489312,609157.91,883975,853581.29
+principal,Regresión con calendario (alfa por validación interna),2025-11-19,331497,651450.97,32243,278951.28
+principal,Regresión con calendario (alfa por validación interna),2025-11-20,395127,633624.62,1572788,1133922.98
+principal,Regresión con calendario (alfa por validación interna),2025-11-21,545918,622483.78,32128,396902.89
+principal,Regresión con calendario (alfa por validación interna),2025-11-22,675084,680806.51,42840,272290.82
+principal,Regresión con calendario (alfa por validación interna),2025-11-23,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-11-24,663595,605584.54,0,428638.93
+principal,Regresión con calendario (alfa por validación interna),2025-11-25,1233724,593463.26,812580,836247.30
+principal,Regresión con calendario (alfa por validación interna),2025-11-26,796653,616798.63,36631,259110.62
+principal,Regresión con calendario (alfa por validación interna),2025-11-27,402865,676099.43,1266005,848217.97
+principal,Regresión con calendario (alfa por validación interna),2025-11-28,530251,576785.06,0,385942.79
+principal,Regresión con calendario (alfa por validación interna),2025-11-29,1528392,658006.61,3200934,1422868.74
+principal,Regresión con calendario (alfa por validación interna),2025-11-30,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-01,774135,699255.37,0,514410.58
+principal,Regresión con calendario (alfa por validación interna),2025-12-02,791729,741542.54,1236638,851549.74
+principal,Regresión con calendario (alfa por validación interna),2025-12-03,749318,693858.98,6900,299341.22
+principal,Regresión con calendario (alfa por validación interna),2025-12-04,1006629,759268.84,1116370,869093.35
+principal,Regresión con calendario (alfa por validación interna),2025-12-05,824609,677911.97,1219481,744266.55
+principal,Regresión con calendario (alfa por validación interna),2025-12-06,914543,816304.65,25341,359827.40
+principal,Regresión con calendario (alfa por validación interna),2025-12-07,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-08,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-09,763965,711291.80,1522130,883225.42
+principal,Regresión con calendario (alfa por validación interna),2025-12-10,646732,717035.71,737039,569694.82
+principal,Regresión con calendario (alfa por validación interna),2025-12-11,1796297,748678.83,1325377,939991.05
+principal,Regresión con calendario (alfa por validación interna),2025-12-12,617880,662203.98,268152,351924.93
+principal,Regresión con calendario (alfa por validación interna),2025-12-13,924065,751826.63,0,316128.87
+principal,Regresión con calendario (alfa por validación interna),2025-12-14,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-15,1949970,713744.40,0,442636.67
+principal,Regresión con calendario (alfa por validación interna),2025-12-16,1106002,705814.52,1733042,872789.78
+principal,Regresión con calendario (alfa por validación interna),2025-12-17,1404483,706650.61,66978,295589.40
+principal,Regresión con calendario (alfa por validación interna),2025-12-18,642269,729917.91,1764567,886135.35
+principal,Regresión con calendario (alfa por validación interna),2025-12-19,1239092,678424.00,25848,306421.02
+principal,Regresión con calendario (alfa por validación interna),2025-12-20,834997,778903.23,1021791,589210.12
+principal,Regresión con calendario (alfa por validación interna),2025-12-21,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-22,766494,682788.29,9701,429834.05
+principal,Regresión con calendario (alfa por validación interna),2025-12-23,561599,720172.85,1447408,886586.33
+principal,Regresión con calendario (alfa por validación interna),2025-12-24,487951,717888.26,78674,308936.93
+principal,Regresión con calendario (alfa por validación interna),2025-12-25,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-26,1435274,643771.66,36557,286580.35
+principal,Regresión con calendario (alfa por validación interna),2025-12-27,954400,821378.04,0,303505.11
+principal,Regresión con calendario (alfa por validación interna),2025-12-28,0,0.00,0,0.00
+principal,Regresión con calendario (alfa por validación interna),2025-12-29,695864,697729.12,0,520565.21
+principal,Regresión con calendario (alfa por validación interna),2025-12-30,682189,656856.38,1521053,1243325.79
+principal,Regresión con calendario (alfa por validación interna),2025-12-31,309166,681823.60,3194166,1854502.92
+principal,Promedio móvil 28 días (línea base),2025-10-01,1022602,558526.29,33474,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-02,435171,558526.29,995171,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-03,461198,558526.29,32104,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-04,660378,558526.29,52895,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-05,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-06,1561029,558526.29,1154623,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-07,825153,558526.29,1327559,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-08,580337,558526.29,43939,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-09,315765,558526.29,885137,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-10,690354,558526.29,718673,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-11,1077108,558526.29,46103,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-12,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-13,402356,558526.29,143498,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-14,687456,558526.29,946250,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-15,361354,558526.29,20752,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-16,487675,558526.29,962439,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-17,507125,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-18,469525,558526.29,76966,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-19,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-20,376388,558526.29,1068235,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-21,439911,558526.29,801073,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-22,515171,558526.29,10208,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-23,456658,558526.29,779539,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-24,409236,558526.29,33788,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-25,624006,558526.29,7741,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-26,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-27,719934,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-28,921329,558526.29,838782,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-29,400580,558526.29,24082,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-30,381586,558526.29,3949849,512176.50
+principal,Promedio móvil 28 días (línea base),2025-10-31,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-01,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-02,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-03,717505,558526.29,43367,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-04,427115,558526.29,450341,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-05,803593,558526.29,1202956,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-06,516357,558526.29,461045,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-07,469889,558526.29,13622,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-08,661671,558526.29,54213,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-09,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-10,1362683,558526.29,938021,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-11,1044815,558526.29,1598411,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-12,386236,558526.29,150652,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-13,394374,558526.29,1046562,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-14,439878,558526.29,42445,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-15,649856,558526.29,44901,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-16,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-17,396608,558526.29,37619,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-18,489312,558526.29,883975,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-19,331497,558526.29,32243,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-20,395127,558526.29,1572788,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-21,545918,558526.29,32128,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-22,675084,558526.29,42840,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-23,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-24,663595,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-25,1233724,558526.29,812580,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-26,796653,558526.29,36631,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-27,402865,558526.29,1266005,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-28,530251,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-29,1528392,558526.29,3200934,512176.50
+principal,Promedio móvil 28 días (línea base),2025-11-30,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-01,774135,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-02,791729,558526.29,1236638,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-03,749318,558526.29,6900,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-04,1006629,558526.29,1116370,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-05,824609,558526.29,1219481,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-06,914543,558526.29,25341,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-07,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-08,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-09,763965,558526.29,1522130,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-10,646732,558526.29,737039,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-11,1796297,558526.29,1325377,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-12,617880,558526.29,268152,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-13,924065,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-14,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-15,1949970,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-16,1106002,558526.29,1733042,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-17,1404483,558526.29,66978,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-18,642269,558526.29,1764567,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-19,1239092,558526.29,25848,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-20,834997,558526.29,1021791,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-21,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-22,766494,558526.29,9701,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-23,561599,558526.29,1447408,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-24,487951,558526.29,78674,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-25,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-26,1435274,558526.29,36557,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-27,954400,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-28,0,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-29,695864,558526.29,0,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-30,682189,558526.29,1521053,512176.50
+principal,Promedio móvil 28 días (línea base),2025-12-31,309166,558526.29,3194166,512176.50
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-01,580317,524460.98,45877,274553.23
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-02,435457,537396.70,910045,811942.94
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-03,547617,625923.34,54217,182759.51
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-04,967637,701270.65,34518,128808.65
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-05,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-06,1510843,601026.34,1156095,373552.78
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-07,565991,534687.74,1201257,867629.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-08,512589,535151.42,89525,171310.87
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-09,375194,574205.66,1214006,875882.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-10,876612,677010.73,704119,626692.93
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-11,616077,715337.61,21900,240000.04
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-12,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-13,374720,605278.44,173450,335137.23
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-14,558346,567366.07,1015022,923654.06
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-15,461514,513776.62,41361,162408.18
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-16,366391,508921.51,1018179,885244.07
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-17,492500,579577.37,40958,171213.77
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-18,558616,690870.96,89641,184361.50
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-19,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-20,502180,616108.61,912699,759381.83
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-21,1608131,673468.69,1143639,1099023.41
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-22,945597,569004.06,18916,130239.46
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-23,433549,530423.29,1154019,853677.52
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-24,388820,692313.79,33728,202171.94
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-25,933573,663531.83,0,197908.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-26,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-27,1311870,585643.22,10843,305036.64
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-28,443326,650629.57,970606,1033770.32
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-29,589038,503755.49,40741,239219.68
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-30,406851,572918.03,3985706,3002535.02
+confirmacion,Regresión con calendario (alfa por validación interna),2025-10-31,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-01,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-02,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-03,655065,716355.01,15170,339260.65
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-04,608838,652905.26,668629,857362.51
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-05,632540,571740.84,1214709,954237.40
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-06,376456,630870.90,450425,964299.56
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-07,523431,596189.91,19114,176309.08
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-08,800989,799402.19,35000,208366.43
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-09,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-10,485104,767442.40,728920,783194.07
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-11,480146,666972.22,835297,968553.89
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-12,555615,616135.39,138468,308918.85
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-13,416649,635123.00,870229,925884.01
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-14,1020412,628868.23,0,232334.15
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-15,587805,778027.39,40655,199463.74
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-16,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-17,606891,670009.04,26864,327714.92
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-18,310591,642505.58,819272,912915.36
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-19,1765955,552069.80,0,213639.40
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-20,676051,645953.17,2390782,1350128.61
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-21,358455,734970.86,0,407703.50
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-22,697815,833254.82,72311,167295.02
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-23,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-24,463959,782745.46,0,358673.08
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-25,444274,615166.45,854827,926461.86
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-26,766214,536774.48,37329,218026.79
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-27,534863,615487.77,904434,895783.42
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-28,435937,712131.74,5959,342450.41
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-29,654631,777997.28,3184229,1985461.35
+confirmacion,Regresión con calendario (alfa por validación interna),2025-11-30,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-01,814204,842954.21,19704,505707.50
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-02,771837,811704.75,946947,924371.43
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-03,634672,804622.24,35168,276826.50
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-04,547541,785357.67,1059581,913654.15
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-05,769229,799802.40,1151131,1028890.54
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-06,1014377,953544.34,67757,348174.19
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-07,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-08,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-09,491415,848513.71,1068936,988310.49
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-10,521933,855709.63,693000,720759.92
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-11,586029,799424.63,949647,1024845.53
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-12,870531,844196.96,213284,383571.98
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-13,1416345,957796.44,0,309758.64
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-14,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-15,756991,832269.86,16065,393562.45
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-16,786811,783229.56,915767,997672.56
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-17,932802,758276.27,23075,265280.77
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-18,1608895,774957.99,2039487,969207.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-19,523475,780131.36,19909,288292.53
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-20,939756,968626.61,915929,734003.24
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-21,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-22,780925,887497.29,42234,361393.73
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-23,767980,804731.34,1107567,966106.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-24,519780,871012.69,0,296238.94
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-25,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-26,657953,764836.04,0,292679.92
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-27,2003370,938161.21,47448,279658.05
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-28,0,0.00,0,0.00
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-29,1712730,822248.72,12025,470373.95
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-30,390573,837235.06,1322039,1405777.38
+confirmacion,Regresión con calendario (alfa por validación interna),2025-12-31,480260,776141.80,3182622,2674971.26
+confirmacion,Promedio móvil 28 días (línea base),2025-10-01,580317,496943.21,45877,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-02,435457,496943.21,910045,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-03,547617,496943.21,54217,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-04,967637,496943.21,34518,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-05,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-06,1510843,496943.21,1156095,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-07,565991,496943.21,1201257,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-08,512589,496943.21,89525,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-09,375194,496943.21,1214006,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-10,876612,496943.21,704119,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-11,616077,496943.21,21900,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-12,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-13,374720,496943.21,173450,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-14,558346,496943.21,1015022,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-15,461514,496943.21,41361,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-16,366391,496943.21,1018179,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-17,492500,496943.21,40958,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-18,558616,496943.21,89641,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-19,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-20,502180,496943.21,912699,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-21,1608131,496943.21,1143639,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-22,945597,496943.21,18916,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-23,433549,496943.21,1154019,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-24,388820,496943.21,33728,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-25,933573,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-26,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-27,1311870,496943.21,10843,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-28,443326,496943.21,970606,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-29,589038,496943.21,40741,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-30,406851,496943.21,3985706,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-10-31,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-01,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-02,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-03,655065,496943.21,15170,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-04,608838,496943.21,668629,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-05,632540,496943.21,1214709,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-06,376456,496943.21,450425,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-07,523431,496943.21,19114,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-08,800989,496943.21,35000,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-09,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-10,485104,496943.21,728920,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-11,480146,496943.21,835297,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-12,555615,496943.21,138468,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-13,416649,496943.21,870229,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-14,1020412,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-15,587805,496943.21,40655,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-16,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-17,606891,496943.21,26864,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-18,310591,496943.21,819272,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-19,1765955,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-20,676051,496943.21,2390782,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-21,358455,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-22,697815,496943.21,72311,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-23,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-24,463959,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-25,444274,496943.21,854827,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-26,766214,496943.21,37329,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-27,534863,496943.21,904434,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-28,435937,496943.21,5959,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-29,654631,496943.21,3184229,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-11-30,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-01,814204,496943.21,19704,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-02,771837,496943.21,946947,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-03,634672,496943.21,35168,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-04,547541,496943.21,1059581,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-05,769229,496943.21,1151131,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-06,1014377,496943.21,67757,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-07,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-08,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-09,491415,496943.21,1068936,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-10,521933,496943.21,693000,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-11,586029,496943.21,949647,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-12,870531,496943.21,213284,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-13,1416345,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-14,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-15,756991,496943.21,16065,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-16,786811,496943.21,915767,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-17,932802,496943.21,23075,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-18,1608895,496943.21,2039487,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-19,523475,496943.21,19909,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-20,939756,496943.21,915929,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-21,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-22,780925,496943.21,42234,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-23,767980,496943.21,1107567,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-24,519780,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-25,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-26,657953,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-27,2003370,496943.21,47448,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-28,0,496943.21,0,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-29,1712730,496943.21,12025,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-30,390573,496943.21,1322039,448980.29
+confirmacion,Promedio móvil 28 días (línea base),2025-12-31,480260,496943.21,3182622,448980.29
