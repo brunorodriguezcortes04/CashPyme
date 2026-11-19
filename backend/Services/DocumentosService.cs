@@ -113,8 +113,11 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
             && d.DocumentType != TiposDocumento.NotaCredito
             && d.DocumentType != TiposDocumento.NotaDebito);
 
+        // Los saldos se calculan sobre los ids ya leídos y no volviendo a correr la consulta: un
+        // documento creado o anulado entre las dos lecturas quedaba en una y no en la otra, y el
+        // diccionario reventaba con un 500.
         var documentos = await consulta.Select(d => new { d.Id, d.DocumentType, d.Status }).ToListAsync();
-        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
+        var saldosDoc = await saldos.DeDocumentosAsync(documentos.Select(d => d.Id).ToList());
 
         var grupos = documentos
             .Select(d => new
@@ -167,11 +170,12 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
             && d.DocumentType != TiposDocumento.NotaDebito
             && (idTercero == null || d.ThirdPartyId == idTercero));
 
-        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
+        // Primero las filas y después los saldos de esos mismos ids (ver ResumenAsync).
         var documentos = await consulta
             .OrderBy(d => d.DueDate).ThenByDescending(d => d.Id)
             .Select(d => new { d.Id, d.DocumentType, d.DocumentNumber, d.ThirdPartyId, Tercero = d.ThirdParty.Name })
             .ToListAsync();
+        var saldosDoc = await saldos.DeDocumentosAsync(documentos.Select(d => d.Id).ToList());
 
         return documentos
             .Select(d => new DocumentoCorregibleResponse(
@@ -261,7 +265,7 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
         {
             // Bloqueado: un pago o una nota sobre este documento esperan a que termine, y el
             // control de "no bajar de lo comprometido" ve los montos definitivos.
-            await db.BloquearAsync("documento_financiero", "id_documento", [idDocumento]);
+            await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", [idDocumento]);
             var documento = await BuscarAsync(companyId, idDocumento);
 
             if (documento.Status == DocumentoFinanciero.Anulado)
@@ -280,12 +284,13 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
                 request.FechaEmision, request.FechaVencimiento,
                 request.MontoNeto, request.MontoIva, request.MontoTotal);
 
-            // El documento no puede valer menos de lo que ya tiene comprometido: lo cobrado más lo
-            // acreditado en notas.
+            // El documento no puede valer menos de lo que ya tiene comprometido: con el monto
+            // nuevo, lo cobrado más lo acreditado no puede pasar del monto más las notas de débito.
             var actual = (await saldos.DeDocumentosAsync([idDocumento]))[idDocumento];
-            if (request.MontoTotal < actual.PaidAmount + actual.CreditNotesAmount)
+            if (request.MontoTotal + actual.DebitNotesAmount < actual.PaidAmount + actual.CreditNotesAmount)
             {
-                throw new MontoMenorAComprometidoException(actual.PaidAmount, actual.CreditNotesAmount);
+                throw new MontoMenorAComprometidoException(
+                    actual.PaidAmount, actual.CreditNotesAmount, actual.DebitNotesAmount);
             }
 
             // El tipo de cuenta no cambia al editar, así que el tercero y la categoría se validan
@@ -324,18 +329,38 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
     /// Con pagos registrados se rechaza y no hay forma de forzarlo, a diferencia de anular un
     /// movimiento: hay que anular primero esos movimientos.
     ///
-    /// Anular una nota le devuelve al documento que corregía el saldo que la nota le quitaba.
+    /// Anular una nota le devuelve al documento que corregía el saldo que la nota le quitaba. Si
+    /// es de débito le quita lo que le sumaba, y eso no puede dejarlo pagado de más.
     /// </summary>
     public async Task<DocumentoResponse> AnularAsync(long companyId, long userId, long idDocumento)
     {
         return await db.EnTransaccionAsync(async () =>
         {
-            await db.BloquearAsync("documento_financiero", "id_documento", [idDocumento]);
+            // Una nota se bloquea junto con el documento que corrige, el padre primero (el mismo
+            // orden que al crear una nota o pagar): así un pago sobre el padre no se cuela entre
+            // el control de abajo y la anulación.
+            var idPadre = await db.DocumentosFinancieros
+                .Where(d => d.Id == idDocumento && d.CompanyId == companyId)
+                .Select(d => d.ReferenceDocumentId)
+                .SingleOrDefaultAsync();
+            await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", idPadre is { } p ? [p] : []);
+            await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", [idDocumento]);
             var documento = await BuscarAsync(companyId, idDocumento);
 
             if (documento.Status == DocumentoFinanciero.Anulado)
             {
                 throw new DocumentoYaAnuladoException();
+            }
+
+            if (documento.DocumentType == TiposDocumento.NotaDebito && documento.ReferenceDocumentId is { } idCorregido)
+            {
+                var corregido = (await saldos.DeDocumentosAsync([idCorregido]))[idCorregido];
+                var sobrante = corregido.PaidAmount + corregido.CreditNotesAmount
+                               - (corregido.TotalAmount + corregido.DebitNotesAmount - documento.TotalAmount);
+                if (sobrante > 0)
+                {
+                    throw new AnularNotaDebitoDejaSaldoAFavorException(sobrante);
+                }
             }
 
             var cantidadPagos = await PagosVigentesAsync(idDocumento);
@@ -404,7 +429,7 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
             throw new NotaSinReferenciaException();
         }
 
-        await db.BloquearAsync("documento_financiero", "id_documento", [idReferencia.Value]);
+        await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", [idReferencia.Value]);
 
         var padre = await db.DocumentosFinancieros
             .SingleOrDefaultAsync(d =>
@@ -432,15 +457,13 @@ public class DocumentosService(AppDbContext db, SaldosService saldos)
 
         // Una nota de débito sube el saldo y no tiene tope. Una de crédito no puede dejarlo
         // negativo: eso sería plata que la empresa le debe al cliente, que este MVP no modela.
+        // El tope es lo que todavía se debe, no solo lo que falta acreditar: en una factura ya
+        // cobrada entera no cabe ninguna nota de crédito. El padre está bloqueado, así que un
+        // pago simultáneo espera y lo pagado que se lee acá es el definitivo.
         if (tipoDocumento == TiposDocumento.NotaCredito)
         {
-            var acreditado = await db.DocumentosFinancieros
-                .Where(d => d.ReferenceDocumentId == padre.Id
-                            && d.DocumentType == TiposDocumento.NotaCredito
-                            && d.Status != DocumentoFinanciero.Anulado)
-                .SumAsync(d => (decimal?)d.TotalAmount) ?? 0m;
-
-            var disponible = padre.TotalAmount - acreditado;
+            var saldo = (await saldos.DeDocumentosAsync([padre.Id]))[padre.Id];
+            var disponible = saldo.TotalAmount + saldo.DebitNotesAmount - saldo.CreditNotesAmount - saldo.PaidAmount;
             if (montoTotal > disponible)
             {
                 throw new NotasCreditoExcedenDocumentoException(disponible);

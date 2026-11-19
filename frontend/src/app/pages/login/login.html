@@ -10,7 +10,8 @@
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       @if (sesionExpirada() && !errorMessage()) {
         <div class="form-alert" role="status">
-          Tu sesión expiró por seguridad. Vuelve a iniciar sesión para continuar.
+          Cerramos tu sesión por seguridad: venció o tu contraseña se cambió en otro dispositivo.
+          Vuelve a iniciar sesión para continuar.
         </div>
       }
       @if (passwordRestablecida() && !errorMessage()) {

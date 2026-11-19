@@ -20,8 +20,9 @@ export class Login {
   protected readonly errorMessage = signal<string | null>(null);
 
   /**
-   * Llegó acá porque se le venció la sesión, no porque quisiera entrar. Sin este aviso el
-   * login aparece en blanco y parece que la aplicación lo expulsó sin motivo.
+   * Llegó acá porque el backend dejó de aceptar su sesión (venció, cambió la contraseña en
+   * otro dispositivo o desactivaron su usuario), no porque quisiera entrar. Sin este aviso
+   * el login aparece en blanco y parece que la aplicación lo expulsó sin motivo.
    */
   protected readonly sesionExpirada = signal(
     inject(ActivatedRoute).snapshot.queryParamMap.has('sesionExpirada')

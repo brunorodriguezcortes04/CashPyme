@@ -28,6 +28,13 @@ export function apiError(error: HttpErrorResponse) {
     return throwError(() => new Error(error.error.message));
   }
 
+  // Límite de intentos o cuenta bloqueada un rato: el backend manda su mensaje y sale por el
+  // if de arriba. Si el 429 llega sin cuerpo, el genérico de abajo mandaría a revisar unos
+  // datos que no tienen nada malo.
+  if (error.status === 429) {
+    return throwError(() => new Error('Hiciste demasiados intentos. Espera unos minutos e inténtalo de nuevo.'));
+  }
+
   // Un 401 SIN cuerpo no lo produjo la aplicación sino el middleware del JWT: token vencido
   // o inválido. Las credenciales incorrectas del login sí traen mensaje, así que salen por
   // el if de arriba y conservan el suyo.

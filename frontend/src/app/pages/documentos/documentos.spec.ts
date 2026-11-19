@@ -6,6 +6,7 @@ import { FormGroup } from '@angular/forms';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { TipoCuentaDocumento } from '../../core/catalogos.service';
 import { Documento } from '../../core/documentos.service';
+import { enDias } from '../../core/fechas';
 import { Documentos } from './documentos';
 
 /**
@@ -82,14 +83,6 @@ const TERCERO = {
   direccion: null,
   activo: true
 };
-
-function enDias(dias: number): string {
-  const fecha = new Date();
-  fecha.setDate(fecha.getDate() + dias);
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  return `${fecha.getFullYear()}-${mes}-${dia}`;
-}
 
 function documentoDe(sobrescribe: Partial<Documento> = {}): Documento {
   const montoTotal = sobrescribe.montoTotal ?? 119000;
@@ -224,6 +217,49 @@ describe.each([
     expect(listado.request.params.get('situacion')).toBe('vencida');
     expect(listado.request.params.get('tipoCuenta')).toBe(tipoCuenta);
     listado.flush(pagina([]));
+  });
+
+  it('con dos filtros seguidos descarta el primero y lista el último elegido', () => {
+    const { fixture, http, texto } = crearPantalla(tipoCuenta);
+
+    const botones = Array.from(
+      fixture.nativeElement.querySelectorAll('.filtro-situacion button') as NodeListOf<HTMLButtonElement>
+    );
+    botones.find((b) => b.textContent?.includes('Vencidas'))!.click();
+    botones.find((b) => b.textContent?.includes('Pendientes'))!.click();
+
+    // El pedido de las vencidas queda cancelado: su respuesta ya no puede pisar a las pendientes.
+    const listados = http.match((r) => r.method === 'GET' && r.url === '/api/documentos');
+    expect(listados.map((p) => [p.request.params.get('situacion'), p.cancelled]))
+      .toEqual([['vencida', true], ['pendiente', false]]);
+    const resumenes = http.match((r) => r.url === '/api/documentos/resumen');
+    expect(resumenes.map((p) => p.cancelled)).toEqual([true, false]);
+
+    resumenes[1].flush(RESUMEN);
+    listados[1].flush(pagina([documentoDe({ tipoCuenta, numeroDocumento: 'PEND-7' })]));
+
+    fixture.detectChanges();
+    expect(texto()).toContain('PEND-7');
+  });
+
+  it('si el listado falla muestra el motivo y el filtro siguiente vuelve a pedirlo', () => {
+    const { fixture, http, texto } = crearPantalla(tipoCuenta);
+    const todas = fixture.nativeElement.querySelector('.filtro-situacion button') as HTMLButtonElement;
+
+    todas.click();
+    http.expectOne((r) => r.method === 'GET' && r.url === '/api/documentos')
+      .flush({ message: 'No pudimos cargar el listado.' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+    expect(texto()).toContain('No pudimos cargar el listado.');
+
+    todas.click();
+    // Las recargas de contadores que quedaron sin responder se cancelan al pedir la siguiente.
+    http.match((r) => r.url === '/api/documentos/resumen').filter((p) => !p.cancelled).forEach((p) => p.flush(RESUMEN));
+    http.expectOne((r) => r.method === 'GET' && r.url === '/api/documentos')
+      .flush(pagina([documentoDe({ tipoCuenta, numeroDocumento: 'OTRA-9' })]));
+
+    fixture.detectChanges();
+    expect(texto()).toContain('OTRA-9');
   });
 
   it('ofrece los terceros que devuelve el backend, sin filtrarlos', () => {

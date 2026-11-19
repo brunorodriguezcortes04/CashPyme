@@ -7,9 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Backend.Controllers;
 
 /// <summary>
-/// Proyección de caja a 30 y 60 días guardada para el dashboard. Pide DocumentosVer, como el
-/// Resumen y las alertas: la proyección sale de las cuentas por cobrar y por pagar, que el
-/// Operador no ve en ninguna otra pantalla.
+/// Proyección de caja a 30 y 60 días guardada para el dashboard. Verla pide DocumentosVer, como
+/// el Resumen y las alertas: la proyección sale de las cuentas por cobrar y por pagar, que el
+/// Operador no ve en ninguna otra pantalla. Generarla escribe en la base, así que pide el permiso
+/// de gestionar documentos.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -26,14 +27,15 @@ public class ProyeccionController(ProyeccionFlujoCajaService proyeccionService) 
     }
 
     /// <summary>
-    /// Genera una proyección nueva con los datos de ahora, la guarda y la devuelve. También
-    /// actualiza la alerta de caja negativa con ese resultado.
+    /// Pone al día la proyección con los datos de ahora y la devuelve. Si nada cambió desde la
+    /// última, devuelve esa en vez de guardar otra igual. También actualiza la alerta de caja
+    /// negativa con ese resultado.
     /// </summary>
     [HttpPost]
-    [RequierePermiso(Permiso.DocumentosVer)]
+    [RequierePermiso(Permiso.DocumentosGestionar)]
     public async Task<ActionResult<ProyeccionResponse>> Generar()
     {
-        var result = await proyeccionService.GenerarAsync(User.GetCompanyId());
+        var result = await proyeccionService.ActualizarAsync(User.GetCompanyId());
         return Ok(result);
     }
 }

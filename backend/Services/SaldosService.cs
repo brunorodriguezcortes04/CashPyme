@@ -26,8 +26,17 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
         return HoyDe(zona);
     }
 
+    /// <summary>
+    /// Saldo de una lista fija de documentos. Es la que conviene cuando además se leen las filas:
+    /// primero las filas y después los saldos de esos ids. Con una consulta, cada una se corre por
+    /// separado, y un documento creado o anulado entre las dos queda en una y no en la otra.
+    /// </summary>
     public Task<Dictionary<long, SaldoDocumento>> DeDocumentosAsync(IReadOnlyCollection<long> ids)
         => DeDocumentosAsync(db.DocumentosFinancieros.Where(d => ids.Contains(d.Id)));
+
+    /// <summary>Saldo de una lista fija de cuentas (mismo motivo que la de documentos).</summary>
+    public Task<Dictionary<long, decimal>> DeCuentasAsync(IReadOnlyCollection<long> ids, DateOnly? hasta = null)
+        => DeCuentasAsync(db.CuentasFinancieras.Where(c => ids.Contains(c.Id)), hasta);
 
     /// <summary>
     /// Saldo neteado de cada documento de la consulta: monto, lo pagado con movimientos

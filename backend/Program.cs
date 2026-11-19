@@ -55,6 +55,8 @@ builder.Services.AddOptions<JwtOptions>()
         "Jwt:Key must be configured and at least 32 characters long.")
     .ValidateOnStart();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSingleton<IntentosLoginService>();
+builder.Services.AddScoped<ValidadorSesion>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<TercerosService>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -66,6 +68,8 @@ builder.Services.AddScoped<PagosService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportesService>();
 builder.Services.AddScoped<AlertasService>();
+builder.Services.AddScoped<HuellasEmpresaService>();
+builder.Services.AddSingleton<RecalculosPendientes>();
 builder.Services.AddScoped<ProyeccionFlujoCajaService>();
 builder.Services.AddScoped<VencimientosService>();
 builder.Services.AddScoped<EmpresaService>();
@@ -105,7 +109,8 @@ builder.Services.AddScoped<NotificacionesService>();
 builder.Services.AddHostedService<NotificacionesWorker>();
 builder.Services.AddHostedService<VencimientosWorker>();
 builder.Services.AddHostedService<ProyeccionesWorker>();
-builder.Services.AddCashPymeRateLimits();
+// En producción la API corre en Render, siempre detrás de Cloudflare (ver RateLimits.IpCliente).
+builder.Services.AddCashPymeRateLimits(detrasDeCloudflare: !builder.Environment.IsDevelopment());
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -123,6 +128,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSection["Issuer"],
             ValidAudience = jwtSection["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"] ?? string.Empty))
+        };
+        // Firma y vencimiento no alcanzan: el token también deja de valer si la persona cambió
+        // la contraseña o la desactivaron (ver ValidadorSesion). Corre en cada request
+        // autenticado, también en los que solo piden [Authorize].
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var validador = context.HttpContext.RequestServices.GetRequiredService<ValidadorSesion>();
+                if (!await validador.EsValidaAsync(context.Principal!, context.HttpContext.RequestAborted))
+                {
+                    context.Fail("La sesión ya no es válida.");
+                }
+            }
         };
     });
 builder.Services.AddAuthorization();
@@ -152,9 +171,12 @@ if (!app.Environment.IsDevelopment())
     // petición como HTTP puro. Sin confiar en X-Forwarded-Proto, UseHttpsRedirection()
     // ve siempre "http" y redirige sin parar. KnownNetworks/KnownProxies se limpian
     // porque el proxy de Render no está en un rango fijo conocido de antemano.
+    // X-Forwarded-For NO se toma: el proxy de Render conserva el que manda el cliente, así
+    // que RemoteIpAddress quedaba en manos de quien hace la petición. La IP del cliente para
+    // los límites sale de Cloudflare (RateLimits.IpCliente).
     var forwardedHeadersOptions = new ForwardedHeadersOptions
     {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        ForwardedHeaders = ForwardedHeaders.XForwardedProto
     };
     forwardedHeadersOptions.KnownNetworks.Clear();
     forwardedHeadersOptions.KnownProxies.Clear();

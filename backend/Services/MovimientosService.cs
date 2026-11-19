@@ -229,7 +229,7 @@ public class MovimientosService(AppDbContext db, SaldosService saldos)
             // movimiento espera, y el control de abajo ve si quedó con pagos. Sin el bloqueo, el
             // pago podría entrar entre el control y el guardado (antes lo atajaba el trigger
             // fn_validar_movimiento).
-            await db.BloquearAsync("movimiento_financiero", "id_movimiento", [idMovimiento]);
+            await db.BloquearDeEmpresaAsync(companyId, "movimiento_financiero", "id_movimiento", [idMovimiento]);
             var movimiento = await BuscarAsync(companyId, idMovimiento);
 
             if (movimiento.Status == MovimientoFinanciero.Anulado)
@@ -285,8 +285,10 @@ public class MovimientosService(AppDbContext db, SaldosService saldos)
             // movimiento. Con el orden cruzado, un pago y una anulación simultáneos sobre el mismo
             // movimiento podían quedar esperándose mutuamente (deadlock). Un pago que entre en el
             // medio espera a que termine la anulación, y entonces lo ve anulado y se rechaza.
-            await db.BloquearAsync("documento_financiero", "id_documento", await DocumentosPagadosAsync(idMovimiento));
-            await db.BloquearAsync("movimiento_financiero", "id_movimiento", [idMovimiento]);
+            // Solo filas de esta empresa: con el id de un movimiento ajeno no se bloquea nada y
+            // BuscarAsync responde que no existe.
+            await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", await DocumentosPagadosAsync(idMovimiento));
+            await db.BloquearDeEmpresaAsync(companyId, "movimiento_financiero", "id_movimiento", [idMovimiento]);
             var movimiento = await BuscarAsync(companyId, idMovimiento);
 
             if (movimiento.Status == MovimientoFinanciero.Anulado)

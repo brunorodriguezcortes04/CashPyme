@@ -178,7 +178,8 @@ describe('ProyeccionCaja', () => {
     expect(avisos.length).toBe(1);
   });
 
-  it('si no se puede generar, deja la anterior y muestra el error', () => {
+  // Generar pide un permiso de escritura que ver no pide: el botón está, pero el backend puede decir que no.
+  it('si el rol no puede generar, deja la anterior y dice a quién pedírselo', () => {
     responderUltima(proyeccionDe());
     texto();
     const avisos: unknown[] = [];
@@ -191,10 +192,27 @@ describe('ProyeccionCaja', () => {
     );
 
     const contenido = texto();
-    // El mensaje de un 403 lo arma apiError.
-    expect(contenido).toContain('Tu rol no tiene permiso');
+    expect(fixture.nativeElement.querySelector('.form-alert[role="alert"]').textContent).toContain(
+      'Tu rol no tiene permiso para generar la proyección. Pídele a quien administra la empresa que la actualice.'
+    );
     expect(contenido).toContain('Generada el 23 de octubre');
     expect(avisos.length).toBe(0);
+  });
+
+  it('si generar falla por otra cosa, deja la anterior y muestra el error', () => {
+    responderUltima(proyeccionDe());
+    texto();
+
+    boton('Actualizar proyección').click();
+    http.expectOne((r) => r.url === '/api/proyeccion').flush(
+      { message: 'Error inesperado.' },
+      { status: 500, statusText: 'Server Error' }
+    );
+
+    const contenido = texto();
+    expect(contenido).toContain('Tuvimos un problema de nuestro lado');
+    expect(contenido).toContain('Generada el 23 de octubre');
+    expect(boton('Actualizar proyección').disabled).toBe(false);
   });
 
   it('si no se puede cargar, deja reintentar', () => {

@@ -54,10 +54,12 @@ public static class PersistenciaExtensions
 
     /// <summary>
     /// Guarda traduciendo el choque contra un índice único, sin auditoría: para las tablas que
-    /// no se auditan (usuario, empresa, usuario_empresa, tercero, alerta).
+    /// no se auditan (usuario, empresa, usuario_empresa, tercero, alerta). Con restriccion, solo
+    /// traduce el choque contra ese índice: cualquier otro sigue siendo un error inesperado.
     /// </summary>
-    public static Task SaveChangesTraducidoAsync(this AppDbContext db, Func<ApiException> siDuplicado)
-        => TraducirUnicidadAsync(async () => await db.SaveChangesAsync(), siDuplicado);
+    public static Task SaveChangesTraducidoAsync(
+        this AppDbContext db, Func<ApiException> siDuplicado, string? restriccion = null)
+        => TraducirUnicidadAsync(async () => await db.SaveChangesAsync(), siDuplicado, restriccion);
 
     /// <summary>
     /// Corre el trabajo dentro de una transacción: la que ya esté abierta o una nueva que se
@@ -90,8 +92,26 @@ public static class PersistenciaExtensions
     /// espera a que el primero termine y recién entonces ve lo que ya se pagó. Tiene que
     /// llamarse dentro de EnTransaccionAsync; fuera de una transacción el bloqueo duraría lo que
     /// dura la consulta y no protegería nada.
+    ///
+    /// Bloquea filas de cualquier empresa: es para los jobs que recorren todas. Lo que llega
+    /// desde un request usa BloquearDeEmpresaAsync.
     /// </summary>
-    public static async Task BloquearAsync(this AppDbContext db, string tabla, string columnaId, IEnumerable<long> ids)
+    public static Task BloquearAsync(this AppDbContext db, string tabla, string columnaId, IEnumerable<long> ids)
+        => BloquearAsync(db, tabla, columnaId, ids, idEmpresa: null);
+
+    /// <summary>
+    /// Igual que BloquearAsync, pero solo bloquea las filas de esa empresa. Los id vienen del
+    /// cliente: sin el filtro, alguien de otra empresa podía mandar ids ajenos y dejar
+    /// esperando los pagos de esa empresa hasta que su propio 404 deshiciera la transacción.
+    /// Una fila de otra empresa simplemente no se bloquea, y la búsqueda que viene después (que
+    /// también filtra por empresa) responde que no existe.
+    /// </summary>
+    public static Task BloquearDeEmpresaAsync(
+        this AppDbContext db, long idEmpresa, string tabla, string columnaId, IEnumerable<long> ids)
+        => BloquearAsync(db, tabla, columnaId, ids, idEmpresa);
+
+    private static async Task BloquearAsync(
+        AppDbContext db, string tabla, string columnaId, IEnumerable<long> ids, long? idEmpresa)
     {
         if (db.Database.CurrentTransaction is null)
         {
@@ -108,9 +128,19 @@ public static class PersistenciaExtensions
         // parámetro. Se bloquean siempre en el mismo orden (por id) para no provocar deadlocks
         // entre dos operaciones que toquen las mismas filas.
 #pragma warning disable EF1002
-        await db.Database.ExecuteSqlRawAsync(
-            $"SELECT 1 FROM {tabla} WHERE {columnaId} = ANY(@ids) ORDER BY {columnaId} FOR UPDATE",
-            new NpgsqlParameter("ids", lista));
+        if (idEmpresa is null)
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                $"SELECT 1 FROM {tabla} WHERE {columnaId} = ANY(@ids) ORDER BY {columnaId} FOR UPDATE",
+                new NpgsqlParameter("ids", lista));
+        }
+        else
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                $"SELECT 1 FROM {tabla} WHERE {columnaId} = ANY(@ids) AND id_empresa = @empresa ORDER BY {columnaId} FOR UPDATE",
+                new NpgsqlParameter("ids", lista),
+                new NpgsqlParameter("empresa", idEmpresa.Value));
+        }
 #pragma warning restore EF1002
     }
 
@@ -119,14 +149,16 @@ public static class PersistenciaExtensions
     /// la comprobación y solo una sobrevivir al UNIQUE. Esta es la red que atrapa esa carrera
     /// y la devuelve como un mensaje entendible en vez de un 500.
     /// </summary>
-    private static async Task TraducirUnicidadAsync(Func<Task> guardar, Func<ApiException> siDuplicado)
+    private static async Task TraducirUnicidadAsync(
+        Func<Task> guardar, Func<ApiException> siDuplicado, string? restriccion = null)
     {
         try
         {
             await guardar();
         }
         catch (DbUpdateException ex)
-            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg
+                  && (restriccion is null || pg.ConstraintName == restriccion))
         {
             throw siDuplicado();
         }

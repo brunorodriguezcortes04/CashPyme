@@ -18,9 +18,39 @@ public class ProyeccionFlujoCajaService(
     AppDbContext db,
     ProyeccionCajaService proyeccion,
     AlertasService alertas,
+    HuellasEmpresaService huellas,
+    RecalculosPendientes recalculos,
     TimeProvider reloj,
     ILogger<ProyeccionFlujoCajaService> logger)
 {
+    /// <summary>
+    /// Generaciones que se conservan por empresa. Las pantallas y la alerta solo leen la última;
+    /// las anteriores quedan como historia reciente para comparar contra lo que pasó de verdad
+    /// (analitica/MODELO.md). Con la generación diaria del job son cerca de un mes, y sin límite
+    /// la tabla crecía unas 92 filas por cada clic en "Actualizar".
+    /// </summary>
+    public const int GeneracionesConservadas = 30;
+
+    /// <summary>
+    /// Lo que pide la pantalla: la proyección al día. Si los datos de la empresa no cambiaron
+    /// desde la última generación (RecalculosPendientes), recalcular daría lo mismo y se devuelve
+    /// esa en vez de guardar otra igual: apretar "Actualizar" muchas veces ya no llena la tabla.
+    /// </summary>
+    public async Task<ProyeccionResponse> ActualizarAsync(long companyId)
+    {
+        var huella = (await huellas.DeEmpresasActivasAsync(companyId)).GetValueOrDefault(companyId);
+
+        if (!recalculos.HaceFalta(RecalculosPendientes.Proyeccion, companyId, huella)
+            && await ObtenerUltimaAsync(companyId) is { } vigente)
+        {
+            return vigente;
+        }
+
+        var generada = await GenerarAsync(companyId);
+        recalculos.Registrar(RecalculosPendientes.Proyeccion, companyId, huella);
+        return generada;
+    }
+
     public async Task<ProyeccionResponse> GenerarAsync(long companyId)
     {
         var dias = await proyeccion.CalcularAsync(companyId, ProyeccionGuardada.HorizonteMayor);
@@ -45,13 +75,37 @@ public class ProyeccionFlujoCajaService(
             }))
             .ToList();
 
-        db.ProyeccionesFlujoCaja.AddRange(filas);
-        await db.SaveChangesAsync();
+        await db.EnTransaccionAsync(async () =>
+        {
+            db.ProyeccionesFlujoCaja.AddRange(filas);
+            await db.SaveChangesAsync();
+            await BorrarGeneracionesViejasAsync(companyId);
+        });
 
         // Mismo resultado que se acaba de guardar, en todo el horizonte guardado.
         await alertas.ActualizarCajaNegativaAsync(companyId, dias);
 
         return Armar(generada, modelo, filas);
+    }
+
+    /// <summary>Deja solo las últimas GeneracionesConservadas de la empresa.</summary>
+    private async Task BorrarGeneracionesViejasAsync(long companyId)
+    {
+        var limite = await db.ProyeccionesFlujoCaja
+            .Where(p => p.CompanyId == companyId)
+            .Select(p => p.GeneratedAtUtc)
+            .Distinct()
+            .OrderByDescending(g => g)
+            .Skip(GeneracionesConservadas - 1)
+            .Select(g => (DateTime?)g)
+            .FirstOrDefaultAsync();
+
+        if (limite is not null)
+        {
+            await db.ProyeccionesFlujoCaja
+                .Where(p => p.CompanyId == companyId && p.GeneratedAtUtc < limite)
+                .ExecuteDeleteAsync();
+        }
     }
 
     /// <summary>La última generación de la empresa, o null si todavía no se generó ninguna.</summary>

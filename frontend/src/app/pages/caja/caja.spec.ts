@@ -97,4 +97,61 @@ describe('Caja', () => {
     pedido.flush({ ...indicadores, desde: '2026-09-01' });
     http.expectOne((r) => r.url === '/api/dashboard/caja').flush({ ...caja, desde: '2026-09-01', hasta: '2026-09-30' });
   });
+
+  it('con dos cambios de mes seguidos descarta el primero y queda en el último elegido', () => {
+    http.expectOne((r) => r.url === '/api/dashboard/indicadores').flush(indicadores);
+    http.expectOne((r) => r.url === '/api/dashboard/caja').flush(caja);
+    texto();
+
+    // Dos clics antes de que la pantalla alcance a deshabilitar el botón.
+    const anterior = fixture.nativeElement.querySelector('[aria-label="Mes anterior"]') as HTMLButtonElement;
+    anterior.click();
+    anterior.click();
+
+    // Los pedidos de septiembre quedan cancelados: su respuesta ya no puede pisar a la de agosto.
+    const pedidosCaja = http.match((r) => r.url === '/api/dashboard/caja');
+    const pedidosIndicadores = http.match((r) => r.url === '/api/dashboard/indicadores');
+    expect(pedidosCaja.map((p) => [p.request.params.get('mes'), p.cancelled])).toEqual([['9', true], ['8', false]]);
+    expect(pedidosIndicadores.map((p) => [p.request.params.get('mes'), p.cancelled])).toEqual([['9', true], ['8', false]]);
+
+    const periodoDelGrafico = () => {
+      fixture.detectChanges();
+      return fixture.nativeElement.querySelector('svg').getAttribute('aria-label') as string;
+    };
+
+    // La caja no se muestra sola: espera a los indicadores de su mismo mes.
+    pedidosCaja[1].flush({ ...caja, desde: '2026-08-01', hasta: '2026-08-31', flujoDiario: [] });
+    expect(periodoDelGrafico()).toContain('del 2026-10-01 al 2026-10-31');
+
+    pedidosIndicadores[1].flush({ ...indicadores, ingresos: { ...indicadores.ingresos, anterior: 777000 } });
+    expect(periodoDelGrafico()).toContain('del 2026-08-01 al 2026-08-31');
+    // El separador de miles depende del locale del entorno, así que se aceptan los dos.
+    expect(texto()).toMatch(/antes \$777[.,]000/);
+  });
+
+  it('si fallan solo los indicadores muestra la caja con el aviso', () => {
+    http.expectOne((r) => r.url === '/api/dashboard/indicadores')
+      .flush({ message: 'No pudimos calcular los indicadores.' }, { status: 400, statusText: 'Bad Request' });
+    http.expectOne((r) => r.url === '/api/dashboard/caja').flush(caja);
+
+    const contenido = texto();
+    expect(contenido).toContain('Saldo total en caja');
+    expect(contenido).toContain('No pudimos calcular los indicadores.');
+  });
+
+  it('después de un error, Reintentar vuelve a pedir el mismo período', () => {
+    http.expectOne((r) => r.url === '/api/dashboard/caja')
+      .flush({ message: 'No pudimos cargar la caja.' }, { status: 400, statusText: 'Bad Request' });
+    // Sin caja no hay nada que mostrar: el pedido de indicadores se cancela.
+    expect(http.match((r) => r.url === '/api/dashboard/indicadores').map((p) => p.cancelled)).toEqual([true]);
+    expect(texto()).toContain('No pudimos cargar la caja.');
+
+    (fixture.nativeElement.querySelector('.form-alert button') as HTMLButtonElement).click();
+
+    http.expectOne((r) => r.url === '/api/dashboard/indicadores').flush(indicadores);
+    http.expectOne((r) => r.url === '/api/dashboard/caja').flush(caja);
+    const contenido = texto();
+    expect(contenido).not.toContain('No pudimos cargar la caja.');
+    expect(contenido).toContain('Saldo total en caja');
+  });
 });

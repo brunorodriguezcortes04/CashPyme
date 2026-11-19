@@ -160,11 +160,12 @@ public class NotificacionesService(
         var hoy = await saldos.HoyDeEmpresaAsync(idEmpresa);
         var (ingresos, egresos) = await saldos.FlujoEntreAsync(idEmpresa, hoy.AddDays(-6), hoy);
 
-        var consulta = db.DocumentosFinancieros.Where(d => d.CompanyId == idEmpresa);
-        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
-        var documentos = (await consulta
-                .Select(d => new { d.Id, d.AccountType, d.DueDate })
-                .ToListAsync(ct))
+        var filas = await db.DocumentosFinancieros
+            .Where(d => d.CompanyId == idEmpresa)
+            .Select(d => new { d.Id, d.AccountType, d.DueDate })
+            .ToListAsync(ct);
+        var saldosDoc = await saldos.DeDocumentosAsync(filas.Select(d => d.Id).ToList());
+        var documentos = filas
             .Select(d => new { d.AccountType, d.DueDate, Saldo = saldosDoc[d.Id] })
             .ToList();
 

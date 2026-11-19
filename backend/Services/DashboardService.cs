@@ -25,10 +25,10 @@ public class DashboardService(AppDbContext db, SaldosService saldos)
                 || d.Status == DocumentoFinanciero.PagadoParcial
                 || d.Status == DocumentoFinanciero.Vencido));
 
-        var saldosDoc = await saldos.DeDocumentosAsync(pendientes);
         var documentos = await pendientes
             .Select(d => new { d.Id, d.AccountType, d.Status })
             .ToListAsync();
+        var saldosDoc = await saldos.DeDocumentosAsync(documentos.Select(d => d.Id).ToList());
 
         var r = SaldoNeto.Calcular(caja, documentos.Select(d =>
             new DocumentoParaSaldoNeto(d.AccountType, d.Status, saldosDoc[d.Id].OutstandingAmount)));
@@ -48,11 +48,11 @@ public class DashboardService(AppDbContext db, SaldosService saldos)
 
         // Criterio 2: solo las cuentas activas entran al saldo total.
         var activas = db.CuentasFinancieras.Where(c => c.CompanyId == companyId && c.IsActive);
-        var saldosCuenta = await saldos.DeCuentasAsync(activas);
         var cuentas = await activas
             .OrderBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Type })
             .ToListAsync();
+        var saldosCuenta = await saldos.DeCuentasAsync(cuentas.Select(c => c.Id).ToList());
 
         // Criterio 1: ingresos y egresos salen del mismo flujo diario que se muestra.
         var flujo = await saldos.FlujoDiarioAsync(companyId, desde, hasta);

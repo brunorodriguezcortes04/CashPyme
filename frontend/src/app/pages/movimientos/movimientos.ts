@@ -3,10 +3,12 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { EMPTY, Subject, catchError, map, switchMap } from 'rxjs';
 import { mensajeDeError } from '../../core/api-error';
 import { guardarArchivo } from '../../core/descargas';
 import { CatalogosService, OpcionCatalogo, TipoMovimiento } from '../../core/catalogos.service';
 import { Cuenta, CuentasService } from '../../core/cuentas.service';
+import { hoy } from '../../core/fechas';
 import {
   Categoria,
   FiltrosMovimientos,
@@ -14,13 +16,6 @@ import {
   MovimientosService,
   RequiereConfirmacionError
 } from '../../core/movimientos.service';
-
-function hoy(): string {
-  const ahora = new Date();
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-  const dia = String(ahora.getDate()).padStart(2, '0');
-  return `${ahora.getFullYear()}-${mes}-${dia}`;
-}
 
 @Component({
   selector: 'app-movimientos',
@@ -84,6 +79,13 @@ export class Movimientos {
     Math.max(1, Math.ceil(this.totalResultados() / this.tamanoPagina))
   );
 
+  /**
+   * Pedidos de recarga del listado. Cada uno cancela al anterior: si se cambia de filtro, de
+   * página o de tipo antes de que llegue la respuesta, la vieja se descarta en vez de pisar a
+   * la de lo que quedó elegido.
+   */
+  private readonly recarga = new Subject<void>();
+
   protected readonly form = this.formBuilder.nonNullable.group({
     fecha: [hoy(), [Validators.required]],
     monto: [null as number | null, [Validators.required, Validators.min(0.01)]],
@@ -118,17 +120,92 @@ export class Movimientos {
       error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
     });
 
-    // Ingresos y egresos comparten ruta: al cambiar de tipo se recargan los datos.
-    inject(ActivatedRoute)
-      .paramMap.pipe(takeUntilDestroyed())
-      .subscribe((params) => {
-        this.tipo.set(params.get('tipo') ?? '');
-        this.cancelarEdicion();
-        this.pagina.set(1);
-        // Al cambiar de ingresos a egresos las categorías ya no aplican: se parte limpio.
-        this.filtrosForm.reset({ fechaDesde: '', fechaHasta: '', idCategoria: '', idCuenta: '' });
-        this.cargarDatos();
+    this.recarga
+      .pipe(
+        switchMap(() => {
+          const f = this.filtrosForm.getRawValue();
+          const filtros: FiltrosMovimientos = {
+            tipo: this.tipo(),
+            fechaDesde: f.fechaDesde || undefined,
+            fechaHasta: f.fechaHasta || undefined,
+            idCategoria: f.idCategoria ? Number(f.idCategoria) : undefined,
+            idCuenta: f.idCuenta ? Number(f.idCuenta) : undefined
+          };
+
+          return this.movimientosService
+            .listMovimientos({ ...filtros, pagina: this.pagina(), tamanoPagina: this.tamanoPagina })
+            .pipe(
+              map((resultado) => ({ filtros, resultado })),
+              // El error se atiende acá adentro: si saliera del switchMap cerraría el flujo y
+              // el listado no volvería a cargar.
+              catchError((error: unknown) => {
+                this.errorListado.set(mensajeDeError(error));
+                this.movimientos.set([]);
+                this.isLoading.set(false);
+                return EMPTY;
+              })
+            );
+        }),
+        takeUntilDestroyed()
+      )
+      .subscribe(({ filtros, resultado }) => {
+        this.totalResultados.set(resultado.totalResultados);
+
+        // La página pedida puede haber quedado fuera de rango: pasa al anular el último
+        // movimiento de la última página. Los controles de paginación solo se dibujan
+        // cuando hay filas, así que sin esto se queda atrapado en una página vacía sin
+        // botón para volver. Retrocede una sola vez: ultimaPagina ya es válida.
+        const ultimaPagina = Math.max(1, Math.ceil(resultado.totalResultados / this.tamanoPagina));
+        if (resultado.items.length === 0 && this.pagina() > ultimaPagina) {
+          this.pagina.set(ultimaPagina);
+          this.cargarMovimientos();
+          return;
+        }
+
+        // Los campos muestran el rango que de verdad se aplicó (el mes en curso si no se pidió otro).
+        this.filtrosForm.patchValue(
+          { fechaDesde: resultado.fechaDesde ?? '', fechaHasta: resultado.fechaHasta ?? '' },
+          { emitEvent: false }
+        );
+        this.periodoPorDefecto.set(resultado.periodoPorDefecto);
+        this.filtrosAplicados.set({
+          ...filtros,
+          fechaDesde: resultado.fechaDesde ?? undefined,
+          fechaHasta: resultado.fechaHasta ?? undefined
+        });
+        this.movimientos.set(resultado.items);
+        this.isLoading.set(false);
       });
+
+    const tipoDeLaRuta = inject(ActivatedRoute).paramMap.pipe(
+      map((params) => params.get('tipo') ?? '')
+    );
+
+    // Ingresos y egresos comparten ruta: al cambiar de tipo se recargan los datos.
+    tipoDeLaRuta.pipe(takeUntilDestroyed()).subscribe((tipo) => {
+      this.tipo.set(tipo);
+      this.cancelarEdicion();
+      this.pagina.set(1);
+      // Al cambiar de ingresos a egresos las categorías ya no aplican: se parte limpio.
+      this.filtrosForm.reset({ fechaDesde: '', fechaHasta: '', idCategoria: '', idCuenta: '' });
+      this.cargarDatos();
+    });
+
+    // Las categorías son del tipo de la pantalla: si se cambia de tipo antes de que lleguen,
+    // las del anterior se descartan.
+    tipoDeLaRuta
+      .pipe(
+        switchMap((tipo) =>
+          this.movimientosService.listCategorias(tipo).pipe(
+            catchError((error: unknown) => {
+              this.errorMessage.set(mensajeDeError(error));
+              return EMPTY;
+            })
+          )
+        ),
+        takeUntilDestroyed()
+      )
+      .subscribe((categorias) => this.categorias.set(categorias));
   }
 
   protected submit(): void {
@@ -334,11 +411,6 @@ export class Movimientos {
       error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
     });
 
-    this.movimientosService.listCategorias(this.tipo()).subscribe({
-      next: (categorias) => this.categorias.set(categorias),
-      error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
-    });
-
     this.cargarMovimientos();
   }
 
@@ -349,52 +421,7 @@ export class Movimientos {
   private cargarMovimientos(): void {
     this.isLoading.set(true);
     this.errorListado.set(null);
-    const f = this.filtrosForm.getRawValue();
-    const filtros: FiltrosMovimientos = {
-      tipo: this.tipo(),
-      fechaDesde: f.fechaDesde || undefined,
-      fechaHasta: f.fechaHasta || undefined,
-      idCategoria: f.idCategoria ? Number(f.idCategoria) : undefined,
-      idCuenta: f.idCuenta ? Number(f.idCuenta) : undefined
-    };
-
-    this.movimientosService
-      .listMovimientos({ ...filtros, pagina: this.pagina(), tamanoPagina: this.tamanoPagina })
-      .subscribe({
-        next: (resultado) => {
-          this.totalResultados.set(resultado.totalResultados);
-
-          // La página pedida puede haber quedado fuera de rango: pasa al anular el último
-          // movimiento de la última página. Los controles de paginación solo se dibujan
-          // cuando hay filas, así que sin esto se queda atrapado en una página vacía sin
-          // botón para volver. Retrocede una sola vez: ultimaPagina ya es válida.
-          const ultimaPagina = Math.max(1, Math.ceil(resultado.totalResultados / this.tamanoPagina));
-          if (resultado.items.length === 0 && this.pagina() > ultimaPagina) {
-            this.pagina.set(ultimaPagina);
-            this.cargarMovimientos();
-            return;
-          }
-
-          // Los campos muestran el rango que de verdad se aplicó (el mes en curso si no se pidió otro).
-          this.filtrosForm.patchValue(
-            { fechaDesde: resultado.fechaDesde ?? '', fechaHasta: resultado.fechaHasta ?? '' },
-            { emitEvent: false }
-          );
-          this.periodoPorDefecto.set(resultado.periodoPorDefecto);
-          this.filtrosAplicados.set({
-            ...filtros,
-            fechaDesde: resultado.fechaDesde ?? undefined,
-            fechaHasta: resultado.fechaHasta ?? undefined
-          });
-          this.movimientos.set(resultado.items);
-          this.isLoading.set(false);
-        },
-        error: (error: unknown) => {
-          this.errorListado.set(mensajeDeError(error));
-          this.movimientos.set([]);
-          this.isLoading.set(false);
-        }
-      });
+    this.recarga.next();
   }
 
   private reiniciarFormulario(idCuenta: number | null = null): void {

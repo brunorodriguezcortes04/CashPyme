@@ -97,6 +97,37 @@ describe('Movimientos (exportar)', () => {
     pedido.flush(new Blob(['x']));
   });
 
+  it('con dos filtros seguidos descarta el primero: se exporta el último elegido', () => {
+    interno.filtrosForm.patchValue({ idCuenta: '9' });
+    interno.aplicarFiltros();
+    interno.filtrosForm.patchValue({ idCuenta: '4' });
+    interno.aplicarFiltros();
+
+    // El primer pedido queda cancelado: su respuesta ya no puede pisar al listado del segundo.
+    const listados = http.match((r) => r.url === '/api/movimientos');
+    expect(listados.map((p) => [p.request.params.get('idCuenta'), p.cancelled])).toEqual([['9', true], ['4', false]]);
+    listados[1].flush(pagina());
+
+    interno.exportar('csv');
+
+    const pedido = pedidoExport();
+    expect(pedido.request.params.get('idCuenta')).toBe('4');
+    pedido.flush(new Blob(['x']));
+  });
+
+  it('si el listado falla muestra el motivo y al filtrar de nuevo vuelve a pedirlo', () => {
+    interno.aplicarFiltros();
+    http.expectOne((r) => r.url === '/api/movimientos').flush(
+      { message: 'La fecha de inicio no puede ser posterior a la de término.' },
+      { status: 400, statusText: 'Bad Request' }
+    );
+    expect(texto()).toContain('La fecha de inicio no puede ser posterior a la de término.');
+
+    interno.aplicarFiltros();
+    http.expectOne((r) => r.url === '/api/movimientos').flush(pagina());
+    expect(texto()).not.toContain('La fecha de inicio no puede ser posterior a la de término.');
+  });
+
   it('muestra el mensaje del backend si la exportación falla', async () => {
     interno.exportar('csv');
 

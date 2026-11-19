@@ -18,8 +18,8 @@ public record RestablecerPasswordRequest(
 );
 
 public record LoginRequest(
-    [Required, EmailAddress] string Email,
-    [Required] string Password,
+    [Required, EmailAddress, MaxLength(150)] string Email,
+    [Required, MaxLength(100)] string Password,
     bool RememberMe
 );
 
@@ -29,7 +29,7 @@ public record LoginRequest(
 /// de 8 es el mismo del registro.
 /// </summary>
 public record CambiarPasswordRequest(
-    [Required] string PasswordActual,
+    [Required, MaxLength(100)] string PasswordActual,
     [Required, MinLength(8), MaxLength(100)] string PasswordNueva
 );
 

@@ -1,5 +1,7 @@
 import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EMPTY, Subject, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { mensajeDeError } from '../../core/api-error';
 import { CajaActual, DashboardService, Indicadores, Variacion } from '../../core/dashboard.service';
 
@@ -54,6 +56,13 @@ export class Caja {
   private readonly mesActual = signal('');
   /** Día bajo el mouse en el gráfico (índice en barras), o null. */
   protected readonly diaActivo = signal<number | null>(null);
+
+  /**
+   * Períodos pedidos ("2026-10", o vacío para el mes en curso). Cada pedido cancela al anterior:
+   * con dos cambios de mes seguidos la pantalla queda en el último, llegue cuando llegue la
+   * respuesta del primero.
+   */
+  private readonly periodoPedido = new Subject<string>();
 
   protected readonly chartWidth = CHART_WIDTH;
   protected readonly chartHeight = CHART_HEIGHT;
@@ -162,6 +171,45 @@ export class Caja {
   });
 
   constructor() {
+    this.periodoPedido
+      .pipe(
+        switchMap((periodo) => {
+          const [anio, mes] = periodo ? periodo.split('-').map(Number) : [undefined, undefined];
+
+          // Se esperan las dos respuestas para mostrarlas juntas: caja e indicadores siempre
+          // son del mismo período.
+          return forkJoin({
+            caja: this.dashboardService.getCajaActual(anio, mes),
+            // Si solo fallan los indicadores, la caja se muestra igual y el aviso va en su lugar.
+            indicadores: this.dashboardService.getIndicadores(anio, mes).pipe(
+              map((datos) => ({ datos, error: null })),
+              catchError((error: unknown) => of({ datos: null, error: mensajeDeError(error) }))
+            )
+          }).pipe(
+            // El error se atiende acá adentro: si saliera del switchMap cerraría el flujo y
+            // "Reintentar" ya no pediría nada.
+            catchError((error: unknown) => {
+              this.errorMessage.set(mensajeDeError(error));
+              this.isLoading.set(false);
+              return EMPTY;
+            })
+          );
+        }),
+        takeUntilDestroyed()
+      )
+      .subscribe(({ caja, indicadores }) => {
+        const mesRespuesta = caja.desde.slice(0, 7);
+        if (!this.mesActual()) {
+          // La primera carga es sin período: lo que devuelve es el mes en curso de la empresa.
+          this.mesActual.set(mesRespuesta);
+        }
+        this.caja.set(caja);
+        this.indicadores.set(indicadores.datos);
+        this.errorIndicadores.set(indicadores.error);
+        this.mes.set(mesRespuesta);
+        this.isLoading.set(false);
+      });
+
     this.cargar();
   }
 
@@ -177,33 +225,6 @@ export class Caja {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     this.diaActivo.set(null);
-
-    const [anio, mes] = this.mes() ? this.mes().split('-').map(Number) : [undefined, undefined];
-
-    this.errorIndicadores.set(null);
-    this.dashboardService.getIndicadores(anio, mes).subscribe({
-      next: (indicadores) => this.indicadores.set(indicadores),
-      error: (error: unknown) => {
-        this.indicadores.set(null);
-        this.errorIndicadores.set(mensajeDeError(error));
-      }
-    });
-
-    this.dashboardService.getCajaActual(anio, mes).subscribe({
-      next: (caja) => {
-        const mesRespuesta = caja.desde.slice(0, 7);
-        if (!this.mesActual()) {
-          // La primera carga es sin período: lo que devuelve es el mes en curso de la empresa.
-          this.mesActual.set(mesRespuesta);
-        }
-        this.caja.set(caja);
-        this.mes.set(mesRespuesta);
-        this.isLoading.set(false);
-      },
-      error: (error: unknown) => {
-        this.errorMessage.set(mensajeDeError(error));
-        this.isLoading.set(false);
-      }
-    });
+    this.periodoPedido.next(this.mes());
   }
 }

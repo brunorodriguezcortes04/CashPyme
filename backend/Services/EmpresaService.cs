@@ -170,32 +170,40 @@ public class EmpresaService(AppDbContext db)
         var rol = await db.Roles.SingleOrDefaultAsync(r => r.Id == idRol)
             ?? throw new RolNoEncontradoException();
 
-        var membresia = await BuscarMembresiaAsync(companyId, idUsuario);
-
-        if (rol.Name != Role.Administrator)
+        return await db.EnTransaccionAsync(async () =>
         {
-            await AsegurarNoEsUltimoAdministradorAsync(companyId, membresia);
-        }
+            await BloquearAdministracionAsync(companyId);
+            var membresia = await BuscarMembresiaAsync(companyId, idUsuario);
 
-        membresia.RoleId = rol.Id;
-        await db.SaveChangesAsync();
+            if (rol.Name != Role.Administrator)
+            {
+                await AsegurarNoEsUltimoAdministradorAsync(companyId, membresia);
+            }
 
-        return ToResponse(membresia.User, rol, membresia.IsActive);
+            membresia.RoleId = rol.Id;
+            await db.SaveChangesAsync();
+
+            return ToResponse(membresia.User, rol, membresia.IsActive);
+        });
     }
 
     public async Task<UsuarioEmpresaResponse> CambiarEstadoUsuarioAsync(long companyId, long idUsuario, bool activo)
     {
-        var membresia = await BuscarMembresiaAsync(companyId, idUsuario);
-
-        if (!activo)
+        return await db.EnTransaccionAsync(async () =>
         {
-            await AsegurarNoEsUltimoAdministradorAsync(companyId, membresia);
-        }
+            await BloquearAdministracionAsync(companyId);
+            var membresia = await BuscarMembresiaAsync(companyId, idUsuario);
 
-        membresia.IsActive = activo;
-        await db.SaveChangesAsync();
+            if (!activo)
+            {
+                await AsegurarNoEsUltimoAdministradorAsync(companyId, membresia);
+            }
 
-        return ToResponse(membresia.User, membresia.Role, activo);
+            membresia.IsActive = activo;
+            await db.SaveChangesAsync();
+
+            return ToResponse(membresia.User, membresia.Role, activo);
+        });
     }
 
     private async Task<CompanyMembership> BuscarMembresiaAsync(long companyId, long idUsuario)
@@ -206,6 +214,17 @@ public class EmpresaService(AppDbContext db)
             .SingleOrDefaultAsync(m => m.CompanyId == companyId && m.UserId == idUsuario)
             ?? throw new UsuarioNoEnEmpresaException();
     }
+
+    /// <summary>
+    /// Ordena los cambios de rol y de acceso de una empresa: bloquea su fila hasta el fin de la
+    /// transacción. Sin esto, dos administradores que se quitaban el rol a la vez leían los dos
+    /// "queda otro" y la empresa se quedaba sin ninguno. FOR NO KEY UPDATE y no FOR UPDATE: no
+    /// choca con el FOR KEY SHARE que toman las FK, así que no frena el registro de documentos ni
+    /// movimientos de la empresa mientras dura.
+    /// </summary>
+    private Task BloquearAdministracionAsync(long companyId)
+        => db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM empresa WHERE id_empresa = {companyId} FOR NO KEY UPDATE");
 
     /// <summary>
     /// Bloquea quitarle el rol o el acceso al último Administrador activo: sin ninguno, la

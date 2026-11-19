@@ -24,18 +24,13 @@ public class DocumentosController(DocumentosService documentosService) : Control
     [HttpGet]
     [RequierePermiso(Permiso.DocumentosVer)]
     public async Task<ActionResult<DocumentosPaginadosResponse>> List(
-        [FromQuery] string tipoCuenta,
+        [FromQuery, TipoCuentaDocumentoValido] string tipoCuenta,
         [FromQuery] string? estado,
         [FromQuery] long? idTercero,
         [FromQuery] string? situacion,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanoPagina = 20)
     {
-        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
-        {
-            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
-        }
-
         if (situacion is not null && !SituacionesDocumento.EsValida(situacion))
         {
             return BadRequest(new { message = "La situación debe ser pendiente, vencida o pagada." });
@@ -49,13 +44,9 @@ public class DocumentosController(DocumentosService documentosService) : Control
     /// <summary>Cantidad y saldo de vencidas, pendientes y pagadas, para las pestañas del listado.</summary>
     [HttpGet("resumen")]
     [RequierePermiso(Permiso.DocumentosVer)]
-    public async Task<ActionResult<IReadOnlyList<ResumenSituacionResponse>>> Resumen([FromQuery] string tipoCuenta)
+    public async Task<ActionResult<IReadOnlyList<ResumenSituacionResponse>>> Resumen(
+        [FromQuery, TipoCuentaDocumentoValido] string tipoCuenta)
     {
-        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
-        {
-            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
-        }
-
         return Ok(await documentosService.ResumenAsync(User.GetCompanyId(), tipoCuenta));
     }
 
@@ -66,13 +57,9 @@ public class DocumentosController(DocumentosService documentosService) : Control
     /// </summary>
     [HttpGet("terceros")]
     [RequierePermiso(Permiso.DocumentosVer)]
-    public async Task<ActionResult<IReadOnlyList<TerceroResponse>>> Terceros([FromQuery] string tipoCuenta)
+    public async Task<ActionResult<IReadOnlyList<TerceroResponse>>> Terceros(
+        [FromQuery, TipoCuentaDocumentoValido] string tipoCuenta)
     {
-        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
-        {
-            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
-        }
-
         return Ok(await documentosService.ListarTercerosAsync(User.GetCompanyId(), tipoCuenta));
     }
 
@@ -83,14 +70,9 @@ public class DocumentosController(DocumentosService documentosService) : Control
     [HttpGet("corregibles")]
     [RequierePermiso(Permiso.DocumentosVer)]
     public async Task<ActionResult<IReadOnlyList<DocumentoCorregibleResponse>>> Corregibles(
-        [FromQuery] string tipoCuenta,
+        [FromQuery, TipoCuentaDocumentoValido] string tipoCuenta,
         [FromQuery] long? idTercero)
     {
-        if (!TiposCuentaDocumento.EsValido(tipoCuenta))
-        {
-            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
-        }
-
         return Ok(await documentosService.ListarCorregiblesAsync(User.GetCompanyId(), tipoCuenta, idTercero));
     }
 

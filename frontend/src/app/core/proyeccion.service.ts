@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { apiError } from './api-error';
 
 export interface DiaProyeccion {
@@ -47,8 +47,25 @@ export class ProyeccionService {
       .pipe(map((p) => p ?? null), catchError(apiError));
   }
 
-  /** Genera una nueva con los datos de ahora. El backend también actualiza la alerta de caja negativa. */
+  /**
+   * Genera una nueva con los datos de ahora. El backend también actualiza la alerta de caja negativa.
+   *
+   * Ver la proyección y generarla piden permisos distintos, y el front no conoce la matriz de
+   * permisos: el botón se le muestra a todo el que ve la tarjeta. Por eso el 403 lleva acá su
+   * propio mensaje, que dice qué no se pudo y a quién pedírselo, en vez del genérico de apiError.
+   */
   generar(): Observable<Proyeccion> {
-    return this.http.post<Proyeccion>('/api/proyeccion', {}).pipe(catchError(apiError));
+    return this.http.post<Proyeccion>('/api/proyeccion', {}).pipe(
+      catchError((error: HttpErrorResponse) =>
+        error.status === 403
+          ? throwError(
+              () =>
+                new Error(
+                  'Tu rol no tiene permiso para generar la proyección. Pídele a quien administra la empresa que la actualice.'
+                )
+            )
+          : apiError(error)
+      )
+    );
   }
 }

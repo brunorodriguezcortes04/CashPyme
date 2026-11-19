@@ -110,7 +110,10 @@ def conexion_libpq(cadena: str) -> str:
         destino = claves.get(clave.strip().lower())
         if destino:
             valor = valor.strip().lower() if destino == "sslmode" else valor.strip()
-            partes.append(f"{destino}='{valor.replace(chr(39), chr(92) + chr(39))}'")
+            # Entre comillas simples libpq pide escapar \ y ' con una barra invertida. La barra va
+            # primero, para no volver a escapar la que se le agrega a la comilla.
+            escapado = valor.replace("\\", "\\\\").replace("'", "\\'")
+            partes.append(f"{destino}='{escapado}'")
     return " ".join(partes)
 
 

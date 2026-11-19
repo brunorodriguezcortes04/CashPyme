@@ -58,11 +58,14 @@ public class ReportesService(AppDbContext db, SaldosService saldos, TimeProvider
     /// </summary>
     private async Task<IReadOnlyList<CuentaReporte>> CuentasAsync(long companyId, DateOnly desde, DateOnly hasta)
     {
-        var activas = db.CuentasFinancieras.Where(c => c.CompanyId == companyId && c.IsActive);
-        var alInicio = await saldos.DeCuentasAsync(activas, desde.AddDays(-1));
-        var alCierre = await saldos.DeCuentasAsync(activas, hasta);
-
-        var cuentas = await activas.OrderBy(c => c.Name).Select(c => new { c.Id, c.Name, c.Type }).ToListAsync();
+        var cuentas = await db.CuentasFinancieras
+            .Where(c => c.CompanyId == companyId && c.IsActive)
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Id, c.Name, c.Type })
+            .ToListAsync();
+        var ids = cuentas.Select(c => c.Id).ToList();
+        var alInicio = await saldos.DeCuentasAsync(ids, desde.AddDays(-1));
+        var alCierre = await saldos.DeCuentasAsync(ids, hasta);
         return cuentas
             .Select(c => new CuentaReporte(
                 c.Name, Etiqueta(TiposCuenta.Todos, c.Type), alInicio[c.Id], alCierre[c.Id]))
@@ -104,7 +107,6 @@ public class ReportesService(AppDbContext db, SaldosService saldos, TimeProvider
             && d.DocumentType != TiposDocumento.NotaDebito
             && d.DueDate >= desde && d.DueDate <= hasta);
 
-        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
         var documentos = await consulta
             .OrderBy(d => d.AccountType).ThenBy(d => d.DueDate).ThenBy(d => d.Id)
             .Select(d => new
@@ -113,6 +115,7 @@ public class ReportesService(AppDbContext db, SaldosService saldos, TimeProvider
                 Tercero = d.ThirdParty.Name
             })
             .ToListAsync();
+        var saldosDoc = await saldos.DeDocumentosAsync(documentos.Select(d => d.Id).ToList());
 
         return documentos
             .Where(d => saldosDoc[d.Id].OutstandingAmount > 0)

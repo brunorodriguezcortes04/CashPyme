@@ -30,3 +30,13 @@ public class PasswordActualIncorrectaException()
 
 public class PasswordRepetidaException()
     : ApiException(StatusCodes.Status400BadRequest, "La contraseña nueva tiene que ser distinta de la actual.");
+
+/// <summary>
+/// La cuenta quedó bloqueada un rato por intentos fallidos (ver IntentosLoginService). Sale
+/// igual exista o no el correo, para no revelar cuáles están registrados.
+/// </summary>
+public class CuentaBloqueadaException(int minutos)
+    : ApiException(StatusCodes.Status429TooManyRequests,
+        minutos <= 1
+            ? "Hubo demasiados intentos fallidos con este correo. Espera un minuto e inténtalo de nuevo."
+            : $"Hubo demasiados intentos fallidos con este correo. Espera {minutos} minutos e inténtalo de nuevo.");

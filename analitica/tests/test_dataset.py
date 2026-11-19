@@ -169,6 +169,11 @@ class Conexion(unittest.TestCase):
         self.assertEqual(conexion_libpq(cadena),
                          "host='db.x.com' port='5432' dbname='postgres' user='u' password='p' sslmode='require'")
 
+    def test_escapa_barras_y_comillas_en_todos_los_valores(self):
+        cadena = "Host=db.x.com;Username=o'brien;Password=a\\b'c\\"
+        self.assertEqual(conexion_libpq(cadena),
+                         r"host='db.x.com' user='o\'brien' password='a\\b\'c\\'")
+
 
 def _reescribir(ruta: Path, contenido: str) -> None:
     """Cambia el CSV y actualiza su sha256, para probar una regla y no la del sha."""
