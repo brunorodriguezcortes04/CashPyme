@@ -1,0 +1,76 @@
+@use '../../backoffice-page';
+
+// Mismo lenguaje que el gráfico de Caja (caja.scss): cifra grande, lectura del día bajo el
+// mouse, SVG estirado al ancho y eje en HTML. Azul sobre el cero, rojo bajo el cero.
+
+.cabecera { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cabecera h2 { margin-bottom: 4px; }
+.nota { margin: 0; color: var(--muted); font-size: 14px; }
+
+.selector-horizonte { display: flex; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); }
+.selector-horizonte button { min-height: 40px; padding-inline: 14px; border: 0; border-radius: 7px; color: var(--text-secondary); background: transparent; cursor: pointer; font: inherit; font-size: 14px; transition: color .2s ease, background .2s ease; }
+.selector-horizonte button:hover { color: var(--text); }
+.selector-horizonte button.activo { color: var(--text); background: var(--accent-soft); }
+.selector-horizonte button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.form-alert { margin-top: 16px; }
+.form-alert .button { margin-top: 10px; }
+
+.vacio { display: grid; justify-items: start; gap: 14px; margin-top: 16px; }
+.vacio p { margin: 0; color: var(--text-secondary); }
+
+.figuras { margin-top: 24px; }
+.figuras p { margin: 0; }
+.etiqueta { color: var(--text-secondary); font-size: 14px; }
+.monto-principal { margin: 6px 0 8px !important; font-family: var(--font-display); font-size: clamp(2.25rem, 1.8rem + 2vw, 3rem); font-weight: 600; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.negativo { color: var(--danger); }
+
+.aviso-negativo { margin: 16px 0 0; padding: 10px 14px; border: 1px solid rgba(255, 138, 138, .4); border-radius: var(--radius-sm); color: var(--danger); background: rgba(255, 138, 138, .08); font-size: 15px; }
+
+// Alto fijo para que el gráfico no salte al pasar el mouse.
+.lectura { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; min-height: 24px; margin-top: 20px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.lectura span { display: inline-flex; align-items: center; gap: 8px; }
+.lectura-dia { color: var(--text-secondary); }
+
+.chart { margin-top: 12px; }
+.chart-plot { display: block; width: 100%; height: clamp(150px, 20vw, 220px); overflow: visible; }
+.franja { fill: transparent; }
+.franja.activa { fill: rgba(255, 255, 255, .05); }
+.area { pointer-events: none; }
+.area-positiva { fill: var(--accent-soft); }
+.area-negativa { fill: rgba(255, 138, 138, .14); }
+.linea { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.linea-positiva { stroke: var(--accent); }
+.linea-negativa { stroke: var(--danger); }
+.cero { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
+.cero.cruzado { stroke: var(--danger); stroke-dasharray: 4 4; opacity: .7; }
+
+.chart-axis { position: relative; height: 18px; margin-top: 8px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.chart-axis span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.chart-axis span:first-child { transform: none; }
+.chart-axis span:last-child { transform: translateX(-100%); }
+
+.leyenda { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--border); }
+.leyenda dt { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.leyenda dd { margin: 6px 0 0; font-size: 1.125rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.leyenda .leyenda-fecha { margin-top: 2px; color: var(--muted); font-size: 13px; font-weight: 400; }
+.key { flex: 0 0 auto; display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.key-ingreso { background: var(--accent); }
+.key-egreso { background: var(--danger); }
+
+.detalle { margin-top: 20px; }
+.detalle summary { cursor: pointer; font-weight: 500; }
+.detalle summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.detalle[open] summary { margin-bottom: 12px; }
+th.monto { text-align: right; }
+
+.pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.generada { margin: 0; color: var(--muted); font-size: 13px; }
+.pie .button { min-height: 38px; padding-inline: 14px; font-size: 14px; }
+
+@media (max-width: 560px) {
+	.cabecera { flex-direction: column; }
+	.selector-horizonte { width: 100%; }
+	.selector-horizonte button { flex: 1; }
+	.leyenda { grid-template-columns: 1fr; gap: 12px; }
+}

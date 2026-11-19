@@ -1,0 +1,82 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>
+      <span class="marca">Cash<span>Pyme</span></span>
+    </ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" routerLink="/alertas" aria-label="Alertas">
+        <ion-icon slot="icon-only" name="notifications-outline" />
+      </ion-button>
+      <ion-button fill="clear" (click)="salir()">Salir</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-refresher slot="fixed" (ionRefresh)="refrescar($event)">
+    <ion-refresher-content pullingText="Suelta para actualizar" refreshingSpinner="crescent" />
+  </ion-refresher>
+
+  <p class="empresa">{{ sesion.sesion()?.empresa }}</p>
+
+  @if (error()) {
+    <div class="aviso" role="alert">
+      <p>{{ error() }}</p>
+      <ion-button fill="outline" size="small" (click)="cargar()">Reintentar</ion-button>
+    </div>
+  }
+
+  <section class="saldo" aria-labelledby="saldo-titulo">
+    <h2 id="saldo-titulo">Saldo total en caja</h2>
+    @if (caja(); as c) {
+      <p class="monto" [class.negativo]="c.saldoTotal < 0">{{ c.saldoTotal | clp }}</p>
+      <p class="nota">
+        Suma de tus {{ c.cuentas.length }} cuenta{{ c.cuentas.length === 1 ? '' : 's' }}
+        activa{{ c.cuentas.length === 1 ? '' : 's' }}, al día de hoy
+      </p>
+      <dl class="mes">
+        <div>
+          <dt>Ingresos del mes</dt>
+          <dd class="ingreso">{{ c.ingresos | clp }}</dd>
+        </div>
+        <div>
+          <dt>Egresos del mes</dt>
+          <dd class="egreso">{{ c.egresos | clp }}</dd>
+        </div>
+      </dl>
+    } @else if (cargando()) {
+      <ion-skeleton-text [animated]="true" class="esqueleto-monto" />
+      <ion-skeleton-text [animated]="true" class="esqueleto-nota" />
+    }
+  </section>
+
+  <ion-list lines="full" class="movimientos">
+    <ion-list-header>
+      <h2>Últimos movimientos</h2>
+    </ion-list-header>
+
+    @if (cargando()) {
+      @for (i of [1, 2, 3]; track i) {
+        <ion-item>
+          <ion-label><ion-skeleton-text [animated]="true" style="width: 70%" /></ion-label>
+        </ion-item>
+      }
+    } @else if (movimientos().length === 0 && !error()) {
+      <ion-item>
+        <ion-label class="vacio">Todavía no hay movimientos este mes.</ion-label>
+      </ion-item>
+    } @else {
+      @for (m of movimientos(); track m.id) {
+        <ion-item>
+          <ion-label>
+            <h3>{{ m.descripcion || m.nombreCategoria }}</h3>
+            <p>{{ m.fecha | date: 'dd-MM-yyyy' }} · {{ m.nombreCategoria }} · {{ m.nombreCuenta }}</p>
+          </ion-label>
+          <ion-note slot="end" [class.ingreso]="m.tipoMovimiento === 'ingreso'" [class.egreso]="m.tipoMovimiento === 'egreso'">
+            {{ m.tipoMovimiento === 'egreso' ? '−' : '+' }}{{ m.monto | clp }}
+          </ion-note>
+        </ion-item>
+      }
+    }
+  </ion-list>
+</ion-content>

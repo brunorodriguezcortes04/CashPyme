@@ -19,7 +19,14 @@ public class AlertasController(AlertasService alertasService) : ControllerBase
     [RequierePermiso(Permiso.DocumentosVer)]
     public async Task<ActionResult<IReadOnlyList<AlertaResponse>>> List()
     {
-        var result = await alertasService.ListarPendientesAsync(User.GetCompanyId());
+        // Se ponen al día antes de listar: un documento recién creado tiene que aparecer al abrir
+        // la vista, sin esperar la próxima vuelta del job (que además solo corre con
+        // Notificaciones:Habilitado). Si nada cambió desde la última vez no recalcula nada
+        // (RecalculosPendientes), así que casi todas las cargas solo leen. Es idempotente, así
+        // que no duplica alertas; el correo lo sigue mandando el job.
+        var companyId = User.GetCompanyId();
+        await alertasService.GenerarAsync(companyId);
+        var result = await alertasService.ListarPendientesAsync(companyId);
         return Ok(result);
     }
 

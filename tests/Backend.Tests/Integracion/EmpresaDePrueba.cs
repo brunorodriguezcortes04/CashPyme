@@ -80,9 +80,9 @@ public sealed class EmpresaDePrueba
             padre.TipoCuenta, tipoNota, IdTercero: null, monto, Hoy, FechaVencimiento: null, NumeroDocumento: null,
             IdCategoria: null, MontoNeto: null, IdDocumentoReferencia: padre.Id));
 
-    public async Task<long> MovimientoAsync(string tipo, decimal monto, long? cuenta = null)
+    public async Task<long> MovimientoAsync(string tipo, decimal monto, long? cuenta = null, DateOnly? fecha = null)
         => (await Servicio<MovimientosService>().CrearMovimientoAsync(Id, UsuarioId, new CreateMovimientoRequest(
-            tipo, Hoy, monto, cuenta ?? CajaId,
+            tipo, fecha ?? Hoy, monto, cuenta ?? CajaId,
             tipo == TiposMovimiento.Ingreso ? CategoriaIngresoId : CategoriaEgresoId,
             null, "transferencia", null))).Id;
 

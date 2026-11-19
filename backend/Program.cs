@@ -3,6 +3,7 @@ using Backend.Data;
 using Backend.Exceptions;
 using Backend.Security;
 using Backend.Services;
+using Backend.Services.Reportes;
 using Backend.Services.Correo;
 using Backend.Services.Notificaciones;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -54,6 +55,8 @@ builder.Services.AddOptions<JwtOptions>()
         "Jwt:Key must be configured and at least 32 characters long.")
     .ValidateOnStart();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSingleton<IntentosLoginService>();
+builder.Services.AddScoped<ValidadorSesion>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<TercerosService>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -63,7 +66,11 @@ builder.Services.AddScoped<MovimientosService>();
 builder.Services.AddScoped<DocumentosService>();
 builder.Services.AddScoped<PagosService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<ReportesService>();
 builder.Services.AddScoped<AlertasService>();
+builder.Services.AddScoped<HuellasEmpresaService>();
+builder.Services.AddSingleton<RecalculosPendientes>();
+builder.Services.AddScoped<ProyeccionFlujoCajaService>();
 builder.Services.AddScoped<VencimientosService>();
 builder.Services.AddScoped<EmpresaService>();
 builder.Services.AddScoped<CuentasService>();
@@ -72,14 +79,20 @@ builder.Services.AddScoped<RolEmpresaService>();
 // Scoped porque resuelve el rol contra AppDbContext en cada request.
 builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
-// Correo (Resend). Sin Email:ResendApiKey los correos se escriben en la consola en vez de
+// Correo (SMTP o Resend). Sin Email:Smtp ni Email:ResendApiKey se escriben en la consola en vez de
 // enviarse, para que se pueda desarrollar sin cuenta de Resend (ver README).
 //   dev:  dotnet user-secrets set "Email:ResendApiKey" "re_..."
 //   prod: variable de entorno Email__ResendApiKey
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection("App"));
 builder.Services.Configure<NotificacionesOptions>(builder.Configuration.GetSection("Notificaciones"));
-if (string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
+// SMTP (Gmail, Brevo) primero: entrega a cualquier dirección sin dominio verificado. Después
+// Resend, y sin ninguno de los dos los correos solo se escriben en la consola.
+if (builder.Configuration.GetSection("Email:Smtp").Get<SmtpOptions>()?.Configurado == true)
+{
+    builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+}
+else if (string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
 {
     builder.Services.AddSingleton<IEmailSender, ConsolaEmailSender>();
 }
@@ -95,7 +108,9 @@ builder.Services.AddScoped<CorreoCuentaService>();
 builder.Services.AddScoped<NotificacionesService>();
 builder.Services.AddHostedService<NotificacionesWorker>();
 builder.Services.AddHostedService<VencimientosWorker>();
-builder.Services.AddCashPymeRateLimits();
+builder.Services.AddHostedService<ProyeccionesWorker>();
+// En producción la API corre en Render, siempre detrás de Cloudflare (ver RateLimits.IpCliente).
+builder.Services.AddCashPymeRateLimits(detrasDeCloudflare: !builder.Environment.IsDevelopment());
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -113,6 +128,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSection["Issuer"],
             ValidAudience = jwtSection["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"] ?? string.Empty))
+        };
+        // Firma y vencimiento no alcanzan: el token también deja de valer si la persona cambió
+        // la contraseña o la desactivaron (ver ValidadorSesion). Corre en cada request
+        // autenticado, también en los que solo piden [Authorize].
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var validador = context.HttpContext.RequestServices.GetRequiredService<ValidadorSesion>();
+                if (!await validador.EsValidaAsync(context.Principal!, context.HttpContext.RequestAborted))
+                {
+                    context.Fail("La sesión ya no es válida.");
+                }
+            }
         };
     });
 builder.Services.AddAuthorization();
@@ -142,15 +171,42 @@ if (!app.Environment.IsDevelopment())
     // petición como HTTP puro. Sin confiar en X-Forwarded-Proto, UseHttpsRedirection()
     // ve siempre "http" y redirige sin parar. KnownNetworks/KnownProxies se limpian
     // porque el proxy de Render no está en un rango fijo conocido de antemano.
+    // X-Forwarded-For NO se toma: el proxy de Render conserva el que manda el cliente, así
+    // que RemoteIpAddress quedaba en manos de quien hace la petición. La IP del cliente para
+    // los límites sale de Cloudflare (RateLimits.IpCliente).
     var forwardedHeadersOptions = new ForwardedHeadersOptions
     {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        ForwardedHeaders = ForwardedHeaders.XForwardedProto
     };
     forwardedHeadersOptions.KnownNetworks.Clear();
     forwardedHeadersOptions.KnownProxies.Clear();
     app.UseForwardedHeaders(forwardedHeadersOptions);
     app.UseHttpsRedirection();
 }
+
+// Frontend Angular: en producción el Dockerfile copia el build a wwwroot y esta misma app lo
+// sirve, así el navegador habla con un solo servicio (sin el salto extra del sitio estático
+// ni el preflight de CORS). En desarrollo wwwroot no existe y Angular corre con ng serve.
+// index.html no se cachea para que cada deploy se vea al recargar; los .js/.css llevan hash
+// en el nombre (outputHashing: all), así que se pueden cachear sin límite.
+var archivosFrontend = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var nombre = ctx.File.Name;
+        if (nombre.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.CacheControl = "no-cache";
+        }
+        else if (nombre.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
+            || nombre.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        }
+    }
+};
+app.UseDefaultFiles();
+app.UseStaticFiles(archivosFrontend);
 
 app.UseCors(FrontendCorsPolicy);
 app.UseRateLimiter();
@@ -162,6 +218,11 @@ app.MapControllers();
 
 // Health check simple para el servicio web de Render.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+// Fallback del router de Angular: cualquier ruta que no sea de la API ni un archivo
+// (/login, /caja, ...) devuelve index.html. Las rutas /api/* quedan fuera para que una
+// URL de API equivocada siga respondiendo 404/405 en vez de la página de la app.
+app.MapFallbackToFile("{*ruta:nonfile:regex(^(?!api/).*$)}", "index.html", archivosFrontend);
 
 if (app.Environment.IsDevelopment())
 {

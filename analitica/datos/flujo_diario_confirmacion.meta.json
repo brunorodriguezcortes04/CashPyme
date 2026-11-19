@@ -1,0 +1,200 @@
+{
+  "origen": "sintetico",
+  "descripcion": "Flujo de caja diario de una pyme ficticia. No hay datos históricos reales de una pyme (informe de Fase 1): los movimientos se simulan y se agregan igual que vista_flujo_diario.",
+  "generador": "analitica/cashpyme_dataset/sintetico.py",
+  "semilla": 2026,
+  "supuestos": {
+    "empresa": "Comercio minorista ficticio (no existe): abre de lunes a sábado; cierra domingos y feriados nacionales.",
+    "moneda": "CLP, montos enteros",
+    "ventas": {
+      "base_diaria": 420000,
+      "factor_sabado": 1.35,
+      "crecimiento_mensual": 0.006,
+      "estacionalidad_mensual": {
+        "1": 0.95,
+        "2": 0.8,
+        "3": 1.0,
+        "4": 1.0,
+        "5": 1.0,
+        "6": 0.95,
+        "7": 1.0,
+        "8": 1.0,
+        "9": 1.15,
+        "10": 1.0,
+        "11": 1.05,
+        "12": 1.4
+      },
+      "factor_primeros_5_dias_del_mes": 1.1,
+      "ruido_lognormal_sigma": 0.22,
+      "reparto_por_medio_de_pago": {
+        "efectivo": 0.35,
+        "tarjeta": 0.45,
+        "transferencia": 0.2
+      },
+      "cobro_a_empresas": {
+        "probabilidad_por_dia_habil": 0.12,
+        "monto_min": 250000,
+        "monto_max": 1200000
+      }
+    },
+    "egresos_fijos": {
+      "arriendo": {
+        "monto": 1100000,
+        "dia": "primer día hábil desde el 5",
+        "reajuste_anual_enero": 0.04
+      },
+      "remuneraciones": {
+        "monto": 3000000,
+        "dia": "último día hábil del mes",
+        "reajuste_anual_enero": 0.05
+      },
+      "cotizaciones_previred": {
+        "proporcion_de_remuneraciones": 0.22,
+        "dia": "primer día hábil desde el 10"
+      },
+      "impuestos_f29": {
+        "proporcion_ventas_mes_anterior": 0.06,
+        "dia": "primer día hábil desde el 20"
+      },
+      "internet": {
+        "monto": 35000,
+        "dia": "primer día hábil desde el 8"
+      },
+      "luz": {
+        "monto": 140000,
+        "dia": "primer día hábil desde el 12",
+        "factor_invierno_jun_ago": 1.3,
+        "ruido_sigma": 0.1
+      },
+      "agua": {
+        "monto": 35000,
+        "dia": "primer día hábil desde el 18",
+        "ruido_sigma": 0.1
+      }
+    },
+    "egresos_variables": {
+      "proveedores": {
+        "dias": "martes y jueves hábiles",
+        "proporcion_ventas_ultimos_7_dias": 0.5,
+        "pagos_por_semana": 2,
+        "ruido_sigma": 0.15
+      },
+      "marketing": {
+        "probabilidad_por_dia_habil": 0.04,
+        "monto_min": 60000,
+        "monto_max": 250000
+      },
+      "gastos_menores": {
+        "maximo_por_dia_habil": 2,
+        "probabilidad_cada_uno": 0.5,
+        "monto_min": 5000,
+        "monto_max": 45000
+      }
+    },
+    "anulaciones": {
+      "probabilidad_por_movimiento": 0.01,
+      "efecto": "se agrega un duplicado en estado 'anulado' (error de digitación corregido); no cambia los totales registrados"
+    }
+  },
+  "agregacion": "Solo movimientos estado_movimiento = 'registrado', sumados por fecha_movimiento (equivalente a vista_flujo_diario / SaldosService.FlujoDiarioAsync); calendario completo, días sin movimientos en cero con su motivo.",
+  "limpieza": {
+    "huecos": "Calendario completo: cada día sin movimientos queda en cero con motivo_sin_movimientos.",
+    "duplicados": {
+      "regla": "Movimientos registrados iguales en fecha, tipo, monto, categoría, medio de pago y cuenta.",
+      "decision": "Se reportan y no se eliminan: dos movimientos iguales pueden ser legítimos.",
+      "encontrados": 0,
+      "detalle": []
+    },
+    "anulados": "Se excluyen (solo cuenta estado_movimiento = 'registrado'), igual que vista_flujo_diario.",
+    "outliers": {
+      "regla": "Tukey sobre log(monto), por día de la semana: fuera de [Q1 - 3.0·IQR, Q3 + 3.0·IQR] entre los días con monto > 0 (mínimo 8 días por grupo). Un monto 0 (día sin egresos, por ejemplo) nunca es outlier.",
+      "decision": "Se marcan (outlier_ingresos, outlier_egresos) y no se eliminan ni se corrigen.",
+      "limites_en_pesos": {
+        "ingresos": {
+          "martes": {
+            "min": 106169,
+            "max": 2122629
+          },
+          "miercoles": {
+            "min": 123983,
+            "max": 1727978
+          },
+          "jueves": {
+            "min": 122938,
+            "max": 1753822
+          },
+          "viernes": {
+            "min": 103375,
+            "max": 2269552
+          },
+          "sabado": {
+            "min": 176730,
+            "max": 2480822
+          },
+          "lunes": {
+            "min": 124712,
+            "max": 2017075
+          }
+        },
+        "egresos": {
+          "martes": {
+            "min": 234165,
+            "max": 3548487
+          },
+          "miercoles": {
+            "min": 122,
+            "max": 33819683
+          },
+          "jueves": {
+            "min": 118315,
+            "max": 6369309
+          },
+          "viernes": {
+            "min": 189,
+            "max": 19067774
+          },
+          "sabado": {
+            "min": 459,
+            "max": 10297417
+          },
+          "lunes": {
+            "min": 50,
+            "max": 220076745
+          }
+        }
+      }
+    }
+  },
+  "movimientos_generados": {
+    "registrado": 2872,
+    "anulado": 27
+  },
+  "como_reproducir": "cd analitica && python generar_sintetico.py --semilla 2026 --desde 2024-01-01 --hasta 2025-12-31",
+  "archivo": "flujo_diario_confirmacion.csv",
+  "sha256": "1f31fd68550a8d74d32deeafdd44efafd43c929c24e526d27e63c3ad8fc4ca33",
+  "fecha_inicio": "2024-01-01",
+  "fecha_fin": "2025-12-31",
+  "filas": 731,
+  "dias_sin_movimientos": {
+    "domingo": 98,
+    "feriado": 36
+  },
+  "dias_outlier": {
+    "ingresos": 1,
+    "egresos": 4
+  },
+  "columnas": [
+    "fecha",
+    "dia_semana",
+    "ingresos",
+    "egresos",
+    "flujo_neto",
+    "flujo_acumulado",
+    "cantidad_ingresos",
+    "cantidad_egresos",
+    "dia_sin_movimientos",
+    "motivo_sin_movimientos",
+    "outlier_ingresos",
+    "outlier_egresos"
+  ]
+}

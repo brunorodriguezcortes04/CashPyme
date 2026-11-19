@@ -9,6 +9,7 @@ import {
   Validators
 } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { EMPTY, Subject, catchError, switchMap } from 'rxjs';
 import { mensajeDeError } from '../../core/api-error';
 import { CatalogosService, TipoCuentaDocumento, TipoDocumento } from '../../core/catalogos.service';
 import {
@@ -19,24 +20,9 @@ import {
   Pago,
   ResumenSituacion
 } from '../../core/documentos.service';
+import { enDias, hoy } from '../../core/fechas';
 import { Categoria, MovimientosService } from '../../core/movimientos.service';
 import { Tercero } from '../../core/terceros.service';
-
-function aIso(fecha: Date): string {
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  return `${fecha.getFullYear()}-${mes}-${dia}`;
-}
-
-function hoy(): string {
-  return aIso(new Date());
-}
-
-function enDias(dias: number): string {
-  const fecha = new Date();
-  fecha.setDate(fecha.getDate() + dias);
-  return aIso(fecha);
-}
 
 /**
  * Cuentas por cobrar y cuentas por pagar: una sola pantalla para las dos. El tipo de cuenta
@@ -109,6 +95,13 @@ export class Documentos {
     Math.max(1, Math.ceil(this.totalResultados() / this.tamanoPagina))
   );
 
+  /**
+   * Pedidos de recarga del listado y sus contadores. Cada uno cancela al anterior: si se cambia
+   * de filtro o de página antes de que llegue la respuesta, la vieja se descarta en vez de pisar
+   * a la del filtro que quedó elegido.
+   */
+  private readonly recarga = new Subject<void>();
+
   protected readonly form = this.formBuilder.nonNullable.group(
     {
       idTercero: [null as number | null],
@@ -173,6 +166,60 @@ export class Documentos {
         this.cargarCorregibles();
       }
     });
+
+    // Se recarga junto con el listado: así los contadores siguen al día tras un pago, una nota o
+    // una anulación, que terminan todos acá. Los errores se atienden dentro del switchMap: si
+    // salieran de él cerrarían el flujo y la pantalla no volvería a recargar.
+    this.recarga
+      .pipe(
+        switchMap(() =>
+          this.documentosService.resumen(this.tipoCuenta).pipe(
+            catchError((error: unknown) => {
+              this.errorMessage.set(mensajeDeError(error));
+              return EMPTY;
+            })
+          )
+        ),
+        takeUntilDestroyed()
+      )
+      .subscribe((resumen) => this.resumen.set(resumen));
+
+    this.recarga
+      .pipe(
+        switchMap(() =>
+          this.documentosService
+            .listDocumentos({
+              tipoCuenta: this.tipoCuenta,
+              situacion: this.situacion(),
+              pagina: this.pagina(),
+              tamanoPagina: this.tamanoPagina
+            })
+            .pipe(
+              catchError((error: unknown) => {
+                this.errorMessage.set(mensajeDeError(error));
+                this.isLoading.set(false);
+                return EMPTY;
+              })
+            )
+        ),
+        takeUntilDestroyed()
+      )
+      .subscribe((resultado) => {
+        this.totalResultados.set(resultado.totalResultados);
+
+        // La página pedida puede quedar fuera de rango si el total bajó: se retrocede a la
+        // última con resultados para no dejar un listado vacío sin controles. Retrocede una
+        // sola vez, porque ultimaPagina ya es válida.
+        const ultimaPagina = Math.max(1, Math.ceil(resultado.totalResultados / this.tamanoPagina));
+        if (resultado.items.length === 0 && this.pagina() > ultimaPagina) {
+          this.pagina.set(ultimaPagina);
+          this.cargarDocumentos();
+          return;
+        }
+
+        this.documentos.set(resultado.items);
+        this.isLoading.set(false);
+      });
 
     this.cargarDocumentos();
   }
@@ -501,45 +548,10 @@ export class Documentos {
     this.cargarDocumentos();
   }
 
+  /** Pide el listado con el filtro y la página que estén puestos, y sus contadores. */
   private cargarDocumentos(): void {
     this.isLoading.set(true);
-
-    // Se recarga junto con el listado: así los contadores siguen al día tras un pago, una nota o
-    // una anulación, que terminan todos acá.
-    this.documentosService.resumen(this.tipoCuenta).subscribe({
-      next: (resumen) => this.resumen.set(resumen),
-      error: (error: unknown) => this.errorMessage.set(mensajeDeError(error))
-    });
-
-    this.documentosService
-      .listDocumentos({
-        tipoCuenta: this.tipoCuenta,
-        situacion: this.situacion(),
-        pagina: this.pagina(),
-        tamanoPagina: this.tamanoPagina
-      })
-      .subscribe({
-        next: (resultado) => {
-          this.totalResultados.set(resultado.totalResultados);
-
-          // La página pedida puede quedar fuera de rango si el total bajó: se retrocede a la
-          // última con resultados para no dejar un listado vacío sin controles. Retrocede una
-          // sola vez, porque ultimaPagina ya es válida.
-          const ultimaPagina = Math.max(1, Math.ceil(resultado.totalResultados / this.tamanoPagina));
-          if (resultado.items.length === 0 && this.pagina() > ultimaPagina) {
-            this.pagina.set(ultimaPagina);
-            this.cargarDocumentos();
-            return;
-          }
-
-          this.documentos.set(resultado.items);
-          this.isLoading.set(false);
-        },
-        error: (error: unknown) => {
-          this.errorMessage.set(mensajeDeError(error));
-          this.isLoading.set(false);
-        }
-      });
+    this.recarga.next();
   }
 
   private reiniciarFormulario(): void {

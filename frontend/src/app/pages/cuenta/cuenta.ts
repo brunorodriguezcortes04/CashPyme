@@ -83,8 +83,11 @@ export class Cuenta {
 
     this.authService.cambiarPassword(passwordActual, passwordNueva).subscribe({
       next: () => {
-        // La sesión sigue abierta: el JWT no depende de la contraseña.
-        this.successMessage.set('Tu contraseña se cambió correctamente.');
+        // AuthService ya guardó la sesión nueva que devuelve el backend: acá se sigue dentro,
+        // y cualquier otro dispositivo que tuviera la sesión abierta tiene que volver a entrar.
+        this.successMessage.set(
+          'Tu contraseña se cambió correctamente. Cerramos tu sesión en los demás dispositivos.'
+        );
         this.form.reset({ passwordActual: '', passwordNueva: '', confirmPassword: '' });
         this.isSubmitting.set(false);
       },

@@ -12,6 +12,7 @@ namespace Backend.Controllers;
 public class AuthController(AuthService authService, CorreoCuentaService correoCuenta) : ControllerBase
 {
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimits.Registro)]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
         var result = await authService.RegisterAsync(request);
@@ -19,6 +20,7 @@ public class AuthController(AuthService authService, CorreoCuentaService correoC
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimits.Login)]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
         var result = await authService.LoginAsync(request);
@@ -28,13 +30,15 @@ public class AuthController(AuthService authService, CorreoCuentaService correoC
     /// <summary>
     /// Cambia la contraseña propia. No pide permiso de la matriz: cualquier persona
     /// autenticada puede cambiar la suya, sea cual sea su rol en la empresa activa.
+    /// Devuelve una sesión nueva: la contraseña nueva invalida todos los tokens anteriores,
+    /// también el que trajo esta petición.
     /// </summary>
     [Authorize]
     [HttpPut("password")]
-    public async Task<IActionResult> CambiarPassword(CambiarPasswordRequest request)
+    public async Task<ActionResult<AuthResponse>> CambiarPassword(CambiarPasswordRequest request)
     {
-        await authService.CambiarPasswordAsync(User.GetUserId(), request);
-        return NoContent();
+        var result = await authService.CambiarPasswordAsync(User.GetUserId(), User.GetCompanyId(), request);
+        return Ok(result);
     }
 
     /// <summary>Confirma el correo con el token que llegó en el enlace de verificación.</summary>

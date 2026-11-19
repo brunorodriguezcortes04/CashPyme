@@ -54,7 +54,7 @@ export class AuthService {
 
   cambiarEmpresa(idEmpresa: number): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`/api/empresas/${idEmpresa}/activar`, {}).pipe(
-      tap((response) => this.storeSession(response, localStorage.getItem(TOKEN_KEY) !== null)),
+      tap((response) => this.storeSession(response, this.sesionRecordada())),
       catchError(apiError)
     );
   }
@@ -74,13 +74,16 @@ export class AuthService {
   }
 
   /**
-   * No devuelve token nuevo ni cierra la sesión: el JWT sigue siendo válido porque va
-   * firmado con el id del usuario, no con la contraseña.
+   * El backend invalida todos los tokens anteriores, incluido el de esta sesión, y responde
+   * con uno nuevo. Se guarda igual que tras el login y en el mismo almacenamiento donde ya
+   * estaba la sesión, para que la persona siga dentro sin volver a entrar; los demás
+   * dispositivos quedan fuera con su próximo request.
    */
-  cambiarPassword(passwordActual: string, passwordNueva: string): Observable<void> {
-    return this.http
-      .put<void>('/api/auth/password', { passwordActual, passwordNueva })
-      .pipe(catchError(apiError));
+  cambiarPassword(passwordActual: string, passwordNueva: string): Observable<AuthResponse> {
+    return this.http.put<AuthResponse>('/api/auth/password', { passwordActual, passwordNueva }).pipe(
+      tap((response) => this.storeSession(response, this.sesionRecordada())),
+      catchError(apiError)
+    );
   }
 
   /**
@@ -123,6 +126,11 @@ export class AuthService {
     this.session.set(null);
     this.isAuthenticated.set(false);
     this.pantallasService.limpiarCache();
+  }
+
+  /** Si al entrar se marcó "Mantener sesión iniciada": ahí el token quedó en localStorage. */
+  private sesionRecordada(): boolean {
+    return localStorage.getItem(TOKEN_KEY) !== null;
   }
 
   private storeSession(response: AuthResponse, persist: boolean): void {

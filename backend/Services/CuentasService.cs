@@ -17,8 +17,8 @@ public class CuentasService(AppDbContext db, SaldosService saldos)
         var consulta = db.CuentasFinancieras
             .Where(c => c.CompanyId == companyId && (incluirInactivas || c.IsActive));
 
-        var saldosCuenta = await saldos.DeCuentasAsync(consulta);
         var cuentas = await consulta.OrderBy(c => c.Name).ToListAsync();
+        var saldosCuenta = await saldos.DeCuentasAsync(cuentas.Select(c => c.Id).ToList());
 
         return cuentas.Select(c => ToResponse(c, saldosCuenta[c.Id])).ToList();
     }

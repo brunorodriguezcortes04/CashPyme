@@ -75,8 +75,8 @@ public class PagosService(AppDbContext db, SaldosService saldos)
         {
             // Siempre documento antes que movimiento, igual que al anular un movimiento: con el
             // orden cruzado, dos operaciones simultáneas podrían esperarse mutuamente.
-            await db.BloquearAsync("documento_financiero", "id_documento", [request.IdDocumento]);
-            await db.BloquearAsync("movimiento_financiero", "id_movimiento", [request.IdMovimiento]);
+            await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", [request.IdDocumento]);
+            await db.BloquearDeEmpresaAsync(companyId, "movimiento_financiero", "id_movimiento", [request.IdMovimiento]);
 
             var documento = await BuscarDocumentoAsync(companyId, request.IdDocumento);
 
@@ -155,7 +155,7 @@ public class PagosService(AppDbContext db, SaldosService saldos)
                 .SingleOrDefaultAsync(p => p.Id == idPago && p.CompanyId == companyId)
                 ?? throw new PagoNoEncontradoException();
 
-            await db.BloquearAsync("documento_financiero", "id_documento", [pago.DocumentId]);
+            await db.BloquearDeEmpresaAsync(companyId, "documento_financiero", "id_documento", [pago.DocumentId]);
 
             db.PagosDocumento.Remove(pago);
             await db.SaveChangesAuditadoAsync(userId);

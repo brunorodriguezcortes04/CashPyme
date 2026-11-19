@@ -4,7 +4,6 @@ using Backend.Dtos;
 using Backend.Exceptions;
 using Backend.Models;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Backend.Services;
 
@@ -82,19 +81,8 @@ public class TercerosService(AppDbContext db)
             ?? throw new TerceroNoEncontradoException();
     }
 
-    private async Task GuardarAsync()
-    {
-        try
-        {
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex)
-            when (ex.InnerException is PostgresException
-                  { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "uq_tercero_rut" })
-        {
-            throw new TerceroRutDuplicadoException();
-        }
-    }
+    private Task GuardarAsync()
+        => db.SaveChangesTraducidoAsync(() => new TerceroRutDuplicadoException(), restriccion: "uq_tercero_rut");
 
     private static TerceroResponse ToResponse(Tercero t) => new(
         t.Id, t.Type, t.Name, t.Rut, t.BusinessActivity, t.Email, t.Phone, t.Address, t.IsActive);

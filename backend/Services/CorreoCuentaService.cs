@@ -75,11 +75,13 @@ public class CorreoCuentaService(
 
     public async Task VerificarEmailAsync(string token, CancellationToken ct = default)
     {
-        var registro = await BuscarTokenVigenteAsync(token, TokenUsuario.VerificacionEmail, ct);
+        await db.EnTransaccionAsync(async () =>
+        {
+            var registro = await ConsumirTokenAsync(token, TokenUsuario.VerificacionEmail, ct);
 
-        registro.UsedAtUtc = DateTime.UtcNow;
-        registro.User.EmailVerifiedAtUtc ??= DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+            registro.User.EmailVerifiedAtUtc ??= DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+        });
     }
 
     // ------------------------------------------------------------------ recuperación
@@ -115,19 +117,24 @@ public class CorreoCuentaService(
 
     public async Task RestablecerPasswordAsync(string token, string passwordNueva, CancellationToken ct = default)
     {
-        var registro = await BuscarTokenVigenteAsync(token, TokenUsuario.ResetPassword, ct);
-        var user = registro.User;
-
-        if (!user.IsActive)
+        var user = await db.EnTransaccionAsync(async () =>
         {
-            throw new TokenInvalidoException();
-        }
+            var registro = await ConsumirTokenAsync(token, TokenUsuario.ResetPassword, ct);
+            var user = registro.User;
 
-        user.PasswordHash = PasswordHasher.HashPassword(user, passwordNueva);
-        // Abrir el enlace prueba que la bandeja es suya: de paso queda verificado el correo.
-        user.EmailVerifiedAtUtc ??= DateTime.UtcNow;
-        registro.UsedAtUtc = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+            if (!user.IsActive)
+            {
+                throw new TokenInvalidoException();
+            }
+
+            // Cambia el sello de los tokens (JwtTokenService.Sello): quien tuviera una sesión
+            // abierta con la contraseña anterior queda fuera.
+            user.PasswordHash = PasswordHasher.HashPassword(user, passwordNueva);
+            // Abrir el enlace prueba que la bandeja es suya: de paso queda verificado el correo.
+            user.EmailVerifiedAtUtc ??= DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return user;
+        });
 
         await AvisarPasswordCambiadaAsync(user, ct);
     }
@@ -177,18 +184,31 @@ public class CorreoCuentaService(
         return token;
     }
 
-    private async Task<TokenUsuario> BuscarTokenVigenteAsync(string token, string tipo, CancellationToken ct)
+    /// <summary>
+    /// Busca el token vigente y lo marca como usado en una sola sentencia condicionada a que
+    /// siga sin usar. Leerlo y después guardarlo no alcanzaba: dos peticiones simultáneas con el
+    /// mismo enlace lo encontraban vigente las dos y las dos cambiaban la contraseña. Con el
+    /// UPDATE condicionado, la segunda espera a la primera y después no encuentra fila que
+    /// actualizar. Tiene que correr dentro de la transacción del cambio que autoriza: si ese
+    /// cambio falla, el token vuelve a quedar sin usar.
+    /// </summary>
+    private async Task<TokenUsuario> ConsumirTokenAsync(string token, string tipo, CancellationToken ct)
     {
         var hash = Hash(token.Trim());
         var ahora = DateTime.UtcNow;
 
+        var consumidos = await db.TokensUsuario
+            .Where(t => t.TokenHash == hash && t.Type == tipo && t.UsedAtUtc == null && t.ExpiresAtUtc > ahora)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.UsedAtUtc, ahora), ct);
+
+        if (consumidos != 1)
+        {
+            throw new TokenInvalidoException();
+        }
+
         return await db.TokensUsuario
             .Include(t => t.User)
-            .SingleOrDefaultAsync(t => t.TokenHash == hash
-                                       && t.Type == tipo
-                                       && t.UsedAtUtc == null
-                                       && t.ExpiresAtUtc > ahora, ct)
-            ?? throw new TokenInvalidoException();
+            .SingleAsync(t => t.TokenHash == hash && t.Type == tipo, ct);
     }
 
     private Task<bool> EnviadoHacePocoAsync(long userId, string tipo, CancellationToken ct)

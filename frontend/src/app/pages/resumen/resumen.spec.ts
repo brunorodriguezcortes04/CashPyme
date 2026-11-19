@@ -63,12 +63,21 @@ describe('Resumen', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    vi.restoreAllMocks();
+  });
 
-  /** Las dos llamadas que hace la pantalla al abrir: la tarjeta de saldo y las alertas. */
+  /** La tarjeta de proyección (proyeccion-caja.spec.ts) pide la última al abrir: acá, sin proyección. */
+  function responderProyeccion(): void {
+    http.expectOne((r) => r.method === 'GET' && r.url === '/api/proyeccion/ultima').flush(null, { status: 204, statusText: 'No Content' });
+  }
+
+  /** Las llamadas que hace la pantalla al abrir: la tarjeta de saldo, las alertas y la proyección. */
   function responder(saldo: SaldoNeto, alertas: Alerta[] = []): void {
     http.expectOne((r) => r.method === 'GET' && r.url === '/api/dashboard/saldo-neto').flush(saldo);
     http.expectOne((r) => r.method === 'GET' && r.url === '/api/alertas').flush(alertas);
+    responderProyeccion();
   }
 
   // ----- Saldo neto proyectado ----------------------------------------------
@@ -123,6 +132,7 @@ describe('Resumen', () => {
       { status: 403, statusText: 'Forbidden' }
     );
     http.expectOne((r) => r.url === '/api/alertas').flush([]);
+    responderProyeccion();
     expect(texto()).toContain('Reintentar');
 
     (fixture.nativeElement.querySelector('.tarjeta-saldo .form-alert button') as HTMLButtonElement).click();
@@ -190,6 +200,25 @@ describe('Resumen', () => {
     expect(fixture.nativeElement.querySelector('.contador')?.textContent.trim()).toBe('1');
   });
 
+  it('al generar una proyección vuelve a pedir las alertas', () => {
+    responder(saldoDe(), []);
+    texto();
+
+    (fixture.nativeElement.querySelector('.tarjeta-proyeccion .vacio button') as HTMLButtonElement).click();
+    http.expectOne((r) => r.method === 'POST' && r.url === '/api/proyeccion').flush({
+      fechaGeneracion: '2026-10-23T15:00:00Z',
+      modeloUsado: 'documentos_recurrentes',
+      etiquetaModelo: 'Cuentas por cobrar y por pagar + flujos recurrentes',
+      horizontes: []
+    });
+
+    // La proyección puede haber creado la alerta de caja negativa.
+    http.expectOne((r) => r.method === 'GET' && r.url === '/api/alertas').flush([
+      alertaDe({ tipoAlerta: 'saldo_negativo_proyectado', mensaje: 'Tu caja podría quedar en negativo el 12-11-2026', ruta: null })
+    ]);
+    expect(texto()).toContain('Tu caja podría quedar en negativo el 12-11-2026');
+  });
+
   it('si no se puede marcar como leída, la deja y muestra el error', () => {
     responder(saldoDe(), [alertaDe({ id: 1 })]);
     texto();
@@ -203,5 +232,63 @@ describe('Resumen', () => {
     const contenido = texto();
     expect(contenido).toContain('La alerta no existe');
     expect(contenido).toContain('Distribuidora Los Andes');
+  });
+  // ----- Reporte PDF ------------------------------------------------------
+
+  it('exporta el PDF del rango y lo guarda con el nombre que manda el backend', () => {
+    responder(saldoDe(), []);
+    texto();
+    const crearUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:reporte');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    const interno = fixture.componentInstance as unknown as {
+      formReporte: { setValue(v: { desde: string; hasta: string }): void };
+      exportarPdf(): void;
+    };
+    interno.formReporte.setValue({ desde: '2026-10-01', hasta: '2026-10-31' });
+    interno.exportarPdf();
+
+    const peticion = http.expectOne((r) => r.url === '/api/reportes/pdf');
+    expect(peticion.request.params.get('desde')).toBe('2026-10-01');
+    expect(peticion.request.params.get('hasta')).toBe('2026-10-31');
+    peticion.flush(new Blob(['%PDF'], { type: 'application/pdf' }), {
+      headers: { 'Content-Disposition': 'attachment; filename=reporte-caja-2026-10-01-a-2026-10-31.pdf' }
+    });
+
+    expect(crearUrl).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    const enlace = click.mock.instances[0] as unknown as HTMLAnchorElement;
+    expect(enlace.download).toBe('reporte-caja-2026-10-01-a-2026-10-31.pdf');
+  });
+
+  it('sin rango no pide el PDF', () => {
+    responder(saldoDe(), []);
+    texto();
+
+    (fixture.nativeElement.querySelector('.reporte-form button') as HTMLButtonElement).click();
+
+    http.expectNone((r) => r.url === '/api/reportes/pdf');
+    expect(texto()).toContain('Indica la fecha desde y la fecha hasta.');
+  });
+
+  it('muestra el mensaje del backend aunque el error llegue como archivo', async () => {
+    responder(saldoDe(), []);
+    texto();
+    const interno = fixture.componentInstance as unknown as {
+      formReporte: { setValue(v: { desde: string; hasta: string }): void };
+      exportarPdf(): void;
+    };
+    interno.formReporte.setValue({ desde: '2026-10-31', hasta: '2026-10-01' });
+    interno.exportarPdf();
+
+    http.expectOne((r) => r.url === '/api/reportes/pdf').flush(
+      new Blob([JSON.stringify({ message: 'La fecha "desde" no puede ser posterior a la fecha "hasta".' })]),
+      { status: 400, statusText: 'Bad Request' }
+    );
+    await fixture.whenStable();
+    await new Promise((resolver) => setTimeout(resolver));
+
+    expect(texto()).toContain('La fecha "desde" no puede ser posterior');
   });
 });

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using Backend.Dominio;
 
 namespace Backend.Services.Correo;
 
@@ -49,42 +50,35 @@ public static class PlantillasCorreo
             boton: ("No fui yo: recuperar mi cuenta", enlaceRecuperar),
             nota: "Enviamos este aviso cada vez que cambia la contraseña, para que nadie pueda hacerlo sin que te enteres.");
 
-    public static CorreoSaliente Alertas(
-        string para, string razonSocial, IReadOnlyList<(string Severidad, string Mensaje)> alertas, string enlace)
+    /// <summary>
+    /// Un correo por alerta, con el mensaje en el asunto: se entiende desde la bandeja de entrada
+    /// sin abrirlo. La etiqueta es la misma que muestran la web y la app (ReglasAlertas).
+    /// </summary>
+    public static CorreoSaliente Alerta(
+        string para, string razonSocial, string severidad, string mensaje, string enlace)
     {
-        var criticas = alertas.Count(a => a.Severidad == "critica");
-        var asunto = criticas > 0
-            ? $"⚠ {criticas} alerta(s) crítica(s) en {razonSocial}"
-            : $"{alertas.Count} alerta(s) nueva(s) en {razonSocial}";
-
-        var html = new StringBuilder();
-        html.Append("<ul style=\"margin:0 0 20px;padding:0;list-style:none\">");
-        foreach (var (severidad, mensaje) in alertas)
+        var etiqueta = ReglasAlertas.EtiquetaSeveridad(severidad);
+        var color = severidad switch
         {
-            var (color, etiqueta) = severidad switch
-            {
-                "critica" => ("#d93025", "Crítica"),
-                "advertencia" => ("#b26a00", "Advertencia"),
-                _ => ("#1a73e8", "Info")
-            };
-            html.Append($"""
-                <li style="margin:0 0 10px;padding:12px 14px;border-left:4px solid {color};background:#f6f8fb;border-radius:6px">
-                  <strong style="color:{color};font-size:12px;text-transform:uppercase;letter-spacing:.04em">{etiqueta}</strong><br>
-                  <span style="color:#1f2933;font-size:15px">{H(mensaje)}</span>
-                </li>
-                """);
-        }
-        html.Append("</ul>");
+            SeveridadesAlerta.Critica => "#d93025",
+            SeveridadesAlerta.Advertencia => "#b26a00",
+            _ => "#1a73e8"
+        };
 
-        var texto = string.Join("\n", alertas.Select(a => $"- [{a.Severidad}] {a.Mensaje}"));
+        var html = $"""
+            <div style="margin:0 0 20px;padding:12px 14px;border-left:4px solid {color};background:#f6f8fb;border-radius:6px">
+              <strong style="color:{color};font-size:12px;text-transform:uppercase;letter-spacing:.04em">{etiqueta}</strong><br>
+              <span style="color:#1f2933;font-size:15px">{H(mensaje)}</span>
+            </div>
+            """;
 
-        return Crear(para, asunto,
-            titulo: $"Alertas de {razonSocial}",
+        return Crear(para, $"{etiqueta}: {mensaje}",
+            titulo: $"Nueva alerta en {razonSocial}",
             parrafos: ["CashPyme detectó lo siguiente en el flujo de caja de tu empresa:"],
             boton: ("Revisar en CashPyme", enlace),
             nota: "Recibes este correo porque eres Administrador o Contador de la empresa.",
-            htmlExtra: html.ToString(),
-            textoExtra: texto);
+            htmlExtra: html,
+            textoExtra: $"[{etiqueta}] {mensaje}");
     }
 
     public static CorreoSaliente ReporteSemanal(string para, string razonSocial, ResumenSemanal r, string enlace)

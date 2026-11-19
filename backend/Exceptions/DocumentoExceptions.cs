@@ -100,14 +100,15 @@ public class NotaDeOtroTerceroException()
         "La nota tiene que ser del mismo cliente o proveedor que el documento que corrige.");
 
 /// <summary>
-/// Una nota de crédito baja lo que el cliente debe; pasarse del monto del documento dejaría un
-/// saldo negativo, o sea plata que la empresa le debe al cliente, que este MVP no modela.
+/// Una nota de crédito baja lo que el cliente debe; pasarse de lo que todavía se debe (el monto
+/// más las notas de débito, menos lo ya acreditado y lo ya pagado) dejaría un saldo negativo, o
+/// sea plata que la empresa le debe al cliente, que este MVP no modela.
 /// </summary>
 public class NotasCreditoExcedenDocumentoException(decimal disponible) : ApiException(
     StatusCodes.Status409Conflict,
     disponible <= 0
-        ? "Este documento ya está completamente cubierto por notas de crédito."
-        : $"La nota de crédito no puede pasar de {Clp.Formatear(disponible)}, que es lo que queda del documento sin acreditar.")
+        ? "Este documento ya no tiene saldo pendiente: entre lo pagado y las notas de crédito está cubierto entero."
+        : $"La nota de crédito no puede pasar de {Clp.Formatear(disponible)}, que es lo que queda pendiente del documento.")
 {
     public decimal Disponible { get; } = disponible;
 }
@@ -159,14 +160,30 @@ public class PagoNoEncontradoException()
 
 /// <summary>
 /// Un documento no puede valer menos de lo que ya tiene comprometido: lo cobrado más lo
-/// acreditado en notas: si no, quedaría plata cobrada o acreditada por encima de lo que vale.
+/// acreditado en notas, menos lo que le suman sus notas de débito. Si no, quedaría plata cobrada
+/// o acreditada por encima de lo que vale.
 /// </summary>
-public class MontoMenorAComprometidoException(decimal pagado, decimal notasCredito) : ApiException(
+public class MontoMenorAComprometidoException(decimal pagado, decimal notasCredito, decimal notasDebito) : ApiException(
     StatusCodes.Status409Conflict,
-    notasCredito > 0
-        ? $"El monto total no puede quedar por debajo de {Clp.Formatear(pagado + notasCredito)}: {Clp.Formatear(pagado)} ya pagados y {Clp.Formatear(notasCredito)} en notas de crédito."
-        : $"El monto total no puede quedar por debajo de lo ya pagado ({Clp.Formatear(pagado)}). Anula primero los pagos que correspondan.")
+    (notasCredito, notasDebito) switch
+    {
+        ( > 0, > 0) => $"El monto total no puede quedar por debajo de {Clp.Formatear(pagado + notasCredito - notasDebito)}: {Clp.Formatear(pagado)} ya pagados y {Clp.Formatear(notasCredito)} en notas de crédito, menos {Clp.Formatear(notasDebito)} en notas de débito.",
+        ( > 0, _) => $"El monto total no puede quedar por debajo de {Clp.Formatear(pagado + notasCredito)}: {Clp.Formatear(pagado)} ya pagados y {Clp.Formatear(notasCredito)} en notas de crédito.",
+        _ => $"El monto total no puede quedar por debajo de {Clp.Formatear(Math.Max(pagado - notasDebito, 0m))}, por lo ya pagado. Anula primero los pagos que correspondan."
+    })
 {
     public decimal Pagado { get; } = pagado;
     public decimal NotasCredito { get; } = notasCredito;
+    public decimal NotasDebito { get; } = notasDebito;
+}
+
+/// <summary>
+/// Anular una nota de débito baja lo que vale el documento. Si lo ya pagado y acreditado pasa
+/// de lo que valdría sin la nota, quedaría un saldo a favor del cliente, que este MVP no modela.
+/// </summary>
+public class AnularNotaDebitoDejaSaldoAFavorException(decimal sobrante) : ApiException(
+    StatusCodes.Status409Conflict,
+    $"No se puede anular esta nota de débito: el documento quedaría con {Clp.Formatear(sobrante)} pagados o acreditados de más. Anula primero los pagos o las notas de crédito que correspondan.")
+{
+    public decimal Sobrante { get; } = sobrante;
 }

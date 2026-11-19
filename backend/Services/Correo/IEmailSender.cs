@@ -12,4 +12,12 @@ public interface IEmailSender
     Task EnviarAsync(CorreoSaliente correo, CancellationToken cancellationToken = default);
 }
 
-public class EmailNoEnviadoException(string message, Exception? inner = null) : Exception(message, inner);
+/// <summary>
+/// Permanente: reintentar no sirve (dirección inválida, destinatario no permitido en modo
+/// prueba). Los demás (proveedor caído, límite de envíos) se reintentan en el próximo ciclo.
+/// </summary>
+public class EmailNoEnviadoException(string message, Exception? inner = null, bool permanente = false)
+    : Exception(message, inner)
+{
+    public bool Permanente { get; } = permanente;
+}

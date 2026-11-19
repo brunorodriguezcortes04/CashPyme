@@ -101,6 +101,8 @@ public sealed class BaseDePruebas : IAsyncLifetime
         servicios.AddOptions<AppOptions>();
         servicios.AddSingleton<IEmailSender, CorreoDescartado>();
         servicios.AddSingleton<JwtTokenService>();
+        servicios.AddSingleton<Backend.Security.IntentosLoginService>();
+        servicios.AddScoped<Backend.Security.ValidadorSesion>();
         servicios.AddScoped<CorreoCuentaService>();
         servicios.AddScoped<AuthService>();
         servicios.AddScoped<TercerosService>();
@@ -111,9 +113,13 @@ public sealed class BaseDePruebas : IAsyncLifetime
         servicios.AddScoped<PagosService>();
         servicios.AddScoped<DashboardService>();
         servicios.AddScoped<AlertasService>();
+        servicios.AddScoped<HuellasEmpresaService>();
+        servicios.AddSingleton<RecalculosPendientes>();
+        servicios.AddScoped<ProyeccionFlujoCajaService>();
         servicios.AddScoped<VencimientosService>();
         servicios.AddScoped<CuentasService>();
         servicios.AddScoped<EmpresaService>();
+        servicios.AddScoped<Backend.Services.Reportes.ReportesService>();
         return servicios.BuildServiceProvider();
     }
 

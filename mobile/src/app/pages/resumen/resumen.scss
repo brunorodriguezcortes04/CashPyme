@@ -1,0 +1,28 @@
+.marca { font-family: var(--cp-font-display); font-weight: 600; }
+.marca span { color: var(--ion-color-primary); }
+
+.empresa { margin: 4px 0 16px; color: var(--ion-color-medium); font-size: 14px; }
+
+.saldo { padding: 20px; border: 1px solid var(--ion-border-color); border-radius: 16px; background: var(--ion-card-background); }
+.saldo h2 { margin: 0; font-size: 15px; font-weight: 500; color: var(--ion-color-medium); }
+.monto { margin: 10px 0 0; font-family: var(--cp-font-display); font-size: 2.5rem; font-weight: 600; letter-spacing: -.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.nota { margin: 6px 0 0; color: var(--ion-color-medium); font-size: 13px; }
+.mes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--ion-border-color); }
+.mes dt { color: var(--ion-color-medium); font-size: 13px; }
+.mes dd { margin: 4px 0 0; font-size: 1.05rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.movimientos { margin-top: 24px; border-radius: 16px; overflow: hidden; }
+.movimientos ion-list-header h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.movimientos h3 { font-size: 15px; font-weight: 500; }
+.movimientos p { font-size: 13px; }
+ion-note { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.ingreso { color: var(--ion-color-primary); }
+.egreso, .negativo { color: var(--ion-color-danger); }
+.vacio { color: var(--ion-color-medium); }
+
+.aviso { margin-bottom: 16px; padding: 14px 16px; border: 1px solid rgba(255, 138, 138, .35); border-radius: 12px; color: var(--ion-color-danger); }
+.aviso p { margin: 0 0 8px; }
+
+.esqueleto-monto { width: 60%; height: 40px; margin-top: 10px; }
+.esqueleto-nota { width: 80%; height: 14px; }

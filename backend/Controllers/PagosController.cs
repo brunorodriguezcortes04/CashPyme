@@ -1,3 +1,4 @@
+using Backend.Dominio;
 using Backend.Dtos;
 using Backend.Security;
 using Backend.Services;
@@ -21,13 +22,8 @@ public class PagosController(PagosService pagosService) : ControllerBase
     [HttpGet("movimientos-aplicables")]
     [RequierePermiso(Permiso.DocumentosGestionar)]
     public async Task<ActionResult<IReadOnlyList<MovimientoAplicableResponse>>> MovimientosAplicables(
-        [FromQuery] string tipoCuenta)
+        [FromQuery, TipoCuentaDocumentoValido] string tipoCuenta)
     {
-        if (!Dominio.TiposCuentaDocumento.EsValido(tipoCuenta))
-        {
-            return BadRequest(new { message = "El tipo de cuenta debe ser por_cobrar o por_pagar." });
-        }
-
         var result = await pagosService.ListarMovimientosAplicablesAsync(User.GetCompanyId(), tipoCuenta);
         return Ok(result);
     }

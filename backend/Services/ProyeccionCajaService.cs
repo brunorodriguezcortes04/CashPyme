@@ -46,11 +46,11 @@ public class ProyeccionCajaService(AppDbContext db, SaldosService saldos)
 
         var caja = await saldos.CajaDeEmpresaAsync(companyId);
 
-        var documentos = db.DocumentosFinancieros.Where(d => d.CompanyId == companyId);
-        var saldosDocumentos = await saldos.DeDocumentosAsync(documentos);
-        var datosDocumentos = await documentos
+        var datosDocumentos = await db.DocumentosFinancieros
+            .Where(d => d.CompanyId == companyId)
             .Select(d => new { d.Id, d.AccountType, d.DueDate })
             .ToListAsync();
+        var saldosDocumentos = await saldos.DeDocumentosAsync(datosDocumentos.Select(d => d.Id).ToList());
 
         var paraProyeccion = datosDocumentos
             .Select(d => new DocumentoParaProyeccion(

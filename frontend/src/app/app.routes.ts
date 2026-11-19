@@ -81,6 +81,11 @@ export const routes: Routes = [
         path: 'terceros',
         canActivate: [pantallaGuard],
          loadComponent: () => import('./pages/terceros/terceros').then((m) => m.Terceros)
+      },
+      {
+        path: 'caja',
+        canActivate: [pantallaGuard],
+        loadComponent: () => import('./pages/caja/caja').then((m) => m.Caja)
       }
       
     ]

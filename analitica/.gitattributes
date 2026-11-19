@@ -1,0 +1,2 @@
+# El sha256 del dataset está en su ficha: git no debe cambiar los saltos de línea al bajarlo.
+datos/*.csv -text

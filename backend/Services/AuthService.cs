@@ -1,16 +1,30 @@
+using System.Security.Cryptography;
 using Backend.Data;
 using Backend.Dominio;
 using Backend.Dtos;
 using Backend.Exceptions;
 using Backend.Models;
+using Backend.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
-public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, CorreoCuentaService correoCuenta)
+public class AuthService(
+    AppDbContext db,
+    JwtTokenService jwtTokenService,
+    CorreoCuentaService correoCuenta,
+    IntentosLoginService intentosLogin,
+    TimeProvider reloj)
 {
     private static readonly PasswordHasher<User> PasswordHasher = new();
+
+    /// <summary>
+    /// Usuario de mentira con el hash de una contraseña que nadie conoce. Cuando el correo no
+    /// existe se verifica contra este, para que el login tarde lo mismo que con un correo
+    /// registrado: si respondiera antes, el tiempo de respuesta diría qué correos tienen cuenta.
+    /// </summary>
+    private static readonly User UsuarioFicticio = CrearUsuarioFicticio();
 
     /// <summary>
     /// Registra una pyme: crea empresa + usuario + membresía (rol Administrador)
@@ -84,12 +98,25 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, Corre
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-        var user = await db.Users.SingleOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail && u.IsActive);
 
-        if (user is null || PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
+        // Bloqueada: ni se mira la contraseña, así que seguir probando no sirve de nada.
+        if (intentosLogin.BloqueadaHasta(normalizedEmail) is { } hasta)
         {
+            var minutos = (int)Math.Ceiling((hasta - reloj.GetUtcNow()).TotalMinutes);
+            throw new CuentaBloqueadaException(minutos);
+        }
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail && u.IsActive);
+        var verificado = user ?? UsuarioFicticio;
+        var resultado = PasswordHasher.VerifyHashedPassword(verificado, verificado.PasswordHash, request.Password);
+
+        if (user is null || resultado == PasswordVerificationResult.Failed)
+        {
+            intentosLogin.RegistrarFallo(normalizedEmail);
             throw new InvalidCredentialsException();
         }
+
+        intentosLogin.RegistrarExito(normalizedEmail);
 
         // Empresa con la que se inicia sesión: la primera membresía activa.
         var membership = await db.CompanyMemberships
@@ -114,8 +141,12 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, Corre
     /// abierta y sin dueño no alcance para apoderarse de la cuenta. Es también la única
     /// forma de reemplazar una contraseña provisional (ver EmpresaService.AgregarUsuarioAsync):
     /// esa nace válida pero la conoce quien dio el alta, así que conviene cambiarla.
+    ///
+    /// La contraseña nueva cambia el sello de los tokens (JwtTokenService.Sello): quedan fuera
+    /// todas las sesiones abiertas, también esta. Por eso devuelve un token nuevo para la misma
+    /// empresa activa, y quien cambió la contraseña sigue dentro.
     /// </summary>
-    public async Task CambiarPasswordAsync(long userId, CambiarPasswordRequest request)
+    public async Task<AuthResponse> CambiarPasswordAsync(long userId, long companyId, CambiarPasswordRequest request)
     {
         var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.IsActive)
             ?? throw new InvalidCredentialsException();
@@ -136,6 +167,8 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, Corre
         await db.SaveChangesAsync();
 
         await correoCuenta.AvisarPasswordCambiadaAsync(user);
+
+        return await CambiarEmpresaActivaAsync(userId, companyId);
     }
 
     /// <summary>
@@ -158,7 +191,14 @@ public class AuthService(AppDbContext db, JwtTokenService jwtTokenService, Corre
 
     private AuthResponse CreateAuthResponse(User user, long companyId, string businessName, string rol)
     {
-        var (token, expiresAtUtc) = jwtTokenService.CreateToken(user.Id, companyId);
+        var (token, expiresAtUtc) = jwtTokenService.CreateToken(user.Id, companyId, user.PasswordHash);
         return new AuthResponse(token, expiresAtUtc, businessName, user.Email, rol);
+    }
+
+    private static User CrearUsuarioFicticio()
+    {
+        var usuario = new User { Name = string.Empty, Email = string.Empty, PasswordHash = string.Empty };
+        usuario.PasswordHash = PasswordHasher.HashPassword(usuario, Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
+        return usuario;
     }
 }

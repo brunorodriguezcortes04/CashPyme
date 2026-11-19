@@ -9,11 +9,17 @@ using Npgsql;
 namespace Backend.Services;
 
 /// <summary>
-/// Alertas: las genera el job (NotificacionesWorker → GenerarAsync) y las lee la pantalla de
-/// Resumen. Antes la generación era fn_generar_alertas en la base; ahora las decisiones (cuándo
-/// se crea, cuándo se cierra y qué dice cada una) viven en ReglasAlertas y esto las aplica.
+/// Alertas: las genera el job (NotificacionesWorker → GenerarAsync), también al pedir GET /alertas, y las lee la pantalla de
+/// Resumen. La de caja negativa es aparte: sale de la proyección guardada, así que se evalúa cada
+/// vez que se genera una (ProyeccionFlujoCajaService → ActualizarCajaNegativaAsync). Antes la
+/// generación era fn_generar_alertas en la base; ahora las decisiones (cuándo se crea, cuándo se
+/// cierra y qué dice cada una) viven en ReglasAlertas y esto las aplica.
 /// </summary>
-public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCajaService proyeccion)
+public class AlertasService(
+    AppDbContext db,
+    SaldosService saldos,
+    HuellasEmpresaService huellas,
+    RecalculosPendientes recalculos)
 {
     /// <summary>
     /// Alertas sin leer de la empresa: primero las críticas, después por fecha de referencia (lo
@@ -72,26 +78,28 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
     /// Corre el job para una empresa o, sin id, para todas. Cierra lo que ya no aplica y crea lo
     /// que falta. Es idempotente: correrlo dos veces seguidas no crea nada la segunda vez,
     /// porque nunca hay dos alertas abiertas del mismo tipo para lo mismo. Devuelve cuántas creó.
+    /// No toca la de caja negativa: esa se actualiza al generar la proyección.
+    ///
+    /// Solo recorre las empresas activas, y de esas solo las que cambiaron desde la última vez
+    /// (RecalculosPendientes): sin cambios el resultado sería el mismo. Así el worker, que pasa
+    /// cada minuto, y el GET de alertas, que lo llama en cada carga del Resumen, casi siempre se
+    /// quedan en una consulta liviana en vez de recalcular todos los saldos.
     /// </summary>
     public async Task<int> GenerarAsync(long? companyId = null)
     {
-        var empresas = await db.Companies
-            .Where(c => companyId == null || c.Id == companyId)
-            .Select(c => new { c.Id, c.TimeZone, c.DueDateWarningDays, c.LowBalanceThreshold, c.IsActive })
-            .ToListAsync();
+        var empresas = await huellas.DeEmpresasActivasAsync(companyId);
 
         var creadas = 0;
-        foreach (var e in empresas)
+        foreach (var (idEmpresa, huella) in empresas)
         {
-            var hoy = saldos.HoyDe(e.TimeZone);
-            creadas += await AlertasDeDocumentosAsync(e.Id, hoy, e.DueDateWarningDays);
-            creadas += await AlertasDeSaldoBajoAsync(e.Id, e.LowBalanceThreshold);
-
-            // La proyección solo se mira para empresas activas, igual que antes.
-            if (e.IsActive)
+            if (!recalculos.HaceFalta(RecalculosPendientes.Alertas, idEmpresa, huella))
             {
-                creadas += await AlertaDeCajaNegativaAsync(e.Id);
+                continue;
             }
+
+            creadas += await AlertasDeDocumentosAsync(idEmpresa, huella.Hoy, huella.DiasAviso);
+            creadas += await AlertasDeSaldoBajoAsync(idEmpresa, huella.UmbralSaldoBajo);
+            recalculos.Registrar(RecalculosPendientes.Alertas, idEmpresa, huella);
         }
 
         return creadas;
@@ -99,15 +107,17 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
 
     private async Task<int> AlertasDeDocumentosAsync(long companyId, DateOnly hoy, int diasAviso)
     {
-        var consulta = db.DocumentosFinancieros.Where(d => d.CompanyId == companyId);
-        var saldosDoc = await saldos.DeDocumentosAsync(consulta);
-        var documentos = await consulta
+        // Primero las filas y después los saldos de esos ids: con la consulta corrida dos veces, un
+        // documento creado entre las dos no tenía saldo y el ciclo del worker reventaba.
+        var documentos = await db.DocumentosFinancieros
+            .Where(d => d.CompanyId == companyId)
             .Select(d => new
             {
                 d.Id, d.AccountType, d.Status, d.DueDate, d.DocumentNumber,
                 Tercero = d.ThirdParty.Name
             })
             .ToDictionaryAsync(d => d.Id);
+        var saldosDoc = await saldos.DeDocumentosAsync(documentos.Keys.ToList());
 
         // 1. Cerrar las que dejaron de decir la verdad.
         var abiertas = await db.Alertas
@@ -170,7 +180,7 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
             .Where(c => c.CompanyId == companyId)
             .Select(c => new { c.Id, c.Name, c.IsActive })
             .ToDictionaryAsync(c => c.Id);
-        var saldosCuenta = await saldos.DeCuentasAsync(db.CuentasFinancieras.Where(c => c.CompanyId == companyId));
+        var saldosCuenta = await saldos.DeCuentasAsync(cuentas.Keys.ToList());
 
         var abiertas = await db.Alertas
             .Where(a => a.CompanyId == companyId && a.Status != Alerta.Resuelta && a.Type == TiposAlerta.SaldoBajo)
@@ -205,10 +215,15 @@ public class AlertasService(AppDbContext db, SaldosService saldos, ProyeccionCaj
         return await InsertarAsync(nuevas);
     }
 
-    private async Task<int> AlertaDeCajaNegativaAsync(long companyId)
+    /// <summary>
+    /// Alerta crítica si la proyección recién generada queda bajo cero algún día del horizonte.
+    /// Como las demás: una sola abierta por fecha, y se cierra cuando la proyección nueva ya no
+    /// cae a negativo o cae otro día (en ese caso se crea la de la fecha nueva). Devuelve 1 si
+    /// creó una alerta.
+    /// </summary>
+    public async Task<int> ActualizarCajaNegativaAsync(long companyId, IEnumerable<DiaProyectado> proyeccion)
     {
-        var dias = await proyeccion.CalcularAsync(companyId, ReglasAlertas.HorizonteSaldoNegativo);
-        var primerNegativo = ReglasAlertas.PrimerDiaNegativo(dias);
+        var primerNegativo = ReglasAlertas.PrimerDiaNegativo(proyeccion);
 
         var abiertas = await db.Alertas
             .Where(a => a.CompanyId == companyId

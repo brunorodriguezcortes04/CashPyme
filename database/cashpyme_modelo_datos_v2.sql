@@ -18,6 +18,8 @@
 --    en documentos, IVA, flujos recurrentes, escenarios y proyección.
 --  * Nuevo: motor de alertas, categorías base al crear empresa y
 --    auditoría (todo en la API, ver "Sin lógica en la base").
+--  * Nuevo (fuera del MVP entregado): proyeccion_flujo_caja, que guarda
+--    las proyecciones a 30 y 60 días para el dashboard (migración 019).
 --
 -- Decisiones asumidas (revisar):
 --  * Mono-moneda (CLP) en el MVP; se agrega moneda a movimientos si
@@ -495,6 +497,32 @@ CREATE TABLE pantalla (
     CONSTRAINT uq_pantalla_ruta   UNIQUE (ruta)
 );
 
+-- ---------------------------------------------------------------------
+-- 19. PROYECCION_FLUJO_CAJA — proyecciones de caja ya calculadas, para
+--     mostrarlas en el dashboard sin recalcular (migración 019).
+--     Una fila por día proyectado. Las filas de una misma generación
+--     comparten id_empresa + fecha_generacion, y dentro de ella hay un
+--     juego por horizonte (30 y 60 días). monto_proyectado es el saldo de
+--     caja al cierre de fecha_proyectada; ingresos y egresos son lo que se
+--     espera que entre y salga ese día.
+-- ---------------------------------------------------------------------
+CREATE TABLE proyeccion_flujo_caja (
+    id_proyeccion         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_empresa            BIGINT NOT NULL REFERENCES empresa(id_empresa),
+    fecha_generacion      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    horizonte_dias        SMALLINT      NOT NULL,
+    fecha_proyectada      DATE          NOT NULL,
+    ingresos_proyectados  NUMERIC(14,2) NOT NULL DEFAULT 0,
+    egresos_proyectados   NUMERIC(14,2) NOT NULL DEFAULT 0,
+    monto_proyectado      NUMERIC(14,2) NOT NULL,
+    modelo_usado          VARCHAR(30)   NOT NULL,
+    CONSTRAINT ck_proyeccion_horizonte CHECK (horizonte_dias IN (30,60,90)),
+    CONSTRAINT ck_proyeccion_flujos    CHECK (ingresos_proyectados >= 0 AND egresos_proyectados >= 0),
+    CONSTRAINT ck_proyeccion_modelo    CHECK (modelo_usado IN ('documentos_recurrentes')),
+    -- También sirve para buscar la última generación de cada empresa.
+    CONSTRAINT uq_proyeccion_dia UNIQUE (id_empresa, fecha_generacion, horizonte_dias, fecha_proyectada)
+);
+
 -- =====================================================================
 -- DATOS SEMILLA
 -- (las categorías base y la cuenta "Caja" las crea la API al registrar cada empresa)
@@ -510,6 +538,7 @@ INSERT INTO pantalla (codigo, nombre, ruta, orden, permiso_requerido) VALUES
     ('movimientos.ingresos',   'Ingresos', 'movimientos/ingreso', 1, 'MovimientosRegistrar'),
     ('movimientos.egresos',    'Egresos',  'movimientos/egreso',  2, 'MovimientosRegistrar'),
     ('dashboard.resumen',      'Resumen',  'resumen',  0, 'DocumentosVer'),
+    ('dashboard.caja',         'Caja',     'caja',     0, 'MovimientosVer'),
     ('empresa.cuentas',        'Cuentas',  'cuentas',  3, 'CuentasGestionar'),
     ('documentos.por_cobrar',  'Cuentas por cobrar',     'cuentas-por-cobrar', 3, 'DocumentosVer'),
     ('cuentas_pagar.gestion',  'Cuentas por pagar',      'cuentas-por-pagar',  4, 'DocumentosVer'),

@@ -25,4 +25,30 @@ public class DashboardController(DashboardService dashboardService) : Controller
         var result = await dashboardService.ObtenerSaldoNetoAsync(User.GetCompanyId());
         return Ok(result);
     }
+
+    /// <summary>
+    /// Saldo total en caja (todas las cuentas activas) e ingresos y egresos del mes, con el
+    /// detalle por cuenta y por día. Sin anio ni mes muestra el mes en curso de la empresa.
+    ///
+    /// Pide MovimientosVer: es solo caja, lo mismo que el Operador ya consulta en movimientos.
+    /// </summary>
+    [HttpGet("caja")]
+    [RequierePermiso(Permiso.MovimientosVer)]
+    public async Task<ActionResult<CajaActualResponse>> Caja([FromQuery] int? anio, [FromQuery] int? mes)
+    {
+        var result = await dashboardService.ObtenerCajaActualAsync(User.GetCompanyId(), anio, mes);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Variación de ingresos, egresos y flujo neto contra el mes anterior, y las categorías que
+    /// más movieron plata en el mes. Mismo período y mismo permiso que la caja.
+    /// </summary>
+    [HttpGet("indicadores")]
+    [RequierePermiso(Permiso.MovimientosVer)]
+    public async Task<ActionResult<IndicadoresResponse>> Indicadores([FromQuery] int? anio, [FromQuery] int? mes)
+    {
+        var result = await dashboardService.ObtenerIndicadoresAsync(User.GetCompanyId(), anio, mes);
+        return Ok(result);
+    }
 }

@@ -34,6 +34,26 @@ public class MovimientosController(MovimientosService movimientosService) : Cont
     }
 
     /// <summary>
+    /// El listado filtrado completo (sin paginar) como archivo: formato=csv (por defecto) o xlsx.
+    /// Recibe los mismos filtros que el listado y los aplica igual, así el archivo trae
+    /// exactamente lo que la persona está viendo y solo de su empresa (la del token).
+    /// </summary>
+    [HttpGet("export")]
+    [RequierePermiso(Permiso.MovimientosVer)]
+    public async Task<IActionResult> Exportar(
+        [FromQuery] string? formato,
+        [FromQuery] string? tipo,
+        [FromQuery] DateOnly? fechaDesde,
+        [FromQuery] DateOnly? fechaHasta,
+        [FromQuery] long? idCategoria,
+        [FromQuery] long? idCuenta)
+    {
+        var (contenido, nombre, contentType) = await movimientosService.ExportarAsync(
+            User.GetCompanyId(), formato, tipo, fechaDesde, fechaHasta, idCategoria, idCuenta);
+        return File(contenido, contentType, nombre);
+    }
+
+    /// <summary>
     /// Un solo endpoint para ingresos y egresos: el tipo viaja en el cuerpo y lo valida
     /// TipoMovimientoValido. El signo sobre el saldo lo decide el tipo (ver CalculoCuenta).
     /// </summary>

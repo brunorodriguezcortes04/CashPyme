@@ -26,8 +26,17 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
         return HoyDe(zona);
     }
 
+    /// <summary>
+    /// Saldo de una lista fija de documentos. Es la que conviene cuando además se leen las filas:
+    /// primero las filas y después los saldos de esos ids. Con una consulta, cada una se corre por
+    /// separado, y un documento creado o anulado entre las dos queda en una y no en la otra.
+    /// </summary>
     public Task<Dictionary<long, SaldoDocumento>> DeDocumentosAsync(IReadOnlyCollection<long> ids)
         => DeDocumentosAsync(db.DocumentosFinancieros.Where(d => ids.Contains(d.Id)));
+
+    /// <summary>Saldo de una lista fija de cuentas (mismo motivo que la de documentos).</summary>
+    public Task<Dictionary<long, decimal>> DeCuentasAsync(IReadOnlyCollection<long> ids, DateOnly? hasta = null)
+        => DeCuentasAsync(db.CuentasFinancieras.Where(c => ids.Contains(c.Id)), hasta);
 
     /// <summary>
     /// Saldo neteado de cada documento de la consulta: monto, lo pagado con movimientos
@@ -97,9 +106,10 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
 
     /// <summary>
     /// Saldo actual de cada cuenta de la consulta: saldo inicial más ingresos menos egresos
-    /// registrados, más lo que le transfirieron y menos lo que transfirió.
+    /// registrados, más lo que le transfirieron y menos lo que transfirió. Con hasta, el saldo al
+    /// cierre de ese día: solo cuenta lo fechado hasta entonces (lo usa el reporte del período).
     /// </summary>
-    public async Task<Dictionary<long, decimal>> DeCuentasAsync(IQueryable<CuentaFinanciera> cuentas)
+    public async Task<Dictionary<long, decimal>> DeCuentasAsync(IQueryable<CuentaFinanciera> cuentas, DateOnly? hasta = null)
     {
         var iniciales = await cuentas
             .Select(c => new { c.Id, c.InitialBalance })
@@ -114,6 +124,7 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             from m in db.MovimientosFinancieros
             join c in cuentas on m.AccountId equals c.Id
             where m.Status == MovimientoFinanciero.Registrado
+                  && (hasta == null || m.MovementDate <= hasta)
             group m by m.AccountId into g
             select new
             {
@@ -127,6 +138,7 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             from t in db.TransferenciasCuentas
             join c in cuentas on t.TargetAccountId equals c.Id
             where t.Status == TransferenciaCuentas.Registrada
+                  && (hasta == null || t.TransferDate <= hasta)
             group t by t.TargetAccountId into g
             select new { Id = g.Key, Total = g.Sum(x => x.Amount) }
         ).ToDictionaryAsync(x => x.Id, x => x.Total);
@@ -135,6 +147,7 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             from t in db.TransferenciasCuentas
             join c in cuentas on t.SourceAccountId equals c.Id
             where t.Status == TransferenciaCuentas.Registrada
+                  && (hasta == null || t.TransferDate <= hasta)
             group t by t.SourceAccountId into g
             select new { Id = g.Key, Total = g.Sum(x => x.Amount) }
         ).ToDictionaryAsync(x => x.Id, x => x.Total);
@@ -201,6 +214,25 @@ public class SaldosService(AppDbContext db, TimeProvider reloj)
             documento.Status = CalculoDocumento.Estado(
                 documento.Status, saldo.NetAmount, saldo.PaidAmount, documento.DueDate, hoyPorEmpresa[documento.CompanyId]);
         }
+    }
+
+    /// <summary>
+    /// Ingresos y egresos registrados de la empresa por día, entre dos fechas (incluidas). Antes
+    /// era vista_flujo_diario: solo trae los días con movimientos, ordenados por fecha.
+    /// </summary>
+    public async Task<IReadOnlyList<FlujoDia>> FlujoDiarioAsync(long companyId, DateOnly desde, DateOnly hasta)
+    {
+        return await db.MovimientosFinancieros
+            .Where(m => m.CompanyId == companyId
+                        && m.Status == MovimientoFinanciero.Registrado
+                        && m.MovementDate >= desde && m.MovementDate <= hasta)
+            .GroupBy(m => m.MovementDate)
+            .OrderBy(g => g.Key)
+            .Select(g => new FlujoDia(
+                g.Key,
+                g.Sum(m => m.Type == TiposMovimiento.Ingreso ? m.Amount : 0m),
+                g.Sum(m => m.Type == TiposMovimiento.Egreso ? m.Amount : 0m)))
+            .ToListAsync();
     }
 
     /// <summary>Ingresos y egresos registrados de la empresa entre dos fechas (incluidas).</summary>

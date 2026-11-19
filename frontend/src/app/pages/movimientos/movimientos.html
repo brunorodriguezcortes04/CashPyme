@@ -180,6 +180,19 @@
       }
     </form>
 
+    <div class="exportar" role="group" aria-label="Exportar el listado">
+      <span class="muted">Exportar lo que estás viendo:</span>
+      <button type="button" class="button button-ghost" [disabled]="exportando() !== null || isLoading()" (click)="exportar('csv')">
+        {{ exportando() === 'csv' ? 'Generando…' : 'CSV' }}
+      </button>
+      <button type="button" class="button button-ghost" [disabled]="exportando() !== null || isLoading()" (click)="exportar('xlsx')">
+        {{ exportando() === 'xlsx' ? 'Generando…' : 'Excel' }}
+      </button>
+      @if (errorExportacion()) {
+        <small class="field-error" role="alert">{{ errorExportacion() }}</small>
+      }
+    </div>
+
     @if (isLoading()) {
       <p class="muted">Cargando…</p>
     } @else if (movimientos().length === 0) {

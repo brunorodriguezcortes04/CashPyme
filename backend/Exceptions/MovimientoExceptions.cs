@@ -32,3 +32,14 @@ public class MovimientoConPagosAnularException(int cantidadPagos) : ApiException
 
 public class RangoFechasInvalidoException()
     : ApiException(StatusCodes.Status400BadRequest, "La fecha \"desde\" no puede ser posterior a la fecha \"hasta\".");
+
+public class PeriodoInvalidoException()
+    : ApiException(StatusCodes.Status400BadRequest, "El período debe indicar año y mes (1 a 12).");
+
+public class FormatoExportacionInvalidoException()
+    : ApiException(StatusCodes.Status400BadRequest, "El formato de exportación debe ser csv o xlsx.");
+
+public class ExportacionMuyGrandeException()
+    : ApiException(
+        StatusCodes.Status400BadRequest,
+        $"El filtro trae más de {Backend.Dominio.ExportacionMovimientos.MaximoFilas:N0} movimientos. Acota el rango de fechas para exportar.".Replace(',', '.'));

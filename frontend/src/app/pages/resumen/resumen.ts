@@ -1,13 +1,17 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Alerta, AlertasService } from '../../core/alertas.service';
 import { mensajeDeError } from '../../core/api-error';
 import { DashboardService, SaldoNeto } from '../../core/dashboard.service';
+import { ReportesService } from '../../core/reportes.service';
+import { guardarArchivo } from '../../core/descargas';
+import { ProyeccionCaja } from './proyeccion-caja/proyeccion-caja';
 
 @Component({
   selector: 'app-resumen',
-  imports: [DecimalPipe, RouterLink],
+  imports: [DecimalPipe, RouterLink, ReactiveFormsModule, ProyeccionCaja],
   templateUrl: './resumen.html',
   styleUrl: './resumen.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -15,6 +19,7 @@ import { DashboardService, SaldoNeto } from '../../core/dashboard.service';
 export class Resumen {
   private readonly dashboardService = inject(DashboardService);
   private readonly alertasService = inject(AlertasService);
+  private readonly reportesService = inject(ReportesService);
 
   protected readonly saldo = signal<SaldoNeto | null>(null);
   protected readonly isLoading = signal(true);
@@ -34,6 +39,14 @@ export class Resumen {
     const s = this.saldo();
     return s !== null && s.porCobrar === 0 && s.porPagar === 0;
   });
+
+  /** Rango del reporte PDF: obligatorio. Que esté en orden y no sea muy largo lo valida el backend. */
+  protected readonly formReporte = inject(FormBuilder).nonNullable.group({
+    desde: ['', [Validators.required]],
+    hasta: ['', [Validators.required]]
+  });
+  protected readonly exportando = signal(false);
+  protected readonly errorReporte = signal<string | null>(null);
 
   constructor() {
     this.cargar();
@@ -91,4 +104,27 @@ export class Resumen {
       }
     });
   }
+
+  protected exportarPdf(): void {
+    if (this.formReporte.invalid) {
+      this.formReporte.markAllAsTouched();
+      return;
+    }
+
+    const { desde, hasta } = this.formReporte.getRawValue();
+    this.exportando.set(true);
+    this.errorReporte.set(null);
+
+    this.reportesService.descargarPdf(desde, hasta).subscribe({
+      next: (archivo) => {
+        guardarArchivo(archivo);
+        this.exportando.set(false);
+      },
+      error: (error: unknown) => {
+        this.errorReporte.set(mensajeDeError(error));
+        this.exportando.set(false);
+      }
+    });
+  }
 }
+

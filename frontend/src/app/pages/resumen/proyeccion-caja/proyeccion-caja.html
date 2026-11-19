@@ -1,0 +1,178 @@
+<section class="card tarjeta-proyeccion" aria-labelledby="proyeccion-titulo" [attr.aria-busy]="isLoading() || generando()">
+  <div class="cabecera">
+    <div>
+      <h2 id="proyeccion-titulo">Proyección de caja</h2>
+      <p class="nota">Cuánta plata tendrías cada día, según lo que vence y lo que se repite.</p>
+    </div>
+
+    @if (opciones().length > 1) {
+      <div class="selector-horizonte" role="group" aria-label="Horizonte">
+        @for (dias of opciones(); track dias) {
+          <button
+            type="button"
+            [class.activo]="horizonte()?.horizonteDias === dias"
+            [attr.aria-pressed]="horizonte()?.horizonteDias === dias"
+            (click)="elegirHorizonte(dias)"
+          >
+            {{ dias }} días
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  @if (errorGenerar()) {
+    <div class="form-alert" role="alert">{{ errorGenerar() }}</div>
+  }
+
+  @if (isLoading()) {
+    <p class="muted">Cargando…</p>
+  } @else if (errorMessage()) {
+    <div class="form-alert" role="alert">
+      {{ errorMessage() }}
+      <button type="button" class="button button-ghost" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (!proyeccion()) {
+    <div class="vacio">
+      <p>Todavía no hay una proyección. Genérala para ver cómo viene tu caja los próximos 30 y 60 días.</p>
+      <button type="button" class="button button-primary" [disabled]="generando()" (click)="generar()">
+        @if (generando()) {
+          <span class="spinner" aria-hidden="true"></span> Generando…
+        } @else {
+          Generar proyección
+        }
+      </button>
+    </div>
+  } @else if (horizonte(); as h) {
+    <div class="figuras">
+      <p class="etiqueta">Saldo proyectado al {{ h.hasta | date: "d 'de' MMMM" }}</p>
+      <p class="monto-principal" [class.negativo]="h.saldoFinal < 0">${{ h.saldoFinal | number: '1.0-0' }}</p>
+      <p class="muted">Hoy parte en ${{ h.saldoInicial | number: '1.0-0' }}</p>
+    </div>
+
+    @if (h.primerDiaNegativo) {
+      <p class="aviso-negativo" role="status">
+        Tu caja quedaría en negativo el {{ h.primerDiaNegativo | date: "EEEE d 'de' MMMM" }}.
+      </p>
+    }
+
+    <div class="lectura" aria-hidden="true">
+      @if (detalleActivo(); as d) {
+        <span class="lectura-dia">{{ d.fecha | date: "EEE d 'de' MMM" }}</span>
+        <span [class.negativo]="d.saldo < 0">Saldo ${{ d.saldo | number: '1.0-0' }}</span>
+        @if (d.ingresos > 0) {
+          <span><i class="key key-ingreso"></i>Entra ${{ d.ingresos | number: '1.0-0' }}</span>
+        }
+        @if (d.egresos > 0) {
+          <span><i class="key key-egreso"></i>Sale ${{ d.egresos | number: '1.0-0' }}</span>
+        }
+      } @else {
+        <span class="muted">Pasa el mouse sobre el gráfico para ver cada día.</span>
+      }
+    </div>
+
+    <div class="chart" (mouseleave)="diaActivo.set(null)">
+      <svg
+        class="chart-plot"
+        [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
+        preserveAspectRatio="none"
+        role="img"
+        [attr.aria-label]="descripcionGrafico()"
+      >
+        <defs>
+          <clipPath id="proyeccion-sobre-cero">
+            <rect x="0" y="0" [attr.width]="chartWidth" [attr.height]="yCero()" />
+          </clipPath>
+          <clipPath id="proyeccion-bajo-cero">
+            <rect x="0" [attr.y]="yCero()" [attr.width]="chartWidth" [attr.height]="chartHeight" />
+          </clipPath>
+        </defs>
+
+        @for (f of franjas(); track f.fecha; let i = $index) {
+          <rect
+            class="franja"
+            [class.activa]="diaActivo() === i"
+            [attr.x]="f.x"
+            y="0"
+            [attr.width]="f.ancho"
+            [attr.height]="chartHeight"
+            (mouseenter)="diaActivo.set(i)"
+          />
+        }
+
+        <path class="area area-positiva" [attr.d]="area()" clip-path="url(#proyeccion-sobre-cero)" />
+        <path class="area area-negativa" [attr.d]="area()" clip-path="url(#proyeccion-bajo-cero)" />
+        <line class="cero" [class.cruzado]="cruzaCero()" x1="0" [attr.x2]="chartWidth" [attr.y1]="yCero()" [attr.y2]="yCero()" />
+        <path class="linea linea-positiva" [attr.d]="linea()" clip-path="url(#proyeccion-sobre-cero)" />
+        <path class="linea linea-negativa" [attr.d]="linea()" clip-path="url(#proyeccion-bajo-cero)" />
+      </svg>
+    </div>
+
+    <div class="chart-axis" aria-hidden="true">
+      @for (marca of eje(); track marca.fecha) {
+        <span [style.left.%]="marca.left">{{ marca.fecha | date: 'd MMM' }}</span>
+      }
+    </div>
+
+    <dl class="leyenda">
+      <div>
+        <dt><span class="key key-ingreso" aria-hidden="true"></span>Entra</dt>
+        <dd>${{ h.totalIngresos | number: '1.0-0' }}</dd>
+      </div>
+      <div>
+        <dt><span class="key key-egreso" aria-hidden="true"></span>Sale</dt>
+        <dd>${{ h.totalEgresos | number: '1.0-0' }}</dd>
+      </div>
+      <div>
+        <dt>Punto más bajo</dt>
+        <dd [class.negativo]="h.saldoMinimo < 0">${{ h.saldoMinimo | number: '1.0-0' }}</dd>
+        <dd class="leyenda-fecha">el {{ h.fechaSaldoMinimo | date: "d 'de' MMMM" }}</dd>
+      </div>
+    </dl>
+
+    <details class="detalle">
+      <summary>Ver detalle por día</summary>
+      @if (diasConMovimiento().length === 0) {
+        <p class="muted">No hay cobros, pagos ni flujos recurrentes en este período.</p>
+      } @else {
+        <div class="listado">
+          <table>
+            <caption class="visually-hidden">Días con movimiento en la proyección a {{ h.horizonteDias }} días</caption>
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col" class="monto">Entra</th>
+                <th scope="col" class="monto">Sale</th>
+                <th scope="col" class="monto">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (dia of diasConMovimiento(); track dia.fecha) {
+                <tr>
+                  <td>{{ dia.fecha | date: 'dd/MM/yyyy' }}</td>
+                  <td class="monto">${{ dia.ingresos | number: '1.0-0' }}</td>
+                  <td class="monto">${{ dia.egresos | number: '1.0-0' }}</td>
+                  <td class="monto" [class.negativo]="dia.saldo < 0">${{ dia.saldo | number: '1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </details>
+
+    <div class="pie">
+      <p class="generada">
+        Generada el {{ proyeccion()!.fechaGeneracion | date: "d 'de' MMMM 'a las' HH:mm" }}
+        · Modelo: {{ proyeccion()!.etiquetaModelo }}
+      </p>
+      <button type="button" class="button button-ghost" [disabled]="generando()" (click)="generar()">
+        @if (generando()) {
+          <span class="spinner" aria-hidden="true"></span> Actualizando…
+        } @else {
+          Actualizar proyección
+        }
+      </button>
+    </div>
+  }
+</section>

@@ -1,0 +1,8 @@
+.login { display: flex; flex-direction: column; justify-content: center; min-height: 100%; max-width: 420px; margin: 0 auto; padding-block: 32px; }
+.marca { margin: 0 0 28px; font-family: var(--cp-font-display); font-size: 1.5rem; font-weight: 600; }
+.marca span { color: var(--ion-color-primary); }
+h1 { margin: 0; font-family: var(--cp-font-display); font-size: 1.75rem; font-weight: 600; letter-spacing: -.02em; }
+.bajada { margin: 6px 0 28px; color: var(--ion-color-medium); }
+form { display: grid; gap: 16px; }
+ion-button { margin-top: 8px; min-height: 48px; }
+.error { margin: 0; font-size: 14px; }
